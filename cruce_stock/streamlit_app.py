@@ -39,14 +39,32 @@ html, body, [class*="css"] {{ font-family: 'Segoe UI', sans-serif; }}
 
 /* ── Sidebar siempre visible ── */
 section[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, {AZUL_OSCURO} 0%, {AZUL} 100%);
+    background: linear-gradient(180deg, {AZUL_OSCURO} 0%, {AZUL} 100%) !important;
     min-width: 230px !important;
     max-width: 230px !important;
+    transform: none !important;
+    visibility: visible !important;
+}}
+section[data-testid="stSidebar"] > div {{
+    background: transparent !important;
 }}
 section[data-testid="stSidebar"] * {{ color: white !important; }}
-/* Ocultar botón de colapso */
-button[data-testid="collapsedControl"] {{ display: none !important; }}
-[data-testid="stSidebarCollapseButton"] {{ display: none !important; }}
+/* Ocultar TODOS los botones de colapso posibles */
+button[data-testid="collapsedControl"],
+button[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebarCollapseButton"],
+[data-testid="collapsedControl"],
+.st-emotion-cache-zq5wmm,
+.st-emotion-cache-1wbqy5l {{
+    display: none !important;
+}}
+/* Fondo blanco general (fuerza modo claro) */
+.stApp {{
+    background-color: #FFFFFF !important;
+}}
+.main .block-container {{
+    background-color: #FFFFFF !important;
+}}
 
 /* ── Logo sidebar ── */
 .sb-logo {{
