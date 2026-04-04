@@ -401,7 +401,7 @@ def _guardar_temporal(uploaded_file) -> str:
 def _excel_a_bytes(df_ruta, df_sin_stock, estados_busqueda) -> bytes:
     from src.exporter import exportar_excel
     # Quitar columna interna _gtin_key antes de exportar
-    df_exp = df_ruta.drop(columns=["_gtin_key"], errors="ignore")
+    df_exp = df_ruta.drop(columns=["_gtin_key", "prioridad"], errors="ignore")
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         path_tmp = tmp.name
     exportar_excel(path_salida=path_tmp, df_ruta=df_exp,
@@ -414,12 +414,13 @@ def _excel_a_bytes(df_ruta, df_sin_stock, estados_busqueda) -> bytes:
 
 def _init_session():
     defaults = {
-        "pagina":             "nuevo_cruce",
-        "historial":          [],
-        "ultimo_resultado":   None,
-        "stock_por_producto": {},
-        "overrides":          {},   # {row_idx: nuevo_nodo}
-        "df_ruta_editable":   None,
+        "pagina":              "nuevo_cruce",
+        "historial":           [],
+        "ultimo_resultado":    None,
+        "stock_por_producto":  {},
+        "overrides":           {},
+        "df_ruta_editable":    None,
+        "vista_planilla":      "pedido",   # "pedido" | "ruta"
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -552,28 +553,69 @@ def _page_nuevo_cruce(cfg):
         st.markdown(f"""
         <div class="result-banner">
           <strong>✅ Último cruce generado · {res['hora']}</strong><br>
-          <span style="opacity:0.85;font-size:0.86rem">
-            {res['filename']}
-          </span>
+          <span style="opacity:0.85;font-size:0.86rem">{res['filename']}</span>
         </div>
         """, unsafe_allow_html=True)
 
-        col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Pedidos activos",   res["pedidos_activos"])
-        col_b.metric("Filas en planilla", res["filas"])
-        col_c.metric("Sin cobertura",     res["sin_cob"],
+        # ── Métricas (4 columnas) ──────────────────────────
+        col_a, col_b, col_c, col_d = st.columns(4)
+        col_a.metric("Pedidos únicos",    res.get("pedidos_unicos", res["pedidos_activos"]))
+        col_b.metric("Líneas de pedido",  res["pedidos_activos"])
+        col_c.metric("Filas en planilla", res["filas"])
+        col_d.metric("Sin cobertura",     res["sin_cob"],
                      delta="⚠️ Revisar" if res["sin_cob"] > 0 else None,
                      delta_color="inverse")
 
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        # ── Cambio manual de sucursal ──────────────────────
+        # ── Alerta de stock sospechoso ─────────────────────
         df_editable = st.session_state.df_ruta_editable
         if df_editable is not None and not df_editable.empty:
-            with st.expander("✏️  Cambiar sucursal asignada (opcional)", expanded=False):
-                st.caption("Hacé clic en 'Cambiar' en cualquier fila para asignar una sucursal diferente.")
+            n_sosp = (df_editable.get("⚠️ Stock", pd.Series()) == "⚠️ Verificar").sum()
+            if n_sosp > 0:
+                st.warning(
+                    f"⚠️ **{n_sosp} fila(s) con stock sospechoso** — "
+                    f"La sucursal asignada tiene más de "
+                    f"{cfg['optimizacion'].get('stock_sospechoso_umbral', 200)} unidades. "
+                    f"Verificá con la sucursal antes de enviar al cadete."
+                )
 
-                mapa_stk = st.session_state.get("mapa_stock_guardado", {})
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # ── Toggle de vista ────────────────────────────────
+        st.markdown('<p class="sec-label">👁️ Vista de la planilla</p>', unsafe_allow_html=True)
+        col_v1, col_v2, _ = st.columns([1, 1, 3])
+        with col_v1:
+            if st.button("📦  Por pedido",
+                         type="primary" if st.session_state.vista_planilla == "pedido" else "secondary",
+                         use_container_width=True,
+                         help="Agrupa todos los productos del mismo pedido juntos"):
+                st.session_state.vista_planilla = "pedido"
+        with col_v2:
+            if st.button("🗺️  Ruta cadete",
+                         type="primary" if st.session_state.vista_planilla == "ruta" else "secondary",
+                         use_container_width=True,
+                         help="Agrupa por sucursal para minimizar paradas"):
+                st.session_state.vista_planilla = "ruta"
+
+        # ── Aplicar overrides y ordenamiento ──────────────
+        from src.optimizer import ordenar_por_pedido, ordenar_por_ruta
+        df_con_overrides = _aplicar_overrides(df_editable) if df_editable is not None \
+                           else res.get("df_ruta", pd.DataFrame())
+
+        if st.session_state.vista_planilla == "ruta":
+            df_final = ordenar_por_ruta(df_con_overrides)
+            st.caption("🗺️ **Vista Ruta:** ordenado por sucursal → N° pedido. "
+                       "El cadete va a una sucursal y busca todos los productos de una vez.")
+        else:
+            df_final = ordenar_por_pedido(df_con_overrides)
+            st.caption("📦 **Vista Pedido:** ordenado por N° pedido → zona. "
+                       "Todos los productos de un mismo pedido aparecen juntos.")
+
+        # ── Cambio manual de sucursal ──────────────────────
+        if df_editable is not None and not df_editable.empty:
+            with st.expander("✏️  Cambiar sucursal asignada (opcional)", expanded=False):
+                st.caption("Seleccioná 'Cambiar' en cualquier fila para elegir una sucursal diferente.")
+
+                mapa_stk      = st.session_state.get("mapa_stock_guardado", {})
                 col_nodo_stk  = mapa_stk.get("nodo",  "nodo")
                 col_stock_stk = mapa_stk.get("stock", "stock")
 
@@ -581,25 +623,28 @@ def _page_nuevo_cruce(cfg):
                     if row.get("Farmacia", "") == "— SIN COBERTURA —":
                         continue
 
-                    gtin_key = row.get("_gtin_key", "")
+                    gtin_key        = row.get("_gtin_key", "")
                     override_actual = st.session_state.overrides.get(idx)
                     farmacia_actual = override_actual if override_actual else row["Farmacia"]
+                    nro_ped         = row.get("N° Pedido", "")
+                    sosp_flag       = "⚠️ " if row.get("⚠️ Stock") == "⚠️ Verificar" else ""
+
+                    zona_cls = {
+                        "Deposito":             "zona-0",
+                        "NQN Capital":          "zona-1",
+                        "Centenario/Plottier":  "zona-2",
+                        "Cercana":              "zona-3",
+                        "Remota":               "zona-4",
+                    }.get(row.get("Zona", ""), "zona-1")
 
                     col_info, col_btn = st.columns([5, 1])
                     with col_info:
-                        zona_cls = {
-                            "Depósito": "zona-0",
-                            "NQN Capital": "zona-1",
-                            "Centenario / Plottier": "zona-2",
-                            "Cercana": "zona-3",
-                            "Remota": "zona-4",
-                        }.get(row.get("Zona", ""), "zona-1")
-
                         st.markdown(f"""
                         <div class="override-row">
-                          <span class="override-producto">
-                            {row.get('Producto','')[:40]}
+                          <span style="color:#888;font-size:0.78rem;width:80px;flex-shrink:0">
+                            #{nro_ped}
                           </span>
+                          <span class="override-producto">{sosp_flag}{str(row.get('Producto',''))[:35]}</span>
                           <span class="override-sucursal">🏪 {farmacia_actual}</span>
                           <span class="{zona_cls}">{row.get('Zona','')}</span>
                           <span class="override-stock">Stock: {row.get('Stock sucursal',0)}</span>
@@ -607,16 +652,16 @@ def _page_nuevo_cruce(cfg):
                         """, unsafe_allow_html=True)
 
                     with col_btn:
-                        if st.button("✏️ Cambiar", key=f"btn_cambiar_{idx}",
-                                     use_container_width=True):
+                        if st.button("✏️", key=f"btn_cambiar_{idx}",
+                                     use_container_width=True,
+                                     help="Cambiar sucursal"):
                             st.session_state[f"editando_{idx}"] = True
 
-                    # Panel de selección de sucursal alternativa
                     if st.session_state.get(f"editando_{idx}"):
                         opciones_df = st.session_state.stock_por_producto.get(gtin_key)
                         if opciones_df is not None and col_nodo_stk in opciones_df.columns:
                             from src.optimizer import obtener_opciones_sucursal
-                            max_op = cfg["optimizacion"].get("max_opciones_override", 5)
+                            max_op   = cfg["optimizacion"].get("max_opciones_override", 5)
                             opciones = obtener_opciones_sucursal(
                                 df_stock_producto=opciones_df,
                                 col_nodo=col_nodo_stk,
@@ -625,51 +670,37 @@ def _page_nuevo_cruce(cfg):
                                 zona_labels={int(k): v for k, v in cfg.get("zona_labels", {}).items()},
                                 max_opciones=max_op,
                             )
-
                             if opciones:
                                 labels   = [o["label"] for o in opciones]
                                 zonas_op = {o["label"]: o["zona"] for o in opciones}
+                                default_idx = next(
+                                    (i for i, o in enumerate(opciones) if o["nodo"] == farmacia_actual), 0
+                                )
+                                col_sel, col_ok, col_cancel = st.columns([4, 1, 1])
+                                with col_sel:
+                                    seleccion = st.selectbox(
+                                        "Sucursal:", options=labels, index=default_idx,
+                                        key=f"sel_{idx}", label_visibility="collapsed",
+                                    )
+                                with col_ok:
+                                    if st.button("✅", key=f"ok_{idx}", use_container_width=True,
+                                                 help="Aplicar cambio"):
+                                        nodo_elegido = opciones[labels.index(seleccion)]["nodo"]
+                                        st.session_state.overrides[idx] = nodo_elegido
+                                        st.session_state[f"_zona_override_{idx}"] = zonas_op[seleccion]
+                                        st.session_state[f"editando_{idx}"] = False
+                                with col_cancel:
+                                    if st.button("✖", key=f"cancel_{idx}", use_container_width=True,
+                                                 help="Cancelar"):
+                                        st.session_state[f"editando_{idx}"] = False
 
-                                # Pre-seleccionar la actual si está entre las opciones
-                                default_idx = 0
-                                for i, o in enumerate(opciones):
-                                    if o["nodo"] == farmacia_actual:
-                                        default_idx = i
-                                        break
-
-                                with st.container():
-                                    col_sel, col_ok, col_cancel = st.columns([4, 1, 1])
-                                    with col_sel:
-                                        seleccion = st.selectbox(
-                                            "Sucursal alternativa:",
-                                            options=labels,
-                                            index=default_idx,
-                                            key=f"sel_{idx}",
-                                            label_visibility="collapsed",
-                                        )
-                                    with col_ok:
-                                        if st.button("✅ Aplicar", key=f"ok_{idx}",
-                                                     use_container_width=True):
-                                            nodo_elegido = opciones[labels.index(seleccion)]["nodo"]
-                                            st.session_state.overrides[idx] = nodo_elegido
-                                            st.session_state[f"_zona_override_{idx}"] = zonas_op[seleccion]
-                                            st.session_state[f"editando_{idx}"] = False
-                                    with col_cancel:
-                                        if st.button("✖ Cancelar", key=f"cancel_{idx}",
-                                                     use_container_width=True):
-                                            st.session_state[f"editando_{idx}"] = False
-
-        # ── Regenerar Excel con overrides ─────────────────
-        df_final = _aplicar_overrides(st.session_state.df_ruta_editable) \
-                   if st.session_state.df_ruta_editable is not None \
-                   else res.get("df_ruta", pd.DataFrame())
-
+        # ── Info overrides ─────────────────────────────────
         if st.session_state.overrides:
-            st.info(f"📝 Hay {len(st.session_state.overrides)} cambio(s) manual(es) aplicado(s). "
-                    f"El Excel que descargás refleja esos cambios.")
+            st.info(f"📝 {len(st.session_state.overrides)} cambio(s) manual(es) aplicado(s) — "
+                    f"el Excel refleja esos cambios.")
 
+        # ── Botón descarga ─────────────────────────────────
         excel_dl = _excel_a_bytes(df_final, res["df_sin_stock"], cfg["estados_busqueda"])
-
         st.download_button(
             label="📥  Descargar Planilla Excel",
             data=excel_dl,
@@ -678,15 +709,17 @@ def _page_nuevo_cruce(cfg):
             use_container_width=True,
         )
 
-        # Vista previa de la planilla (sin col interna)
-        if not df_final.empty:
+        # ── Vista previa ───────────────────────────────────
+        cols_ocultas = ["_gtin_key", "prioridad"]
+        df_preview   = df_final.drop(columns=cols_ocultas, errors="ignore")
+
+        if not df_preview.empty:
             st.markdown('<p class="sec-label">📋 Vista previa — Planilla Cadete</p>',
                         unsafe_allow_html=True)
-            st.dataframe(df_final.drop(columns=["_gtin_key"], errors="ignore"),
-                         use_container_width=True, height=250)
+            st.dataframe(df_preview, use_container_width=True, height=280)
 
         if not res["df_sin_stock"].empty:
-            st.markdown('<p class="sec-label">⚠️ Productos sin cobertura</p>',
+            st.markdown('<p class="sec-label">⚠️ Productos sin cobertura en sucursales</p>',
                         unsafe_allow_html=True)
             st.dataframe(res["df_sin_stock"], use_container_width=True)
 
@@ -794,23 +827,26 @@ def _page_nuevo_cruce(cfg):
 
     barra.empty()
 
-    pedidos_activos = len(
-        df_pedidos[
-            df_pedidos[mapa_pedidos["estado"]]
-            .apply(lambda v: str(v).strip().lower()) == cfg["pedidos"]["estado_activo"].lower()
-        ]
-    )
+    df_activos_tmp = df_pedidos[
+        df_pedidos[mapa_pedidos["estado"]]
+        .apply(lambda v: str(v).strip().lower()) == cfg["pedidos"]["estado_activo"].lower()
+    ]
+    pedidos_activos = len(df_activos_tmp)
+    col_nro = mapa_pedidos.get("nro_pedido")
+    pedidos_unicos = int(df_activos_tmp[col_nro].nunique()) if col_nro else pedidos_activos
+
     filename = f"planilla_cadete_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
 
     # Guardar en session_state
     st.session_state.ultimo_resultado = {
-        "hora":           datetime.now().strftime("%H:%M  %d/%m/%y"),
+        "hora":            datetime.now().strftime("%H:%M  %d/%m/%y"),
+        "pedidos_unicos":  pedidos_unicos,
         "pedidos_activos": pedidos_activos,
-        "filas":          len(df_ruta),
-        "sin_cob":        len(df_sin_stock),
-        "df_sin_stock":   df_sin_stock,
-        "df_ruta":        df_ruta,
-        "filename":       filename,
+        "filas":           len(df_ruta),
+        "sin_cob":         len(df_sin_stock),
+        "df_sin_stock":    df_sin_stock,
+        "df_ruta":         df_ruta,
+        "filename":        filename,
     }
     st.session_state.df_ruta_editable    = df_ruta.copy()
     st.session_state.stock_por_producto  = stock_por_producto
@@ -967,24 +1003,50 @@ def _page_ayuda():
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Paso a paso ──────────────────────────────────────────
     pasos = [
-        ("Exportá el archivo de pedidos",
-         "Desde el ecommerce, exportá los pedidos del día. "
-         "Solo se procesan los que tengan estado <strong>Abierta</strong>."),
-        ("Exportá el stock de sucursales",
-         "Desde la base de datos, ejecutá la consulta de stock y exportá en .csv o .xlsx."),
-        ("Cargá los dos archivos",
-         "En <strong>⚡ Nuevo Cruce</strong>, seleccioná cada archivo en su zona de carga."),
+        ("Exportá el archivo de pedidos desde Batitienda",
+         "Ingresá al panel de Batitienda → <strong>Pedidos</strong> → filtrá por estado "
+         "<strong>Abierta</strong> → exportá en formato <strong>.xlsx</strong> o <strong>.csv</strong>. "
+         "El sistema detecta automáticamente las columnas aunque cambien de posición o nombre."),
+        ("Exportá el stock de sucursales desde Zetti",
+         "Desde la base de datos ejecutá la consulta de stock por nodo. "
+         "El archivo debe tener las columnas de <strong>ID/GTIN</strong>, <strong>SKU</strong>, "
+         "<strong>Nodo (sucursal)</strong> y <strong>Stock</strong>. "
+         "Exportá en <strong>.xlsx</strong> o <strong>.csv</strong>."),
+        ("Cargá los dos archivos en la aplicación",
+         "En <strong>⚡ Nuevo Cruce</strong>, arrastrá o seleccioná el archivo de pedidos en la "
+         "zona izquierda y el de stock en la derecha. "
+         "Podés previsualizar las primeras filas con <em>👁️ Ver vista previa de los archivos</em> "
+         "para verificar que el sistema los leyó correctamente."),
         ("Generá la planilla",
-         "Hacé clic en <strong>GENERAR PLANILLA</strong>. "
-         "El sistema prioriza el depósito propio, luego NQN Capital, Centenario/Plottier, "
-         "zonas cercanas y por último sucursales remotas."),
-        ("Cambiá la sucursal si hace falta",
+         "Hacé clic en <strong>GENERAR PLANILLA DEL CADETE</strong>. "
+         "El sistema cruza cada pedido con el stock disponible y asigna la sucursal más conveniente "
+         "según el orden de prioridad:<br>"
+         "&nbsp;&nbsp;🔵 Depósito ecommerce → 🟢 NQN Capital → 🟡 Centenario/Plottier "
+         "→ 🟠 Cercanas → 🔴 Remotas.<br>"
+         "Si un producto no tiene stock en ninguna sucursal queda en la pestaña "
+         "<strong>Sin Cobertura</strong>."),
+        ("Revisá las alertas de stock sospechoso",
+         "Si aparece un aviso <strong>⚠️ Stock sospechoso</strong> en amarillo, significa que "
+         "una o más sucursales tienen una cantidad inusualmente alta (más de 200 unidades). "
+         "Verificá con la sucursal antes de enviar al cadete — puede ser un error de carga en Zetti."),
+        ("Elegí la vista que más te sirva",
+         "<strong>📦 Por pedido</strong>: todos los productos del mismo N° de pedido aparecen juntos. "
+         "Útil para verificar que un pedido queda completo.<br>"
+         "<strong>🗺️ Ruta cadete</strong>: agrupa por sucursal para minimizar las paradas. "
+         "El cadete va a una farmacia y busca todo lo que necesita ahí antes de pasar a la siguiente."),
+        ("Cambiá la sucursal asignada si es necesario",
          "Abrí <strong>✏️ Cambiar sucursal asignada</strong> para ver las 5 mejores opciones "
-         "y elegir manualmente. El Excel descargado refleja los cambios."),
-        ("Descargá y compartí el Excel",
-         "3 pestañas: <strong>Planilla Cadete</strong> (con dropdown de estado), "
-         "<strong>Sin Cobertura</strong> y <strong>Log</strong>."),
+         "por producto (con stock y zona). Hacé clic en ✏️ en la fila que querés cambiar, "
+         "elegí la sucursal con el selector y confirmá con ✅. "
+         "El contador de cambios se muestra debajo. El Excel descargado refleja siempre los cambios."),
+        ("Descargá el Excel y compartilo con el cadete",
+         "El botón <strong>📥 Descargar Planilla Excel</strong> genera el archivo con 3 pestañas:<br>"
+         "• <strong>Planilla Cadete</strong>: filas con farmacia asignada y dropdown de estado.<br>"
+         "• <strong>Sin Cobertura</strong>: productos sin stock para gestionar por separado.<br>"
+         "• <strong>Log</strong>: registro técnico del proceso para auditoría.<br>"
+         "El cadete actualiza el estado de cada fila desde el dropdown mientras trabaja."),
     ]
 
     for i, (titulo, desc) in enumerate(pasos, 1):
@@ -999,26 +1061,72 @@ def _page_ayuda():
         """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Referencia rápida ────────────────────────────────────
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("""
-        **Prioridad de sucursales:**
-        - 🔵 **Depósito** — APT-ECOMMERCE-NQN (primero siempre)
-        - 🟢 **NQN Capital** — todas las sucursales de Neuquén centro
-        - 🟡 **Centenario / Plottier** — segunda zona
-        - 🟠 **Cercanas** — Añelo, El Chañar
-        - 🔴 **Remotas** — Cutral Co, Zapala, Puerto Madryn (llamado)
-        """)
+        st.markdown(f"""
+        <div class="cfg-card">
+          <div class="cfg-card-title">Prioridad de sucursales</div>
+          <p style="font-size:0.85rem;margin:0 0 6px 0">El sistema asigna siempre la sucursal de mayor
+          prioridad que tenga stock suficiente.</p>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:0.84rem">
+            <span><span class="zona-0">0 · Depósito</span> &nbsp; APT-ECOMMERCE-NQN (primero siempre)</span>
+            <span><span class="zona-1">1 · NQN Capital</span> &nbsp; Todas las sucursales de Neuquén centro</span>
+            <span><span class="zona-2">2 · Centenario / Plottier</span> &nbsp; Segunda zona</span>
+            <span><span class="zona-3">3 · Cercanas</span> &nbsp; Añelo, El Chañar</span>
+            <span><span class="zona-4">4 · Remotas</span> &nbsp; Cutral Co, Zapala, Madryn → llamado</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
     with col2:
-        st.markdown("""
-        **Estados del dropdown en el Excel:**
-        - 🔵 **Búsqueda** — estado inicial al salir
-        - ✅ **Encontrado** — el cadete lo encontró
-        - 🟡 **Mal stock** — la sucursal no tenía lo indicado
-        - 📞 **Llamar a suc** — sucursal remota, llamar antes
-        - 🟡 **Mal stock - Resuelto** — se resolvió en otra sucursal
-        - 🔴 **Llamar cliente** — sin stock en ningún lado
-        """)
+        st.markdown(f"""
+        <div class="cfg-card">
+          <div class="cfg-card-title">Estados del dropdown en el Excel</div>
+          <p style="font-size:0.85rem;margin:0 0 6px 0">El cadete actualiza el estado de cada fila
+          durante la búsqueda.</p>
+          <div style="display:flex;flex-direction:column;gap:5px;font-size:0.84rem">
+            <span>🔵 <strong>Búsqueda</strong> — estado inicial, producto por buscar</span>
+            <span>✅ <strong>Encontrado</strong> — el cadete lo encontró y retiró</span>
+            <span>🟡 <strong>Mal stock</strong> — la sucursal no tenía lo indicado</span>
+            <span>📞 <strong>Llamar a suc</strong> — sucursal remota, llamar antes de ir</span>
+            <span>🟡 <strong>Mal stock - Resuelto</strong> — se buscó en otra sucursal</span>
+            <span>🔴 <strong>Llamar cliente</strong> — sin stock, hay que avisar al cliente</span>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Preguntas frecuentes ─────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown('<p class="sec-label">❓ Preguntas frecuentes</p>', unsafe_allow_html=True)
+
+    faqs = [
+        ("¿Qué pasa si un producto tiene múltiples GTIN?",
+         "Si la columna GTIN del pedido contiene varios códigos separados por coma, "
+         "el sistema los verifica todos contra el stock y usa el primer match que encuentre."),
+        ("¿Por qué aparece ⚠️ en la columna Stock?",
+         "Cuando una sucursal tiene más de 200 unidades de un producto, el sistema lo marca "
+         "como stock sospechoso. Puede ser un error de carga en Zetti. "
+         "El umbral se puede ajustar en config.yaml → optimizacion.stock_sospechoso_umbral."),
+        ("¿Cuándo usar 'Ruta cadete' vs 'Por pedido'?",
+         "Usá <strong>Ruta cadete</strong> cuando ya confirmaste todos los pedidos y el cadete "
+         "está por salir — minimiza las paradas. "
+         "Usá <strong>Por pedido</strong> para verificar que cada pedido queda completo "
+         "o para buscar un pedido específico en la planilla."),
+        ("¿Qué significan los productos en 'Sin Cobertura'?",
+         "Son productos que no se encontraron en el archivo de stock (sin match de GTIN/SKU) "
+         "o que tienen stock 0 en todas las sucursales. "
+         "Hay que gestionarlos manualmente o avisar al cliente."),
+        ("¿Se puede reutilizar el mismo cruce?",
+         "Sí. Los cruces del día quedan en el <strong>📋 Historial</strong> durante la sesión. "
+         "Podés descargar cualquier cruce anterior desde ahí. "
+         "Al cerrar el navegador se pierde el historial."),
+    ]
+
+    for preg, resp in faqs:
+        with st.expander(preg):
+            st.markdown(f"<span style='font-size:0.87rem'>{resp}</span>",
+                        unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════

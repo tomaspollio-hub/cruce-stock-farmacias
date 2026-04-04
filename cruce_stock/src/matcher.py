@@ -60,13 +60,14 @@ def mapear_columnas_pedidos(df: pd.DataFrame, cfg: dict) -> dict:
     """
     c = cfg["pedidos"]
     return {
-        "estado":   detectar_columna(df, c["col_estado"]),
-        "producto": detectar_columna(df, c["col_producto"]),
-        "variante": detectar_columna(df, c["col_variante"],   obligatoria=False),
-        "marca":    detectar_columna(df, c["col_marca"],      obligatoria=False),
-        "sku":      detectar_columna(df, c["col_sku"]),
-        "gtin":     detectar_columna(df, c["col_gtin"]),
-        "unidades": detectar_columna(df, c["col_unidades"]),
+        "nro_pedido": detectar_columna(df, c["col_nro_pedido"], obligatoria=False),
+        "estado":     detectar_columna(df, c["col_estado"]),
+        "producto":   detectar_columna(df, c["col_producto"]),
+        "variante":   detectar_columna(df, c["col_variante"],   obligatoria=False),
+        "marca":      detectar_columna(df, c["col_marca"],      obligatoria=False),
+        "sku":        detectar_columna(df, c["col_sku"]),
+        "gtin":       detectar_columna(df, c["col_gtin"]),
+        "unidades":   detectar_columna(df, c["col_unidades"]),
     }
 
 

@@ -6,6 +6,8 @@
 # ── ARCHIVO DE PEDIDOS ECOMMERCE ────────────────────────────
 pedidos:
   # Nombres posibles de cada columna (en cualquier capitalización)
+  col_nro_pedido: ["n° pedido", "nro pedido", "numero pedido", "numero de pedido",
+                   "order", "pedido", "identificador", "id pedido", "n pedido"]
   col_estado:    ["estado", "status"]
   col_producto:  ["producto", "product", "nombre"]
   col_variante:  ["variante", "variant", "presentacion"]
@@ -119,6 +121,10 @@ optimizacion:
 
   # Máximo de opciones a mostrar en el selector manual de sucursal
   max_opciones_override: 5
+
+  # Stock sospechoso: si una sucursal tiene MÁS de este número de unidades
+  # de un producto, se marca como ⚠️ Stock a verificar (probable error de carga)
+  stock_sospechoso_umbral: 200
 
 # ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
 estados_busqueda:
