@@ -78,7 +78,7 @@ def ejecutar(
 
     # ── 3. Cruce y optimización ─────────────────────────────
     progreso("⚙️  Cruzando pedidos con stock y optimizando sucursales...")
-    df_ruta, df_sin_stock = construir_planilla(
+    df_ruta, df_sin_stock, _ = construir_planilla(
         df_pedidos=df_pedidos,
         df_stock=df_stock,
         mapa_pedidos=mapa_pedidos,

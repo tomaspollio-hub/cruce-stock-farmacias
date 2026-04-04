@@ -27,32 +27,99 @@ stock:
   col_nodo:        ["nodo", "sucursal", "farmacia", "local"]
   col_stock:       ["stock", "cantidad", "qty", "existencia"]
 
-# ── SUCURSALES Y ZONAS ──────────────────────────────────────
+# ── SUCURSALES Y ZONAS (5 niveles de prioridad) ─────────────
+#
+#  El sistema busca en qué nivel cae cada nodo del CSV comparando
+#  si el nombre del nodo CONTIENE alguno de los fragmentos de la lista.
+#  Ejemplo: nodo "NQN-SAN-MARTIN-23" contiene "san-martin" → prioridad 1
+#
+#  PRIORIDAD 0 — Depósito ecommerce (primera búsqueda siempre)
+#  PRIORIDAD 1 — Neuquén Capital (centro + Alpina NQN)
+#  PRIORIDAD 2 — Centenario + Plottier
+#  PRIORIDAD 3 — Zonas cercanas (El Chañar, Añelo)
+#  PRIORIDAD 4 — Remotas (requieren llamado: Cutral Co, Zapala, Madryn)
+
 zonas:
-  # Sucursales locales (Neuquén Capital) → prioridad máxima
-  local:
-    - "nqn capital"
-    - "neuquen capital"
-    - "neuquén"
-    - "capital"
-  # Sucursales que requieren llamado (fuera de capital)
-  llamar:
-    - "cutral co"
-    - "cutral-co"
-    - "zapala"
-    - "añelo"
-    - "anelo"
+  prioridad_0_deposito:
+    - "apt-ecommerce-nqn"
+    - "apt-ecommerce"
+    - "ecommerce-nqn"
+    - "deposito"
+
+  prioridad_1_nqn_capital:
+    - "alderete"
+    - "olascoaga"
+    - "bahia-blanca"
+    - "bahia blanca"
+    - "cabellera"
+    - "combate"
+    - "diagonal"
+    - "ramon"
+    - "illia"
+    - "islas-malvinas"
+    - "islas malvinas"
+    - "jose-rosa"
+    - "jose rosa"
+    - "la-rioja"
+    - "la rioja"
+    - "rio-senguer"
+    - "rio senguer"
+    - "rivadavia"
+    - "rufino"
+    - "san-martin"
+    - "san martin"
+    - "sarmiento"
+    - "alpina"
+    - "belgrano-2715"
+    - "belgrano 2715"
+    - "fotheringham"
+    - "nqn"      # prefijo genérico para sucursales de capital
+
+  prioridad_2_centenario_plottier:
     - "centenario"
+    - "paraguay"
+    - "honduras"
+    - "peru-305"
+    - "peru 305"
+    - "plottier"
+    - "belgrano-245"
+    - "belgrano 245"
+    - "buenos-aires-norte"
+    - "buenos aires norte"
+    - "buratovich"
+
+  prioridad_3_cercanas:
+    - "anelo"
+    - "añelo"
+    - "chañar"
+    - "chanar"
+    - "villa-pehuenia"
+    - "villa pehuenia"
+
+  prioridad_4_remotas:
+    - "cutral-co"
+    - "cutral co"
+    - "cutralco"
+    - "zapala"
+    - "puerto-madryn"
     - "puerto madryn"
     - "madryn"
 
+# ── ETIQUETAS DE ZONA (para mostrar en la planilla) ──────────
+zona_labels:
+  0: "Depósito"
+  1: "NQN Capital"
+  2: "Centenario / Plottier"
+  3: "Cercana"
+  4: "Remota"
+
 # ── REGLAS DE OPTIMIZACIÓN ──────────────────────────────────
 optimizacion:
-  # Prioridad de zonas: local primero, luego llamar
-  priorizar_local: true
-
   # Máximo de sucursales a asignar por producto antes de marcar "Llamar cliente"
   max_sucursales_por_producto: 3
+
+  # Máximo de opciones a mostrar en el selector manual de sucursal
+  max_opciones_override: 5
 
 # ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
 estados_busqueda:
