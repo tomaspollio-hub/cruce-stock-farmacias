@@ -31,206 +31,310 @@ VERDE       = "#2E7D32"
 
 
 # ════════════════════════════════════════════════════════════
-#  CSS
+#  CSS  — adaptable modo claro / oscuro
 # ════════════════════════════════════════════════════════════
 CSS = f"""
 <style>
-html, body, [class*="css"] {{ font-family: 'Segoe UI', sans-serif; }}
+html, body, [class*="css"] {{ font-family: 'Segoe UI', Arial, sans-serif; }}
 
-/* ── Sidebar siempre visible ── */
+/* ══════════════════════════════════════════
+   VARIABLES DE COLOR POR MODO
+   ══════════════════════════════════════════ */
+
+/* Modo CLARO (default) */
+:root {{
+  --bg-main:       #FFFFFF;
+  --bg-secondary:  #F4F7FB;
+  --bg-card:       #FFFFFF;
+  --text-primary:  #1A1A2E;
+  --text-secondary:#555555;
+  --text-muted:    #888888;
+  --border-color:  #DDE4F0;
+  --metric-bg:     #FFFFFF;
+  --expander-bg:   #F4F7FB;
+  --hist-row-bg:   #FFFFFF;
+  --hist-row-hover:#F4F7FB;
+  --upload-bg:     #F4F7FB;
+  --page-hdr-bg:   #FFFFFF;
+  --cfg-card-bg:   #FFFFFF;
+  --help-bg:       #FFFFFF;
+  --override-bg:   #FFFFFF;
+}}
+
+/* Modo OSCURO */
+@media (prefers-color-scheme: dark) {{
+  :root {{
+    --bg-main:       #0E1117;
+    --bg-secondary:  #1A1F2E;
+    --bg-card:       #1E2330;
+    --text-primary:  #E8EAF0;
+    --text-secondary:#AAB0C0;
+    --text-muted:    #707888;
+    --border-color:  #2D3448;
+    --metric-bg:     #1E2330;
+    --expander-bg:   #1A1F2E;
+    --hist-row-bg:   #1E2330;
+    --hist-row-hover:#252B3D;
+    --upload-bg:     #1A1F2E;
+    --page-hdr-bg:   #1E2330;
+    --cfg-card-bg:   #1E2330;
+    --help-bg:       #1E2330;
+    --override-bg:   #1E2330;
+  }}
+}}
+
+/* ══════════════════════════════════════════
+   FONDO PRINCIPAL
+   ══════════════════════════════════════════ */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+.main, .main > div, .block-container {{
+    background-color: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+}}
+
+/* ══════════════════════════════════════════
+   SIDEBAR — siempre azul Global, siempre visible
+   ══════════════════════════════════════════ */
 section[data-testid="stSidebar"] {{
     background: linear-gradient(180deg, {AZUL_OSCURO} 0%, {AZUL} 100%) !important;
-    min-width: 230px !important;
-    max-width: 230px !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
     transform: none !important;
     visibility: visible !important;
 }}
 section[data-testid="stSidebar"] > div {{
     background: transparent !important;
 }}
-section[data-testid="stSidebar"] * {{ color: white !important; }}
-/* Ocultar TODOS los botones de colapso posibles */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] * {{
+    color: rgba(255,255,255,0.92) !important;
+}}
+/* Ocultar botón de colapso — todos los selectores posibles */
 button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"],
 .st-emotion-cache-zq5wmm,
-.st-emotion-cache-1wbqy5l {{
+.st-emotion-cache-1wbqy5l,
+[class*="collapsedControl"] {{
     display: none !important;
 }}
-/* Fondo blanco general (fuerza modo claro) */
-.stApp {{
-    background-color: #FFFFFF !important;
-}}
-.main .block-container {{
-    background-color: #FFFFFF !important;
-}}
 
-/* ── Logo sidebar ── */
+/* ── Logo Global en sidebar ── */
 .sb-logo {{
-    text-align: center;
-    padding: 20px 12px 12px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.18);
-    margin-bottom: 10px;
+    padding: 22px 16px 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }}
-.sb-logo-circle {{
+.sb-logo-icon {{
     background: white;
-    border-radius: 50%;
-    width: 50px; height: 50px;
-    display: inline-flex;
-    align-items: center; justify-content: center;
-    font-size: 1.5rem; font-weight: 900;
-    color: {AZUL_OSCURO};
-    margin-bottom: 6px;
+    border-radius: 10px;
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }}
-.sb-brand {{ font-size: 0.75rem; opacity: 0.85; line-height: 1.3; }}
+.sb-logo-icon svg {{ display: block; }}
+.sb-brand-text {{ line-height: 1.25; }}
+.sb-brand-name  {{ font-size: 0.82rem; font-weight: 700; color: white !important; }}
+.sb-brand-sub   {{ font-size: 0.68rem; opacity: 0.7; color: white !important; }}
 
-/* ── Botones de nav en sidebar ── */
+/* ── Sección label ── */
+.sb-section-label {{
+    font-size: 0.63rem;
+    opacity: 0.5;
+    padding: 12px 16px 3px 16px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: white !important;
+}}
+
+/* ── Botones nav — estilo Batitienda ── */
 section[data-testid="stSidebar"] div[data-testid="stButton"] > button {{
     background: transparent !important;
     border: none !important;
-    color: rgba(255,255,255,0.88) !important;
+    color: rgba(255,255,255,0.85) !important;
     text-align: left !important;
-    padding: 9px 14px !important;
-    border-radius: 8px !important;
-    font-size: 0.9rem !important;
+    padding: 9px 16px !important;
+    border-radius: 7px !important;
+    font-size: 0.88rem !important;
     font-weight: 500 !important;
     width: 100% !important;
-    margin: 1px 0 !important;
+    margin: 1px 4px !important;
+    transition: background 0.15s, opacity 0.15s !important;
+    letter-spacing: 0.1px !important;
 }}
 section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {{
-    background: rgba(255,255,255,0.14) !important;
+    background: rgba(255,255,255,0.13) !important;
+    opacity: 0.9 !important;
+    color: white !important;
+}}
+section[data-testid="stSidebar"] div[data-testid="stButton"] > button:active {{
+    background: rgba(255,255,255,0.2) !important;
 }}
 
 /* Item activo del sidebar */
 .nav-active {{
-    background: rgba(255,255,255,0.2);
-    border-radius: 8px;
-    padding: 9px 14px;
-    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    background: rgba(255,255,255,0.18);
+    border-radius: 7px;
+    padding: 9px 16px;
+    font-size: 0.88rem;
     font-weight: 700;
-    color: white;
-    margin: 1px 0;
-    display: block;
-}}
-.sb-section-label {{
-    font-size: 0.65rem;
-    opacity: 0.55;
-    padding: 10px 14px 3px 14px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+    color: white !important;
+    margin: 1px 4px;
+    cursor: default;
+    letter-spacing: 0.1px;
 }}
 
-/* ── Header de página ── */
+/* ══════════════════════════════════════════
+   CONTENIDO PRINCIPAL
+   ══════════════════════════════════════════ */
+
+/* Header de página */
 .page-hdr {{
-    background: white;
+    background: var(--page-hdr-bg);
     border-bottom: 3px solid {AZUL};
     padding: 16px 24px 12px 24px;
     margin: -24px -24px 20px -24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
 }}
-.page-title {{ color:{AZUL_OSCURO}; font-size:1.25rem; font-weight:700; margin:0; }}
-.page-sub   {{ color:#666; font-size:0.82rem; margin:2px 0 0 0; }}
+.page-title {{ color:{AZUL_OSCURO}; font-size:1.2rem; font-weight:700; margin:0; }}
+.page-sub   {{ color:var(--text-muted); font-size:0.82rem; margin:2px 0 0 0; }}
+
+@media (prefers-color-scheme: dark) {{
+  .page-title {{ color: #90CAF9 !important; }}
+  .page-sub   {{ color: var(--text-muted) !important; }}
+}}
+
 .badge-rosa {{
     background:{ROSA}; color:white; border-radius:20px;
-    padding:4px 12px; font-size:0.73rem; font-weight:600;
+    padding:4px 12px; font-size:0.72rem; font-weight:600;
 }}
 .badge-azul {{
     background:{AZUL}; color:white; border-radius:20px;
-    padding:4px 12px; font-size:0.73rem; font-weight:600;
+    padding:4px 12px; font-size:0.72rem; font-weight:600;
 }}
 
-/* ── Upload zones ── */
+/* Upload zones */
 .upload-zone {{
-    background:{GRIS}; border:2px dashed {AZUL};
-    border-radius:10px; padding:16px; text-align:center; margin-bottom:4px;
+    background: var(--upload-bg);
+    border: 2px dashed {AZUL};
+    border-radius: 10px; padding: 16px; text-align: center; margin-bottom: 4px;
 }}
-.upload-zone-title {{ color:{AZUL}; font-weight:700; font-size:0.92rem; }}
-.upload-zone-sub   {{ color:#888; font-size:0.78rem; margin-top:4px; }}
+.upload-zone-title {{ color:{AZUL}; font-weight:700; font-size:0.9rem; }}
+.upload-zone-sub   {{ color:var(--text-muted); font-size:0.78rem; margin-top:4px; }}
 
-/* ── Botón principal ejecutar ── */
+/* Botón principal */
 div[data-testid="stButton"] > button[kind="primary"] {{
     background: linear-gradient(135deg, {AZUL} 0%, {AZUL_OSCURO} 100%);
     border:none; border-radius:8px;
-    font-size:0.95rem; font-weight:700;
-    letter-spacing:0.3px; padding:11px 0;
+    font-size:0.93rem; font-weight:700; letter-spacing:0.3px; padding:11px 0;
+    transition: opacity 0.15s !important;
 }}
-div[data-testid="stButton"] > button[kind="primary"]:hover {{ opacity:0.87; }}
+div[data-testid="stButton"] > button[kind="primary"]:hover {{ opacity:0.85 !important; }}
 
-/* ── Botón descarga ── */
+/* Botón descarga */
 div[data-testid="stDownloadButton"] > button {{
     background: linear-gradient(135deg, {ROSA} 0%, #C41230 100%);
     color:white; border:none; border-radius:8px;
-    font-size:0.92rem; font-weight:700; padding:10px 0;
+    font-size:0.9rem; font-weight:700; padding:10px 0;
     width:100%; cursor:pointer;
+    transition: opacity 0.15s;
 }}
+div[data-testid="stDownloadButton"] > button:hover {{ opacity:0.87; }}
 
-/* ── Métricas ── */
+/* Métricas */
 div[data-testid="metric-container"] {{
-    background:white; border:1px solid #dde4f0;
-    border-top:4px solid {AZUL}; border-radius:10px; padding:12px 16px;
+    background: var(--metric-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-top: 4px solid {AZUL} !important;
+    border-radius: 10px; padding: 12px 16px;
+}}
+div[data-testid="metric-container"] label,
+div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+    color: var(--text-primary) !important;
 }}
 
-/* ── Result banner ── */
+/* Result banner */
 .result-banner {{
     background: linear-gradient(135deg, {AZUL} 0%, {AZUL_OSCURO} 100%);
     border-radius:10px; padding:14px 22px; color:white; margin-bottom:18px;
 }}
 
-/* ── Section label ── */
+/* Section label */
 .sec-label {{
-    color:{AZUL_OSCURO}; font-weight:700; font-size:0.88rem;
+    color:{AZUL_OSCURO}; font-weight:700; font-size:0.87rem;
     border-left:4px solid {ROSA}; padding-left:9px; margin:18px 0 8px 0;
 }}
+@media (prefers-color-scheme: dark) {{
+  .sec-label {{ color: #90CAF9 !important; }}
+}}
 
-/* ── Tabla de override ── */
+/* Override rows */
 .override-row {{
-    background:white; border:1px solid #dde4f0; border-radius:8px;
-    padding:10px 14px; margin-bottom:6px;
+    background: var(--override-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px; padding:10px 14px; margin-bottom:6px;
     display:flex; align-items:center; gap:12px;
 }}
 .override-producto {{ font-weight:700; color:{AZUL_OSCURO}; flex:1; }}
-.override-sucursal  {{ color:#333; font-size:0.88rem; }}
-.override-zona      {{ font-size:0.78rem; background:{GRIS}; border-radius:12px; padding:2px 9px; }}
-.override-stock     {{ font-size:0.82rem; color:#666; }}
+.override-sucursal  {{ color:var(--text-secondary); font-size:0.87rem; }}
+.override-zona      {{ font-size:0.76rem; background:var(--bg-secondary); border-radius:12px; padding:2px 9px; }}
+.override-stock     {{ font-size:0.8rem; color:var(--text-muted); }}
+@media (prefers-color-scheme: dark) {{
+  .override-producto {{ color:#90CAF9 !important; }}
+}}
 
-/* ── Historial tabla ── */
+/* Historial */
 .hist-hdr {{
     background:{AZUL}; color:white;
     padding:9px 14px; border-radius:8px 8px 0 0;
-    font-weight:700; font-size:0.86rem;
-    display:flex; gap:0;
+    font-weight:700; font-size:0.85rem; display:flex;
 }}
 .hist-row {{
-    background:white; border-bottom:1px solid #e8edf5;
-    padding:9px 14px; font-size:0.85rem;
-    display:flex; align-items:center; gap:0;
+    background: var(--hist-row-bg);
+    border-bottom: 1px solid var(--border-color);
+    padding:9px 14px; font-size:0.84rem;
+    display:flex; align-items:center;
+    color: var(--text-primary);
 }}
-.hist-row:hover {{ background:{GRIS}; }}
+.hist-row:hover {{ background: var(--hist-row-hover); }}
 .hist-row:last-child {{ border-bottom:none; border-radius:0 0 8px 8px; }}
 .hc-id   {{ width:60px;  flex-shrink:0; color:{AZUL}; font-weight:700; }}
-.hc-name {{ flex:1; }}
-.hc-hora {{ width:120px; flex-shrink:0; color:#888; font-size:0.78rem; }}
+.hc-name {{ flex:1; color: var(--text-primary); }}
+.hc-hora {{ width:120px; flex-shrink:0; color:var(--text-muted); font-size:0.77rem; }}
 .hc-stat {{ width:160px; flex-shrink:0; text-align:center; }}
 .hc-dl   {{ width:80px;  flex-shrink:0; text-align:right; }}
 
-/* ── Config cards ── */
+/* Config cards */
 .cfg-card {{
-    background:white; border:1px solid #dde4f0; border-radius:10px;
-    padding:18px 22px; margin-bottom:14px;
+    background: var(--cfg-card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px; padding:18px 22px; margin-bottom:14px;
 }}
 .cfg-card-title {{
-    color:{AZUL_OSCURO}; font-weight:700; font-size:0.95rem;
-    margin-bottom:10px; padding-bottom:7px; border-bottom:1px solid #eee;
+    color:{AZUL_OSCURO}; font-weight:700; font-size:0.93rem;
+    margin-bottom:10px; padding-bottom:7px;
+    border-bottom:1px solid var(--border-color);
+}}
+@media (prefers-color-scheme: dark) {{
+  .cfg-card-title {{ color:#90CAF9 !important; }}
+  .cfg-card {{ border-color: var(--border-color) !important; }}
 }}
 
-/* ── Ayuda steps ── */
+/* Ayuda */
 .help-step {{
     display:flex; gap:14px; align-items:flex-start;
-    background:white; border:1px solid #dde4f0; border-radius:10px;
-    padding:14px 18px; margin-bottom:10px;
+    background: var(--help-bg);
+    border: 1px solid var(--border-color);
+    border-radius:10px; padding:14px 18px; margin-bottom:10px;
 }}
 .help-num {{
     background:{AZUL}; color:white; border-radius:50%;
@@ -238,40 +342,35 @@ div[data-testid="metric-container"] {{
     justify-content:center; font-weight:700; flex-shrink:0;
 }}
 .help-body strong {{ color:{AZUL_OSCURO}; }}
-.help-body p {{ color:#555; font-size:0.85rem; margin:3px 0 0 0; }}
-
-/* ── Zona priority chips ── */
-.zona-0 {{ background:#E3F2FD; color:{AZUL_OSCURO}; border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
-.zona-1 {{ background:#E8F5E9; color:{VERDE};        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
-.zona-2 {{ background:#FFF8E1; color:#F57F17;        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
-.zona-3 {{ background:#FFF3E0; color:#E65100;        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
-.zona-4 {{ background:#FFEBEE; color:#C62828;        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
-
-/* ── Forzar modo claro global ── */
-.stApp, .stApp > div, .main, .main > div,
-[data-testid="stAppViewContainer"],
-[data-testid="stAppViewBlockContainer"],
-.block-container {{
-    background-color: #FFFFFF !important;
-    color: #1A1A2E !important;
+.help-body p {{ color:var(--text-secondary); font-size:0.84rem; margin:3px 0 0 0; }}
+@media (prefers-color-scheme: dark) {{
+  .help-body strong {{ color:#90CAF9 !important; }}
 }}
-/* Tablas en modo claro */
-[data-testid="stDataFrame"] * {{
-    color: #1A1A2E !important;
-    background-color: #FFFFFF !important;
-}}
+
 /* Expanders */
 [data-testid="stExpander"] {{
-    background: #F4F7FB !important;
-    border: 1px solid #dde4f0 !important;
+    background: var(--expander-bg) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px !important;
 }}
-[data-testid="stExpander"] summary {{
-    color: {AZUL_OSCURO} !important;
-    font-weight: 600 !important;
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] p {{
+    color: var(--text-primary) !important;
 }}
-/* Info / success / error boxes */
-[data-testid="stAlert"] {{ background-color: #EEF4FF !important; }}
+
+/* Zona chips */
+.zona-0 {{ background:#E3F2FD; color:{AZUL_OSCURO}; border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
+.zona-1 {{ background:#E8F5E9; color:{VERDE};        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
+.zona-2 {{ background:#FFF8E1; color:#F57F17;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
+.zona-3 {{ background:#FFF3E0; color:#E65100;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
+.zona-4 {{ background:#FFEBEE; color:#C62828;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
+@media (prefers-color-scheme: dark) {{
+  .zona-0 {{ background:#0D2E5A; color:#90CAF9; }}
+  .zona-1 {{ background:#0D3320; color:#81C784; }}
+  .zona-2 {{ background:#3D2E00; color:#FFD54F; }}
+  .zona-3 {{ background:#3D1F00; color:#FFB74D; }}
+  .zona-4 {{ background:#3D0A0A; color:#EF9A9A; }}
+}}
 
 /* ── Misc ── */
 #MainMenu, footer, header {{ visibility:hidden; }}
@@ -366,8 +465,21 @@ def _render_sidebar():
     with st.sidebar:
         st.markdown(f"""
         <div class="sb-logo">
-          <div class="sb-logo-circle">G</div><br>
-          <div class="sb-brand"><strong>Farmacias & Perfumerías</strong><br>GLOBAL</div>
+          <div class="sb-logo-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- Cruz farmacia -->
+              <rect x="11" y="3" width="6" height="22" rx="2" fill="{AZUL}"/>
+              <rect x="3" y="11" width="22" height="6" rx="2" fill="{AZUL}"/>
+              <!-- G encima -->
+              <circle cx="19" cy="19" r="8" fill="{ROSA}"/>
+              <text x="19" y="23" text-anchor="middle" font-family="Arial" font-size="9"
+                    font-weight="900" fill="white">G</text>
+            </svg>
+          </div>
+          <div class="sb-brand-text">
+            <div class="sb-brand-name">Farmacias & Perfumerías</div>
+            <div class="sb-brand-sub">GLOBAL · Stock Ecommerce</div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
