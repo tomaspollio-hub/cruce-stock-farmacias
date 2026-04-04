@@ -52,8 +52,14 @@ def _prioridad_zona(nodo: str, zonas_cfg: dict) -> int:
 
 
 def _zona_label(prioridad: int, labels_cfg: dict) -> str:
-    """Devuelve la etiqueta legible de la zona según su prioridad."""
-    return labels_cfg.get(prioridad, labels_cfg.get(str(prioridad), f"Zona {prioridad}"))
+    """Devuelve la etiqueta legible de la zona según su prioridad.
+    Acepta claves int o string (YAML puede cargarlas de cualquier forma)."""
+    return (
+        labels_cfg.get(prioridad)
+        or labels_cfg.get(str(prioridad))
+        or labels_cfg.get(int(prioridad))
+        or f"Zona {prioridad}"
+    )
 
 
 def optimizar_producto(

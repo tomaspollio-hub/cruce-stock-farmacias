@@ -29,89 +29,88 @@ stock:
 
 # ── SUCURSALES Y ZONAS (5 niveles de prioridad) ─────────────
 #
-#  El sistema busca en qué nivel cae cada nodo del CSV comparando
-#  si el nombre del nodo CONTIENE alguno de los fragmentos de la lista.
-#  Ejemplo: nodo "NQN-SAN-MARTIN-23" contiene "san-martin" → prioridad 1
+#  El matching funciona por SUFIJO del nodo (más confiable):
+#  Ej: "APT-RUFINO 1070-NQN" termina en "-NQN" → NQN Capital
+#      "GLO-EXP Y PARAGUAY-CEN" termina en "-CEN" → Centenario
+#      "TER-OLASCOAGA-717-CCO" termina en "-CCO" → Cutral Co (remota)
 #
 #  PRIORIDAD 0 — Depósito ecommerce (primera búsqueda siempre)
-#  PRIORIDAD 1 — Neuquén Capital (centro + Alpina NQN)
+#  PRIORIDAD 1 — Neuquén Capital
 #  PRIORIDAD 2 — Centenario + Plottier
-#  PRIORIDAD 3 — Zonas cercanas (El Chañar, Añelo)
-#  PRIORIDAD 4 — Remotas (requieren llamado: Cutral Co, Zapala, Madryn)
+#  PRIORIDAD 3 — Zonas cercanas (Añelo, El Chañar)
+#  PRIORIDAD 4 — Remotas (Cutral Co, Zapala, Madryn)
 
 zonas:
   prioridad_0_deposito:
     - "apt-ecommerce-nqn"
     - "apt-ecommerce"
     - "ecommerce-nqn"
+    - "ecommerce"
     - "deposito"
 
   prioridad_1_nqn_capital:
+    - "-nqn"        # sufijo estándar Neuquén Capital
+    - "nqn"         # sin guión
     - "alderete"
     - "olascoaga"
-    - "bahia-blanca"
     - "bahia blanca"
     - "cabellera"
     - "combate"
     - "diagonal"
     - "ramon"
     - "illia"
-    - "islas-malvinas"
     - "islas malvinas"
-    - "jose-rosa"
     - "jose rosa"
-    - "la-rioja"
     - "la rioja"
-    - "rio-senguer"
     - "rio senguer"
     - "rivadavia"
     - "rufino"
-    - "san-martin"
     - "san martin"
     - "sarmiento"
     - "alpina"
-    - "belgrano-2715"
-    - "belgrano 2715"
     - "fotheringham"
-    - "nqn"      # prefijo genérico para sucursales de capital
 
   prioridad_2_centenario_plottier:
+    - "-cen"        # sufijo Centenario
+    - "-plo"        # sufijo Plottier
+    - "-plt"
     - "centenario"
     - "paraguay"
     - "honduras"
-    - "peru-305"
     - "peru 305"
     - "plottier"
-    - "belgrano-245"
     - "belgrano 245"
-    - "buenos-aires-norte"
     - "buenos aires norte"
     - "buratovich"
 
   prioridad_3_cercanas:
+    - "-ane"        # sufijo Añelo
+    - "-cha"        # sufijo El Chañar
     - "anelo"
     - "añelo"
     - "chañar"
     - "chanar"
-    - "villa-pehuenia"
     - "villa pehuenia"
 
   prioridad_4_remotas:
+    - "-cco"        # sufijo Cutral Co
+    - "-zap"        # sufijo Zapala
+    - "-mad"        # sufijo Puerto Madryn
+    - "-pma"
     - "cutral-co"
     - "cutral co"
     - "cutralco"
     - "zapala"
-    - "puerto-madryn"
     - "puerto madryn"
     - "madryn"
 
 # ── ETIQUETAS DE ZONA (para mostrar en la planilla) ──────────
 zona_labels:
-  0: "Depósito"
-  1: "NQN Capital"
-  2: "Centenario / Plottier"
-  3: "Cercana"
-  4: "Remota"
+  "0": "Deposito"
+  "1": "NQN Capital"
+  "2": "Centenario/Plottier"
+  "3": "Cercana"
+  "4": "Remota"
 
 # ── REGLAS DE OPTIMIZACIÓN ──────────────────────────────────
 optimizacion:

@@ -247,6 +247,32 @@ div[data-testid="metric-container"] {{
 .zona-3 {{ background:#FFF3E0; color:#E65100;        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
 .zona-4 {{ background:#FFEBEE; color:#C62828;        border-radius:12px; padding:2px 9px; font-size:0.78rem; font-weight:600; }}
 
+/* ── Forzar modo claro global ── */
+.stApp, .stApp > div, .main, .main > div,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+.block-container {{
+    background-color: #FFFFFF !important;
+    color: #1A1A2E !important;
+}}
+/* Tablas en modo claro */
+[data-testid="stDataFrame"] * {{
+    color: #1A1A2E !important;
+    background-color: #FFFFFF !important;
+}}
+/* Expanders */
+[data-testid="stExpander"] {{
+    background: #F4F7FB !important;
+    border: 1px solid #dde4f0 !important;
+    border-radius: 8px !important;
+}}
+[data-testid="stExpander"] summary {{
+    color: {AZUL_OSCURO} !important;
+    font-weight: 600 !important;
+}}
+/* Info / success / error boxes */
+[data-testid="stAlert"] {{ background-color: #EEF4FF !important; }}
+
 /* ── Misc ── */
 #MainMenu, footer, header {{ visibility:hidden; }}
 .block-container {{ padding-top:22px; padding-bottom:36px; }}
@@ -258,8 +284,8 @@ div[data-testid="metric-container"] {{
 #  HELPERS
 # ════════════════════════════════════════════════════════════
 
-@st.cache_data(show_spinner=False)
 def _cargar_config() -> dict:
+    """Lee config.yaml sin caché para siempre tener la versión actualizada."""
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
