@@ -1,0 +1,69 @@
+# ============================================================
+#  CONFIGURACIÓN — Cruce de Stock por GTIN
+#  Editá este archivo para adaptar columnas y reglas.
+# ============================================================
+
+# ── ARCHIVO DE PEDIDOS ECOMMERCE ────────────────────────────
+pedidos:
+  # Nombres posibles de cada columna (en cualquier capitalización)
+  col_estado:    ["estado", "status"]
+  col_producto:  ["producto", "product", "nombre"]
+  col_variante:  ["variante", "variant", "presentacion"]
+  col_marca:     ["marca", "brand"]
+  col_sku:       ["sku", "cod_sku"]          # hace match con ID del stock
+  col_gtin:      ["gtin", "codigo de barra", "ean", "barcode"]  # hace match con SKU del stock
+  col_unidades:  ["unidades", "cantidad", "qty", "units"]
+
+  # Valor del estado que indica pedido activo
+  estado_activo: "abierta"
+
+# ── ARCHIVO DE STOCK DE SUCURSALES ──────────────────────────
+stock:
+  col_id:          ["id", "gtin", "cod_barra", "codigo"]        # GTIN principal
+  col_nombre:      ["nombre zetti", "nombre", "producto", "descripcion"]
+  col_sku:         ["sku", "codigo de barra", "ean", "barcode"] # código de barra alternativo
+  col_marca:       ["marca", "brand"]
+  col_fabricante:  ["fabricante", "laboratorio", "distribuidor"]
+  col_nodo:        ["nodo", "sucursal", "farmacia", "local"]
+  col_stock:       ["stock", "cantidad", "qty", "existencia"]
+
+# ── SUCURSALES Y ZONAS ──────────────────────────────────────
+zonas:
+  # Sucursales locales (Neuquén Capital) → prioridad máxima
+  local:
+    - "nqn capital"
+    - "neuquen capital"
+    - "neuquén"
+    - "capital"
+  # Sucursales que requieren llamado (fuera de capital)
+  llamar:
+    - "cutral co"
+    - "cutral-co"
+    - "zapala"
+    - "añelo"
+    - "anelo"
+    - "centenario"
+    - "puerto madryn"
+    - "madryn"
+
+# ── REGLAS DE OPTIMIZACIÓN ──────────────────────────────────
+optimizacion:
+  # Prioridad de zonas: local primero, luego llamar
+  priorizar_local: true
+
+  # Máximo de sucursales a asignar por producto antes de marcar "Llamar cliente"
+  max_sucursales_por_producto: 3
+
+# ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
+estados_busqueda:
+  - "Búsqueda"
+  - "Encontrado"
+  - "Mal stock"
+  - "Llamar a suc"
+  - "Mal stock - Resuelto"
+  - "Llamar cliente"
+
+# ── NORMALIZACIÓN GTIN ──────────────────────────────────────
+gtin:
+  longitud_estandar: 14    # rellenar con ceros a la izquierda hasta este largo
+  longitudes_validas: [8, 12, 13, 14]
