@@ -16,14 +16,29 @@ Mejoras incluidas:
 """
 
 from __future__ import annotations
+import unicodedata
+import logging
 import pandas as pd
-from src.logger import get_logger
-from src.normalizer import normalizar_texto
 
-logger = get_logger(__name__)
+# Logger estándar — sin dependencia de src.logger
+logger = logging.getLogger(__name__)
 
 PRIORIDAD_DEFAULT = 1
 PRIORIDAD_REMOTA  = 4
+
+
+def _normalizar(valor) -> str:
+    """Strip, lowercase, quitar tildes. Sin dependencias externas."""
+    if valor is None:
+        return ""
+    try:
+        import pandas as _pd
+        if _pd.isna(valor):
+            return ""
+    except Exception:
+        pass
+    nfkd = unicodedata.normalize("NFKD", str(valor).strip().lower())
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 # ════════════════════════════════════════════════════════════
@@ -31,7 +46,7 @@ PRIORIDAD_REMOTA  = 4
 # ════════════════════════════════════════════════════════════
 
 def _prioridad_zona(nodo: str, zonas_cfg: dict) -> int:
-    nodo_n = normalizar_texto(nodo)
+    nodo_n = _normalizar(nodo)
     keys_ordenadas = [
         "prioridad_0_deposito",
         "prioridad_1_nqn_capital",
@@ -41,7 +56,7 @@ def _prioridad_zona(nodo: str, zonas_cfg: dict) -> int:
     ]
     for prioridad, key in enumerate(keys_ordenadas):
         for frag in zonas_cfg.get(key, []):
-            if normalizar_texto(frag) in nodo_n:
+            if _normalizar(frag) in nodo_n:
                 return prioridad
 
     logger.warning(
