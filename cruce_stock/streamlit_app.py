@@ -372,6 +372,53 @@ div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
   .zona-4 {{ background:#3D0A0A; color:#EF9A9A; }}
 }}
 
+/* ══════════════════════════════════════════
+   VISTA CADETE — diseño móvil
+   ══════════════════════════════════════════ */
+.cadete-progress-wrap {{
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;
+}}
+.cadete-progress-title {{
+    font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;
+}}
+.cadete-farmacia-hdr {{
+    background: {AZUL};
+    color: white; border-radius: 8px 8px 0 0;
+    padding: 10px 16px; font-weight: 700; font-size: 0.95rem;
+    margin-top: 16px; display: flex; align-items: center; gap: 10px;
+}}
+.cadete-farmacia-badge {{
+    background: rgba(255,255,255,0.25); border-radius: 10px;
+    padding: 2px 9px; font-size: 0.78rem; margin-left: auto;
+}}
+.cadete-item {{
+    background: var(--bg-card);
+    border: 1px solid var(--border-color); border-top: none;
+    padding: 12px 16px; font-size: 0.9rem;
+}}
+.cadete-item:last-child {{ border-radius: 0 0 8px 8px; }}
+.cadete-producto {{ font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }}
+.cadete-meta {{ color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }}
+.cadete-qty {{
+    background: {AZUL}; color: white; border-radius: 8px;
+    padding: 3px 10px; font-weight: 700; font-size: 0.85rem; display: inline-block;
+}}
+/* Estado chips en cadete */
+.est-busqueda     {{ background:#E3F2FD; color:{AZUL_OSCURO}; border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
+.est-encontrado   {{ background:#E8F5E9; color:{VERDE};        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
+.est-malstock     {{ background:#FFF8E1; color:#F57F17;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
+.est-llamar       {{ background:#FFF3E0; color:#E65100;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
+.est-llamarcliente{{ background:#FFEBEE; color:#C62828;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
+@media (prefers-color-scheme: dark) {{
+  .est-busqueda      {{ background:#0D2E5A; color:#90CAF9; }}
+  .est-encontrado    {{ background:#0D3320; color:#81C784; }}
+  .est-malstock      {{ background:#3D2E00; color:#FFD54F; }}
+  .est-llamar        {{ background:#3D1F00; color:#FFB74D; }}
+  .est-llamarcliente {{ background:#3D0A0A; color:#EF9A9A; }}
+}}
+
 /* ── Misc ── */
 #MainMenu, footer, header {{ visibility:hidden; }}
 .block-container {{ padding-top:22px; padding-bottom:36px; }}
@@ -400,8 +447,11 @@ def _guardar_temporal(uploaded_file) -> str:
 
 def _excel_a_bytes(df_ruta, df_sin_stock, estados_busqueda) -> bytes:
     from src.exporter import exportar_excel
-    # Quitar columna interna _gtin_key antes de exportar
-    df_exp = df_ruta.drop(columns=["_gtin_key", "prioridad"], errors="ignore")
+    df_exp = df_ruta.drop(columns=["_gtin_key", "prioridad"], errors="ignore").copy()
+    # Aplicar actualizaciones de estado hechas desde la vista cadete
+    for idx, estado in st.session_state.get("estados_cadete", {}).items():
+        if idx < len(df_exp) and "Estado de búsqueda" in df_exp.columns:
+            df_exp.at[idx, "Estado de búsqueda"] = estado
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         path_tmp = tmp.name
     exportar_excel(path_salida=path_tmp, df_ruta=df_exp,
@@ -421,6 +471,7 @@ def _init_session():
         "overrides":           {},
         "df_ruta_editable":    None,
         "vista_planilla":      "pedido",   # "pedido" | "ruta"
+        "estados_cadete":      {},         # {row_idx → estado actualizado por el cadete}
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -491,6 +542,19 @@ def _render_sidebar():
         for key, icon, label in [
             ("nuevo_cruce", "⚡", "Nuevo Cruce"),
             ("historial",   "📋", "Historial"),
+        ]:
+            if pagina_actual == key:
+                st.markdown(f'<span class="nav-active">{icon}&nbsp;&nbsp;{label}</span>',
+                            unsafe_allow_html=True)
+            else:
+                st.button(f"{icon}  {label}", key=f"nav_{key}",
+                          use_container_width=True,
+                          on_click=_ir_a, args=(key,))
+
+        # ── CADETE
+        st.markdown('<div class="sb-section-label">CADETE</div>', unsafe_allow_html=True)
+        for key, icon, label in [
+            ("cadete", "🚴", "Vista Cadete"),
         ]:
             if pagina_actual == key:
                 st.markdown(f'<span class="nav-active">{icon}&nbsp;&nbsp;{label}</span>',
@@ -924,10 +988,69 @@ def _page_historial():
                                key=f"dl_{item['id']}", help=item["filename"])
 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🗑️  Limpiar historial", use_container_width=False):
-        st.session_state.historial = []
-        st.session_state.ultimo_resultado = None
-        st.session_state.overrides = {}
+
+    # ── Guardar / restaurar sesión ─────────────────────────
+    st.markdown('<p class="sec-label">💾 Guardar sesión</p>', unsafe_allow_html=True)
+    st.caption("Guardá la sesión actual para continuar mañana o en otro dispositivo.")
+
+    col_exp, col_imp, col_del = st.columns([2, 2, 1])
+
+    with col_exp:
+        import json, base64
+        session_data: dict = {"historial": [], "estados_cadete": st.session_state.estados_cadete}
+        for item in st.session_state.historial:
+            entry = {k: v for k, v in item.items() if k != "bytes"}
+            entry["bytes_b64"] = base64.b64encode(item["bytes"]).decode()
+            session_data["historial"].append(entry)
+        if st.session_state.df_ruta_editable is not None:
+            session_data["df_ruta"] = st.session_state.df_ruta_editable.to_json(orient="records", force_ascii=False)
+        json_bytes = json.dumps(session_data, ensure_ascii=False, indent=2).encode("utf-8")
+        st.download_button(
+            label="💾  Exportar sesión (.json)",
+            data=json_bytes,
+            file_name=f"sesion_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+
+    with col_imp:
+        archivo_sesion = st.file_uploader("Restaurar sesión", type=["json"],
+                                          label_visibility="collapsed",
+                                          key="up_sesion")
+        if archivo_sesion:
+            try:
+                import json, base64
+                data = json.loads(archivo_sesion.read().decode("utf-8"))
+                st.session_state.historial = []
+                for entry in data.get("historial", []):
+                    e = {k: v for k, v in entry.items() if k != "bytes_b64"}
+                    e["bytes"] = base64.b64decode(entry["bytes_b64"])
+                    st.session_state.historial.append(e)
+                st.session_state.estados_cadete = data.get("estados_cadete", {})
+                if "df_ruta" in data:
+                    df_rest = pd.read_json(data["df_ruta"], orient="records")
+                    st.session_state.df_ruta_editable = df_rest
+                    if not df_rest.empty:
+                        st.session_state.ultimo_resultado = {
+                            "hora": st.session_state.historial[0]["hora"] if st.session_state.historial else "—",
+                            "pedidos_unicos":  "—",
+                            "pedidos_activos": "—",
+                            "filas":           len(df_rest),
+                            "sin_cob":         0,
+                            "df_sin_stock":    pd.DataFrame(),
+                            "df_ruta":         df_rest,
+                            "filename":        st.session_state.historial[0]["filename"] if st.session_state.historial else "planilla.xlsx",
+                        }
+                st.success("✅ Sesión restaurada")
+            except Exception as e:
+                st.error(f"Error al restaurar: {e}")
+
+    with col_del:
+        if st.button("🗑️", use_container_width=True, help="Limpiar historial"):
+            st.session_state.historial = []
+            st.session_state.ultimo_resultado = None
+            st.session_state.overrides = {}
+            st.session_state.estados_cadete = {}
 
 
 # ════════════════════════════════════════════════════════════
@@ -1130,6 +1253,164 @@ def _page_ayuda():
 
 
 # ════════════════════════════════════════════════════════════
+#  PÁGINA: VISTA CADETE
+# ════════════════════════════════════════════════════════════
+
+def _page_cadete(cfg):
+    st.markdown("""
+    <div class="page-hdr">
+      <div>
+        <p class="page-title">🚴 Vista Cadete</p>
+        <p class="page-sub">Planilla de búsqueda — actualizar estado en tiempo real</p>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df_ruta = st.session_state.df_ruta_editable
+    if df_ruta is None or df_ruta.empty:
+        st.info("Todavía no generaste ningún cruce. "
+                "Andá a ⚡ Nuevo Cruce, cargá los archivos y generá la planilla.")
+        return
+
+    from src.optimizer import ordenar_por_ruta
+    df = _aplicar_overrides(df_ruta)
+    df = ordenar_por_ruta(df)
+
+    estados_opciones = cfg.get("estados_busqueda",
+        ["Búsqueda", "Encontrado", "Mal stock", "Llamar a suc",
+         "Mal stock - Resuelto", "Llamar cliente"])
+
+    # ── Resumen de progreso ────────────────────────────────
+    total   = len(df[df["Farmacia"] != "— SIN COBERTURA —"])
+    enc_set = {"Encontrado", "Mal stock - Resuelto"}
+    estados_actuales = {
+        idx: st.session_state.estados_cadete.get(idx,
+              df.at[idx, "Estado de búsqueda"] if "Estado de búsqueda" in df.columns else "Búsqueda")
+        for idx in df.index
+    }
+    encontrados = sum(1 for v in estados_actuales.values() if v in enc_set)
+    pct = int(encontrados / total * 100) if total > 0 else 0
+
+    # Conteo por estado
+    conteos: dict[str, int] = {}
+    for v in estados_actuales.values():
+        conteos[v] = conteos.get(v, 0) + 1
+
+    st.markdown(f"""
+    <div class="cadete-progress-wrap">
+      <div class="cadete-progress-title">
+        Progreso: {encontrados} / {total} productos encontrados &nbsp;
+        <span style="color:{'#2E7D32' if pct == 100 else '#1565C0'};font-size:1.1rem">
+          {pct}%
+        </span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;font-size:0.82rem">
+    """, unsafe_allow_html=True)
+    for est, cnt in conteos.items():
+        st.markdown(
+            f'<span style="background:var(--bg-secondary);border:1px solid var(--border-color);'
+            f'border-radius:10px;padding:2px 10px">{est}: <strong>{cnt}</strong></span>',
+            unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+    # Botón para descargar Excel con estados actualizados
+    col_dl, col_reset = st.columns([3, 1])
+    with col_dl:
+        res = st.session_state.ultimo_resultado
+        if res:
+            excel_bytes = _excel_a_bytes(df, res["df_sin_stock"], estados_opciones)
+            st.download_button(
+                label="📥  Descargar Excel con estados actualizados",
+                data=excel_bytes,
+                file_name=res.get("filename", "planilla_cadete.xlsx"),
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+    with col_reset:
+        if st.button("↩️ Resetear", use_container_width=True,
+                     help="Volver todos los estados al valor original"):
+            st.session_state.estados_cadete = {}
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Agrupar por farmacia ───────────────────────────────
+    farmacias = df["Farmacia"].unique().tolist() if "Farmacia" in df.columns else []
+
+    for farmacia in farmacias:
+        df_farm = df[df["Farmacia"] == farmacia]
+        es_sin_cob = farmacia == "— SIN COBERTURA —"
+
+        # Conteo de encontrados en esta farmacia
+        enc_farm = sum(
+            1 for idx in df_farm.index
+            if estados_actuales.get(idx, "") in enc_set
+        )
+        total_farm = len(df_farm)
+        pct_farm = int(enc_farm / total_farm * 100) if total_farm > 0 else 0
+
+        zona_label = df_farm.iloc[0].get("Zona", "") if not df_farm.empty else ""
+
+        zona_cls = {
+            "Deposito":             "zona-0",
+            "NQN Capital":          "zona-1",
+            "Centenario/Plottier":  "zona-2",
+            "Cercana":              "zona-3",
+            "Remota":               "zona-4",
+        }.get(zona_label, "zona-1") if not es_sin_cob else "zona-4"
+
+        hdr_color = "#C62828" if es_sin_cob else AZUL
+        st.markdown(f"""
+        <div class="cadete-farmacia-hdr" style="background:{hdr_color}">
+          🏪 {farmacia}
+          &nbsp;<span class="{zona_cls}">{zona_label}</span>
+          <span class="cadete-farmacia-badge">{enc_farm}/{total_farm} ✓ {pct_farm}%</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for idx, row in df_farm.iterrows():
+            producto  = str(row.get("Producto", ""))[:50]
+            variante  = str(row.get("Tipo / Variante", "") or "")
+            nro_ped   = str(row.get("N° Pedido", "") or "")
+            cantidad  = row.get("Unidades a buscar", row.get("Cantidad pedida", "?"))
+            sosp      = "⚠️ " if row.get("⚠️ Stock") == "⚠️ Verificar" else ""
+            estado_og = str(row.get("Estado de búsqueda", "Búsqueda"))
+            estado_actual = st.session_state.estados_cadete.get(idx, estado_og)
+
+            col_info, col_sel = st.columns([3, 2])
+            with col_info:
+                st.markdown(f"""
+                <div class="cadete-item">
+                  <div class="cadete-producto">{sosp}{producto}</div>
+                  <div class="cadete-meta">
+                    {'<span style="color:#888">Variante: ' + variante + '</span> &nbsp;' if variante and variante not in ("nan","None") else ''}
+                    {'Pedido: <strong>#' + nro_ped + '</strong> &nbsp;' if nro_ped and nro_ped not in ("nan","None","") else ''}
+                    <span class="cadete-qty">× {cantidad}</span>
+                    {'&nbsp; <span style="color:#C62828;font-size:0.78rem">Stock a verificar</span>' if sosp else ''}
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+            with col_sel:
+                if es_sin_cob:
+                    st.markdown(
+                        f'<div style="padding:10px 0"><span class="est-llamarcliente">'
+                        f'Llamar cliente</span></div>',
+                        unsafe_allow_html=True)
+                else:
+                    default_idx = estados_opciones.index(estado_actual) \
+                        if estado_actual in estados_opciones else 0
+                    nuevo_estado = st.selectbox(
+                        "Estado", options=estados_opciones,
+                        index=default_idx,
+                        key=f"cad_est_{idx}",
+                        label_visibility="collapsed",
+                    )
+                    if nuevo_estado != estado_actual:
+                        st.session_state.estados_cadete[idx] = nuevo_estado
+
+        st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+
+
+# ════════════════════════════════════════════════════════════
 #  MAIN
 # ════════════════════════════════════════════════════════════
 
@@ -1142,6 +1423,7 @@ def main():
     pagina = st.session_state.pagina
     if   pagina == "nuevo_cruce":    _page_nuevo_cruce(cfg)
     elif pagina == "historial":      _page_historial()
+    elif pagina == "cadete":         _page_cadete(cfg)
     elif pagina == "configuracion":  _page_configuracion(cfg)
     elif pagina == "ayuda":          _page_ayuda()
 
