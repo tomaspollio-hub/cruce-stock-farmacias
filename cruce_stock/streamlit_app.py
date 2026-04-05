@@ -23,559 +23,805 @@ st.set_page_config(
 
 CONFIG_PATH = pathlib.Path(__file__).parent / "config.yaml"
 
-AZUL        = "#1565C0"
-AZUL_OSCURO = "#0D47A1"
-ROSA        = "#E8194B"
-GRIS        = "#F4F7FB"
-VERDE       = "#2E7D32"
+# ── Paleta principal ────────────────────────────────────────
+AZUL        = "#2563EB"   # blue-600
+AZUL_OSCURO = "#1D4ED8"   # blue-700
+AZUL_CLARO  = "#EFF6FF"   # blue-50
+ROSA        = "#E11D48"   # rose-600
+VERDE       = "#059669"   # emerald-600
+AMARILLO    = "#D97706"   # amber-600
+GRIS        = "#F8FAFC"   # slate-50
+SLATE       = "#64748B"   # slate-500
 
 
 # ════════════════════════════════════════════════════════════
-#  CSS  — adaptable modo claro / oscuro
+#  CSS  — Sistema de diseño completo
 # ════════════════════════════════════════════════════════════
 CSS = f"""
 <style>
-html, body, [class*="css"] {{ font-family: 'Segoe UI', Arial, sans-serif; }}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {{
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}}
 
 /* ══════════════════════════════════════════
-   VARIABLES DE COLOR POR MODO
+   DESIGN TOKENS
    ══════════════════════════════════════════ */
-
-/* Modo CLARO (default) */
 :root {{
-  --bg-main:       #FFFFFF;
-  --bg-secondary:  #F4F7FB;
+  /* Backgrounds */
+  --bg-main:       #F8FAFC;
   --bg-card:       #FFFFFF;
-  --text-primary:  #1A1A2E;
-  --text-secondary:#555555;
-  --text-muted:    #888888;
-  --border-color:  #DDE4F0;
-  --metric-bg:     #FFFFFF;
-  --expander-bg:   #F4F7FB;
+  --bg-secondary:  #F1F5F9;
+  --bg-input:      #FFFFFF;
+
+  /* Text */
+  --text-primary:  #0F172A;
+  --text-secondary:#475569;
+  --text-muted:    #94A3B8;
+
+  /* Borders */
+  --border:        #E2E8F0;
+  --border-strong: #CBD5E1;
+
+  /* Shadows */
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:     0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  --shadow-lg:     0 10px 25px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
+
+  /* Radii */
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+
+  /* Accents (mantener compat) */
+  --border-color:  #E2E8F0;
+  --bg-secondary-alias: #F1F5F9;
+  --expander-bg:   #F8FAFC;
   --hist-row-bg:   #FFFFFF;
-  --hist-row-hover:#F4F7FB;
-  --upload-bg:     #F4F7FB;
+  --hist-row-hover:#F8FAFC;
+  --metric-bg:     #FFFFFF;
+  --upload-bg:     #F8FAFC;
   --page-hdr-bg:   #FFFFFF;
   --cfg-card-bg:   #FFFFFF;
   --help-bg:       #FFFFFF;
   --override-bg:   #FFFFFF;
 }}
 
-/* Modo OSCURO */
 @media (prefers-color-scheme: dark) {{
   :root {{
-    --bg-main:       #0E1117;
-    --bg-secondary:  #1A1F2E;
-    --bg-card:       #1E2330;
-    --text-primary:  #E8EAF0;
-    --text-secondary:#AAB0C0;
-    --text-muted:    #707888;
-    --border-color:  #2D3448;
-    --metric-bg:     #1E2330;
-    --expander-bg:   #1A1F2E;
-    --hist-row-bg:   #1E2330;
-    --hist-row-hover:#252B3D;
-    --upload-bg:     #1A1F2E;
-    --page-hdr-bg:   #1E2330;
-    --cfg-card-bg:   #1E2330;
-    --help-bg:       #1E2330;
-    --override-bg:   #1E2330;
+    --bg-main:       #0F172A;
+    --bg-card:       #1E293B;
+    --bg-secondary:  #1E293B;
+    --bg-input:      #334155;
+    --text-primary:  #F1F5F9;
+    --text-secondary:#94A3B8;
+    --text-muted:    #64748B;
+    --border:        #334155;
+    --border-strong: #475569;
+    --shadow-sm:     0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md:     0 4px 12px rgba(0,0,0,0.4);
+    --border-color:  #334155;
+    --bg-secondary-alias: #1E293B;
+    --expander-bg:   #1E293B;
+    --hist-row-bg:   #1E293B;
+    --hist-row-hover:#334155;
+    --metric-bg:     #1E293B;
+    --upload-bg:     #1E293B;
+    --page-hdr-bg:   #1E293B;
+    --cfg-card-bg:   #1E293B;
+    --help-bg:       #1E293B;
+    --override-bg:   #1E293B;
   }}
 }}
 
 /* ══════════════════════════════════════════
-   FONDO PRINCIPAL
+   BASE — FONDO Y LAYOUT
    ══════════════════════════════════════════ */
-.stApp,
-[data-testid="stAppViewContainer"],
+.stApp, [data-testid="stAppViewContainer"],
 [data-testid="stAppViewBlockContainer"],
 .main, .main > div, .block-container {{
     background-color: var(--bg-main) !important;
     color: var(--text-primary) !important;
 }}
+.block-container {{
+    padding: 28px 32px 48px 32px !important;
+    max-width: 1280px;
+}}
 
 /* ══════════════════════════════════════════
-   SIDEBAR — siempre azul Global, siempre visible
+   SIDEBAR
    ══════════════════════════════════════════ */
 section[data-testid="stSidebar"] {{
-    background: linear-gradient(180deg, {AZUL_OSCURO} 0%, {AZUL} 100%) !important;
-    min-width: 220px !important;
-    max-width: 220px !important;
+    background: #0F172A !important;
+    min-width: 230px !important;
+    max-width: 230px !important;
     transform: none !important;
     visibility: visible !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
 }}
 section[data-testid="stSidebar"] > div {{
     background: transparent !important;
 }}
 section[data-testid="stSidebar"],
 section[data-testid="stSidebar"] * {{
-    color: rgba(255,255,255,0.92) !important;
+    color: #CBD5E1 !important;
 }}
-/* Ocultar botón de colapso — todos los selectores posibles */
 button[data-testid="collapsedControl"],
 button[data-testid="stSidebarCollapseButton"],
 [data-testid="stSidebarCollapseButton"],
 [data-testid="collapsedControl"],
-.st-emotion-cache-zq5wmm,
-.st-emotion-cache-1wbqy5l,
-[class*="collapsedControl"] {{
-    display: none !important;
-}}
+.st-emotion-cache-zq5wmm, .st-emotion-cache-1wbqy5l,
+[class*="collapsedControl"] {{ display: none !important; }}
 
-/* ── Logo Global en sidebar ── */
+/* Logo */
 .sb-logo {{
-    padding: 22px 16px 14px 16px;
-    border-bottom: 1px solid rgba(255,255,255,0.15);
-    margin-bottom: 8px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    padding: 24px 18px 18px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 12px;
 }}
 .sb-logo-icon {{
-    background: white;
-    border-radius: 10px;
-    width: 44px; height: 44px;
+    background: {AZUL};
+    border-radius: var(--r-md);
+    width: 38px; height: 38px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.3);
 }}
 .sb-logo-icon svg {{ display: block; }}
-.sb-brand-text {{ line-height: 1.25; }}
-.sb-brand-name  {{ font-size: 0.82rem; font-weight: 700; color: white !important; }}
-.sb-brand-sub   {{ font-size: 0.68rem; opacity: 0.7; color: white !important; }}
+.sb-brand-name  {{ font-size: 0.83rem; font-weight: 700; color: #F1F5F9 !important; line-height: 1.2; }}
+.sb-brand-sub   {{ font-size: 0.67rem; color: #64748B !important; margin-top: 1px; letter-spacing: 0.3px; }}
 
-/* ── Sección label ── */
+/* Nav section labels */
 .sb-section-label {{
-    font-size: 0.63rem;
-    opacity: 0.5;
-    padding: 12px 16px 3px 16px;
-    letter-spacing: 1.2px;
-    text-transform: uppercase;
-    color: white !important;
+    font-size: 0.6rem; font-weight: 700;
+    letter-spacing: 1.4px; text-transform: uppercase;
+    color: #475569 !important;
+    padding: 16px 18px 4px 18px;
 }}
 
-/* ── Botones nav — estilo Batitienda ── */
+/* Nav buttons */
 section[data-testid="stSidebar"] div[data-testid="stButton"] > button {{
     background: transparent !important;
     border: none !important;
-    color: rgba(255,255,255,0.85) !important;
+    color: #94A3B8 !important;
     text-align: left !important;
-    padding: 9px 16px !important;
-    border-radius: 7px !important;
-    font-size: 0.88rem !important;
+    padding: 8px 12px !important;
+    border-radius: var(--r-sm) !important;
+    font-size: 0.85rem !important;
     font-weight: 500 !important;
     width: 100% !important;
-    margin: 1px 4px !important;
-    transition: background 0.15s, opacity 0.15s !important;
+    margin: 1px 6px !important;
+    transition: all 0.15s !important;
     letter-spacing: 0.1px !important;
 }}
 section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {{
-    background: rgba(255,255,255,0.13) !important;
-    opacity: 0.9 !important;
-    color: white !important;
+    background: rgba(255,255,255,0.07) !important;
+    color: #F1F5F9 !important;
 }}
-section[data-testid="stSidebar"] div[data-testid="stButton"] > button:active {{
-    background: rgba(255,255,255,0.2) !important;
-}}
-
-/* Item activo del sidebar */
 .nav-active {{
-    display: flex;
-    align-items: center;
-    background: rgba(255,255,255,0.18);
-    border-radius: 7px;
-    padding: 9px 16px;
-    font-size: 0.88rem;
-    font-weight: 700;
-    color: white !important;
-    margin: 1px 4px;
+    display: flex; align-items: center;
+    background: rgba(37,99,235,0.2) !important;
+    border: 1px solid rgba(37,99,235,0.35);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    margin: 1px 6px;
+    font-size: 0.85rem; font-weight: 600;
+    color: #93C5FD !important;
     cursor: default;
-    letter-spacing: 0.1px;
 }}
 
 /* ══════════════════════════════════════════
-   CONTENIDO PRINCIPAL
+   PAGE HEADER
    ══════════════════════════════════════════ */
-
-/* Header de página */
 .page-hdr {{
-    background: var(--page-hdr-bg);
-    border-bottom: 3px solid {AZUL};
-    padding: 16px 24px 12px 24px;
-    margin: -24px -24px 20px -24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 18px 24px 16px 24px;
+    margin-bottom: 24px;
     display: flex; align-items: center; justify-content: space-between;
 }}
-.page-title {{ color:{AZUL_OSCURO}; font-size:1.2rem; font-weight:700; margin:0; }}
-.page-sub   {{ color:var(--text-muted); font-size:0.82rem; margin:2px 0 0 0; }}
-
-@media (prefers-color-scheme: dark) {{
-  .page-title {{ color: #90CAF9 !important; }}
-  .page-sub   {{ color: var(--text-muted) !important; }}
+.page-title {{
+    font-size: 1.15rem; font-weight: 700;
+    color: var(--text-primary); margin: 0; letter-spacing: -0.2px;
 }}
-
+.page-sub {{
+    font-size: 0.8rem; color: var(--text-muted);
+    margin: 3px 0 0 0; font-weight: 400;
+}}
 .badge-rosa {{
-    background:{ROSA}; color:white; border-radius:20px;
-    padding:4px 12px; font-size:0.72rem; font-weight:600;
+    background: {ROSA}18; color: {ROSA};
+    border: 1px solid {ROSA}30;
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 0.71rem; font-weight: 600; letter-spacing: 0.2px;
 }}
 .badge-azul {{
-    background:{AZUL}; color:white; border-radius:20px;
-    padding:4px 12px; font-size:0.72rem; font-weight:600;
+    background: {AZUL}18; color: {AZUL};
+    border: 1px solid {AZUL}30;
+    border-radius: 20px; padding: 4px 12px;
+    font-size: 0.71rem; font-weight: 600;
 }}
 
-/* Upload zones */
-.upload-zone {{
-    background: var(--upload-bg);
-    border: 2px dashed {AZUL};
-    border-radius: 10px; padding: 16px; text-align: center; margin-bottom: 4px;
-}}
-.upload-zone-title {{ color:{AZUL}; font-weight:700; font-size:0.9rem; }}
-.upload-zone-sub   {{ color:var(--text-muted); font-size:0.78rem; margin-top:4px; }}
-
-/* Botón principal */
-div[data-testid="stButton"] > button[kind="primary"] {{
-    background: linear-gradient(135deg, {AZUL} 0%, {AZUL_OSCURO} 100%);
-    border:none; border-radius:8px;
-    font-size:0.93rem; font-weight:700; letter-spacing:0.3px; padding:11px 0;
-    transition: opacity 0.15s !important;
-}}
-div[data-testid="stButton"] > button[kind="primary"]:hover {{ opacity:0.85 !important; }}
-
-/* Botón descarga */
-div[data-testid="stDownloadButton"] > button {{
-    background: linear-gradient(135deg, {ROSA} 0%, #C41230 100%);
-    color:white; border:none; border-radius:8px;
-    font-size:0.9rem; font-weight:700; padding:10px 0;
-    width:100%; cursor:pointer;
-    transition: opacity 0.15s;
-}}
-div[data-testid="stDownloadButton"] > button:hover {{ opacity:0.87; }}
-
-/* Métricas */
-div[data-testid="metric-container"] {{
-    background: var(--metric-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-top: 4px solid {AZUL} !important;
-    border-radius: 10px; padding: 12px 16px;
-}}
-div[data-testid="metric-container"] label,
-div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
-    color: var(--text-primary) !important;
-}}
-
-/* Result banner */
-.result-banner {{
-    background: linear-gradient(135deg, {AZUL} 0%, {AZUL_OSCURO} 100%);
-    border-radius:10px; padding:14px 22px; color:white; margin-bottom:18px;
-}}
-
-/* Section label */
+/* ══════════════════════════════════════════
+   SECTION LABELS
+   ══════════════════════════════════════════ */
 .sec-label {{
-    color:{AZUL_OSCURO}; font-weight:700; font-size:0.87rem;
-    border-left:4px solid {ROSA}; padding-left:9px; margin:18px 0 8px 0;
+    font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 24px 0 10px 0;
+    display: flex; align-items: center; gap: 8px;
 }}
-@media (prefers-color-scheme: dark) {{
-  .sec-label {{ color: #90CAF9 !important; }}
-}}
-
-/* Override rows */
-.override-row {{
-    background: var(--override-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px; padding:10px 14px; margin-bottom:6px;
-    display:flex; align-items:center; gap:12px;
-}}
-.override-producto {{ font-weight:700; color:{AZUL_OSCURO}; flex:1; }}
-.override-sucursal  {{ color:var(--text-secondary); font-size:0.87rem; }}
-.override-zona      {{ font-size:0.76rem; background:var(--bg-secondary); border-radius:12px; padding:2px 9px; }}
-.override-stock     {{ font-size:0.8rem; color:var(--text-muted); }}
-@media (prefers-color-scheme: dark) {{
-  .override-producto {{ color:#90CAF9 !important; }}
-}}
-
-/* Historial */
-.hist-hdr {{
-    background:{AZUL}; color:white;
-    padding:9px 14px; border-radius:8px 8px 0 0;
-    font-weight:700; font-size:0.85rem; display:flex;
-}}
-.hist-row {{
-    background: var(--hist-row-bg);
-    border-bottom: 1px solid var(--border-color);
-    padding:9px 14px; font-size:0.84rem;
-    display:flex; align-items:center;
-    color: var(--text-primary);
-}}
-.hist-row:hover {{ background: var(--hist-row-hover); }}
-.hist-row:last-child {{ border-bottom:none; border-radius:0 0 8px 8px; }}
-.hc-id   {{ width:60px;  flex-shrink:0; color:{AZUL}; font-weight:700; }}
-.hc-name {{ flex:1; color: var(--text-primary); }}
-.hc-hora {{ width:120px; flex-shrink:0; color:var(--text-muted); font-size:0.77rem; }}
-.hc-stat {{ width:160px; flex-shrink:0; text-align:center; }}
-.hc-dl   {{ width:80px;  flex-shrink:0; text-align:right; }}
-
-/* Config cards */
-.cfg-card {{
-    background: var(--cfg-card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px; padding:18px 22px; margin-bottom:14px;
-}}
-.cfg-card-title {{
-    color:{AZUL_OSCURO}; font-weight:700; font-size:0.93rem;
-    margin-bottom:10px; padding-bottom:7px;
-    border-bottom:1px solid var(--border-color);
-}}
-@media (prefers-color-scheme: dark) {{
-  .cfg-card-title {{ color:#90CAF9 !important; }}
-  .cfg-card {{ border-color: var(--border-color) !important; }}
-}}
-
-/* Ayuda */
-.help-step {{
-    display:flex; gap:14px; align-items:flex-start;
-    background: var(--help-bg);
-    border: 1px solid var(--border-color);
-    border-radius:10px; padding:14px 18px; margin-bottom:10px;
-}}
-.help-num {{
-    background:{AZUL}; color:white; border-radius:50%;
-    width:30px; height:30px; display:flex; align-items:center;
-    justify-content:center; font-weight:700; flex-shrink:0;
-}}
-.help-body strong {{ color:{AZUL_OSCURO}; }}
-.help-body p {{ color:var(--text-secondary); font-size:0.84rem; margin:3px 0 0 0; }}
-@media (prefers-color-scheme: dark) {{
-  .help-body strong {{ color:#90CAF9 !important; }}
-}}
-
-/* Expanders */
-[data-testid="stExpander"] {{
-    background: var(--expander-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 8px !important;
-}}
-[data-testid="stExpander"] summary,
-[data-testid="stExpander"] p {{
-    color: var(--text-primary) !important;
-}}
-
-/* Zona chips */
-.zona-0 {{ background:#E3F2FD; color:{AZUL_OSCURO}; border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
-.zona-1 {{ background:#E8F5E9; color:{VERDE};        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
-.zona-2 {{ background:#FFF8E1; color:#F57F17;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
-.zona-3 {{ background:#FFF3E0; color:#E65100;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
-.zona-4 {{ background:#FFEBEE; color:#C62828;        border-radius:12px; padding:2px 9px; font-size:0.76rem; font-weight:600; }}
-@media (prefers-color-scheme: dark) {{
-  .zona-0 {{ background:#0D2E5A; color:#90CAF9; }}
-  .zona-1 {{ background:#0D3320; color:#81C784; }}
-  .zona-2 {{ background:#3D2E00; color:#FFD54F; }}
-  .zona-3 {{ background:#3D1F00; color:#FFB74D; }}
-  .zona-4 {{ background:#3D0A0A; color:#EF9A9A; }}
+.sec-label::after {{
+    content: ''; flex: 1; height: 1px;
+    background: var(--border);
 }}
 
 /* ══════════════════════════════════════════
-   VISTA CADETE — diseño móvil
+   CARDS BASE
    ══════════════════════════════════════════ */
-.cadete-progress-wrap {{
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 14px 18px; margin-bottom: 18px;
-}}
-.cadete-progress-title {{
-    font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;
-}}
-.cadete-farmacia-hdr {{
-    background: {AZUL};
-    color: white; border-radius: 8px 8px 0 0;
-    padding: 10px 16px; font-weight: 700; font-size: 0.95rem;
-    margin-top: 16px; display: flex; align-items: center; gap: 10px;
-}}
-.cadete-farmacia-badge {{
-    background: rgba(255,255,255,0.25); border-radius: 10px;
-    padding: 2px 9px; font-size: 0.78rem; margin-left: auto;
-}}
-.cadete-item {{
+.card {{
     background: var(--bg-card);
-    border: 1px solid var(--border-color); border-top: none;
-    padding: 12px 16px; font-size: 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 20px 22px;
 }}
-.cadete-item:last-child {{ border-radius: 0 0 8px 8px; }}
-.cadete-producto {{ font-weight: 700; color: var(--text-primary); font-size: 0.95rem; }}
-.cadete-meta {{ color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }}
-.cadete-qty {{
-    background: {AZUL}; color: white; border-radius: 8px;
-    padding: 3px 10px; font-weight: 700; font-size: 0.85rem; display: inline-block;
-}}
-/* Estado chips en cadete */
-.est-busqueda     {{ background:#E3F2FD; color:{AZUL_OSCURO}; border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
-.est-encontrado   {{ background:#E8F5E9; color:{VERDE};        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
-.est-malstock     {{ background:#FFF8E1; color:#F57F17;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
-.est-llamar       {{ background:#FFF3E0; color:#E65100;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
-.est-llamarcliente{{ background:#FFEBEE; color:#C62828;        border-radius:10px; padding:3px 10px; font-size:0.8rem; font-weight:600; }}
-@media (prefers-color-scheme: dark) {{
-  .est-busqueda      {{ background:#0D2E5A; color:#90CAF9; }}
-  .est-encontrado    {{ background:#0D3320; color:#81C784; }}
-  .est-malstock      {{ background:#3D2E00; color:#FFD54F; }}
-  .est-llamar        {{ background:#3D1F00; color:#FFB74D; }}
-  .est-llamarcliente {{ background:#3D0A0A; color:#EF9A9A; }}
-}}
+.card + .card {{ margin-top: 12px; }}
 
 /* ══════════════════════════════════════════
-   DASHBOARD
+   KPI CARDS — Dashboard
    ══════════════════════════════════════════ */
-.dash-greeting {{
-    font-size: 1.3rem; font-weight: 700;
-    color: var(--text-primary); margin-bottom: 2px;
-}}
-.dash-sub {{
-    font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;
-}}
 .kpi-card {{
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px; padding: 18px 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 20px 22px;
     position: relative; overflow: hidden;
+    transition: box-shadow 0.2s, transform 0.2s;
 }}
-.kpi-card::before {{
+.kpi-card:hover {{
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}}
+.kpi-card::after {{
     content: ''; position: absolute;
-    top: 0; left: 0; right: 0; height: 4px;
+    bottom: 0; left: 0; right: 0; height: 3px;
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
 }}
-.kpi-ok::before   {{ background: {VERDE}; }}
-.kpi-warn::before {{ background: #F57F17; }}
-.kpi-crit::before {{ background: {ROSA}; }}
-.kpi-info::before {{ background: {AZUL}; }}
+.kpi-ok::after   {{ background: {VERDE}; }}
+.kpi-warn::after {{ background: {AMARILLO}; }}
+.kpi-crit::after {{ background: {ROSA}; }}
+.kpi-info::after {{ background: {AZUL}; }}
+.kpi-icon {{
+    font-size: 1.6rem; margin-bottom: 12px;
+    display: block; line-height: 1;
+}}
 .kpi-label {{
-    font-size: 0.72rem; font-weight: 600; letter-spacing: 1px;
-    text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+    font-size: 0.69rem; font-weight: 700;
+    letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--text-muted); margin-bottom: 6px;
 }}
 .kpi-value {{
-    font-size: 2.2rem; font-weight: 800;
+    font-size: 2.4rem; font-weight: 800;
     color: var(--text-primary); line-height: 1;
+    letter-spacing: -1px;
 }}
 .kpi-detail {{
-    font-size: 0.78rem; color: var(--text-muted); margin-top: 5px;
+    font-size: 0.76rem; color: var(--text-muted);
+    margin-top: 6px; font-weight: 400;
+}}
+
+/* ══════════════════════════════════════════
+   DASHBOARD — componentes
+   ══════════════════════════════════════════ */
+.dash-greeting {{
+    font-size: 1.45rem; font-weight: 800;
+    color: var(--text-primary); margin-bottom: 2px;
+    letter-spacing: -0.4px;
+}}
+.dash-sub {{
+    font-size: 0.84rem; color: var(--text-muted);
+    margin-bottom: 24px; font-weight: 400;
 }}
 .dash-section-title {{
-    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.8px;
-    text-transform: uppercase; color: var(--text-muted);
-    margin: 22px 0 10px 0; padding-bottom: 6px;
-    border-bottom: 1px solid var(--border-color);
+    font-size: 0.69rem; font-weight: 700;
+    letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 24px 0 12px 0; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
 }}
 .dash-alert-row {{
     display: flex; align-items: center; gap: 12px;
-    padding: 9px 14px;
-    border-radius: 8px; margin-bottom: 6px;
-    font-size: 0.85rem; font-weight: 500;
+    padding: 11px 14px;
+    border-radius: var(--r-md); margin-bottom: 7px;
+    font-size: 0.84rem; font-weight: 500;
     background: var(--bg-secondary);
-    border-left: 4px solid transparent;
+    border: 1px solid var(--border);
+    border-left: 3px solid transparent;
     color: var(--text-primary);
 }}
-.dash-alert-crit  {{ border-left-color: {ROSA}; }}
-.dash-alert-warn  {{ border-left-color: #F57F17; }}
-.dash-alert-info  {{ border-left-color: {AZUL}; }}
+.dash-alert-crit {{ border-left-color: {ROSA}; }}
+.dash-alert-warn {{ border-left-color: {AMARILLO}; }}
+.dash-alert-info {{ border-left-color: {AZUL}; }}
 .dash-suc-row {{
     display: flex; align-items: center; gap: 10px;
-    padding: 7px 0; border-bottom: 1px solid var(--border-color);
+    padding: 9px 0; border-bottom: 1px solid var(--border);
     font-size: 0.84rem; color: var(--text-primary);
 }}
 .dash-suc-row:last-child {{ border-bottom: none; }}
-.dash-suc-name {{ flex: 1; font-weight: 500; }}
-.dash-suc-bar-wrap {{ width: 80px; background: var(--border-color); border-radius: 4px; height: 6px; }}
-.dash-suc-bar {{ height: 6px; border-radius: 4px; background: {AZUL}; }}
-.dash-suc-cnt {{ width: 24px; text-align: right; font-weight: 700; color: {AZUL}; font-size: 0.82rem; }}
-.dash-progress-wrap {{
-    background: var(--bg-secondary); border-radius: 8px;
-    padding: 12px 16px; margin-bottom: 6px;
+.dash-suc-name {{ flex: 1; font-weight: 500; font-size: 0.82rem; }}
+.dash-suc-bar-wrap {{
+    width: 72px; background: var(--bg-secondary);
+    border-radius: 4px; height: 5px;
 }}
-.dash-progress-label {{ font-size: 0.82rem; color: var(--text-muted); margin-bottom: 5px; }}
+.dash-suc-bar {{ height: 5px; border-radius: 4px; background: {AZUL}; }}
+.dash-suc-cnt {{
+    width: 22px; text-align: right;
+    font-weight: 700; color: {AZUL}; font-size: 0.8rem;
+}}
+.dash-progress-wrap {{
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: 14px 18px; margin-bottom: 8px;
+}}
+.dash-progress-label {{
+    font-size: 0.8rem; color: var(--text-secondary);
+    margin-bottom: 8px; font-weight: 500;
+}}
 .dash-progress-bar-bg {{
-    background: var(--border-color); border-radius: 6px; height: 10px;
+    background: var(--border); border-radius: 6px; height: 8px;
+    overflow: hidden;
 }}
 .dash-progress-bar {{
-    height: 10px; border-radius: 6px;
+    height: 8px; border-radius: 6px;
     background: linear-gradient(90deg, {AZUL}, {VERDE});
-    transition: width 0.4s ease;
 }}
 .dash-ultimo-cruce {{
-    background: var(--bg-card); border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 14px 18px;
-    display: flex; align-items: center; gap: 14px; font-size: 0.85rem;
-    color: var(--text-primary);
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 14px 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: var(--shadow-sm);
 }}
-.dash-uc-icon {{ font-size: 1.4rem; flex-shrink: 0; }}
-.dash-uc-name {{ font-weight: 700; }}
-.dash-uc-meta {{ color: var(--text-muted); font-size: 0.78rem; margin-top: 2px; }}
-.dash-quick-btn {{
-    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px;
+.dash-uc-icon {{ font-size: 1.5rem; flex-shrink: 0; }}
+.dash-uc-name {{ font-weight: 600; font-size: 0.88rem; color: var(--text-primary); }}
+.dash-uc-meta {{ color: var(--text-muted); font-size: 0.76rem; margin-top: 3px; }}
+
+/* ══════════════════════════════════════════
+   RESULT BANNER
+   ══════════════════════════════════════════ */
+.result-banner {{
+    background: linear-gradient(135deg, {AZUL} 0%, {AZUL_OSCURO} 100%);
+    border-radius: var(--r-lg);
+    padding: 16px 22px; color: white; margin-bottom: 20px;
+    box-shadow: var(--shadow-md);
 }}
 
 /* ══════════════════════════════════════════
-   TABLA MEJORADA
+   UPLOAD ZONES
+   ══════════════════════════════════════════ */
+.upload-zone {{
+    background: var(--bg-card);
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--r-lg); padding: 20px 16px;
+    text-align: center; margin-bottom: 4px;
+    transition: border-color 0.2s, background 0.2s;
+}}
+.upload-zone:hover {{
+    border-color: {AZUL};
+    background: {AZUL}06;
+}}
+.upload-zone-title {{ color: var(--text-primary); font-weight: 700; font-size: 0.9rem; }}
+.upload-zone-sub   {{ color: var(--text-muted); font-size: 0.77rem; margin-top: 5px; line-height: 1.4; }}
+
+/* ══════════════════════════════════════════
+   BOTONES
+   ══════════════════════════════════════════ */
+div[data-testid="stButton"] > button {{
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 500 !important;
+    border-radius: var(--r-sm) !important;
+    transition: all 0.15s !important;
+    letter-spacing: 0.1px !important;
+}}
+div[data-testid="stButton"] > button[kind="primary"] {{
+    background: {AZUL} !important;
+    border: none !important;
+    color: white !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    padding: 10px 0 !important;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.4) !important;
+}}
+div[data-testid="stButton"] > button[kind="primary"]:hover {{
+    background: {AZUL_OSCURO} !important;
+    box-shadow: 0 3px 8px rgba(37,99,235,0.5) !important;
+    transform: translateY(-1px) !important;
+}}
+div[data-testid="stButton"] > button[kind="secondary"],
+div[data-testid="stButton"] > button:not([kind="primary"]) {{
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-strong) !important;
+    color: var(--text-secondary) !important;
+    font-size: 0.85rem !important;
+}}
+div[data-testid="stButton"] > button:not([kind="primary"]):hover {{
+    background: var(--bg-secondary) !important;
+    border-color: var(--text-muted) !important;
+    color: var(--text-primary) !important;
+}}
+div[data-testid="stDownloadButton"] > button {{
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border-strong) !important;
+    color: var(--text-primary) !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    border-radius: var(--r-sm) !important;
+    padding: 10px 0 !important;
+    transition: all 0.15s !important;
+}}
+div[data-testid="stDownloadButton"] > button:hover {{
+    background: var(--bg-secondary) !important;
+    border-color: {AZUL} !important;
+    color: {AZUL} !important;
+}}
+
+/* ══════════════════════════════════════════
+   MÉTRICAS NATIVAS
+   ══════════════════════════════════════════ */
+div[data-testid="metric-container"] {{
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-md) !important;
+    box-shadow: var(--shadow-sm) !important;
+    padding: 16px 18px !important;
+}}
+div[data-testid="metric-container"] label {{
+    font-size: 0.69rem !important; font-weight: 700 !important;
+    letter-spacing: 0.8px !important; text-transform: uppercase !important;
+    color: var(--text-muted) !important;
+}}
+div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
+    font-size: 1.9rem !important; font-weight: 800 !important;
+    color: var(--text-primary) !important; letter-spacing: -0.5px !important;
+}}
+
+/* ══════════════════════════════════════════
+   EXPANDERS
+   ══════════════════════════════════════════ */
+[data-testid="stExpander"] {{
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--r-md) !important;
+    box-shadow: var(--shadow-sm) !important;
+}}
+[data-testid="stExpander"] summary {{
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+    font-size: 0.88rem !important;
+}}
+
+/* ══════════════════════════════════════════
+   ZONA BADGES
+   ══════════════════════════════════════════ */
+.zona-0 {{ background:#EFF6FF; color:#1E40AF; border-radius:4px; padding:1px 7px; font-size:0.71rem; font-weight:600; }}
+.zona-1 {{ background:#F0FDF4; color:#166534; border-radius:4px; padding:1px 7px; font-size:0.71rem; font-weight:600; }}
+.zona-2 {{ background:#FFFBEB; color:#92400E; border-radius:4px; padding:1px 7px; font-size:0.71rem; font-weight:600; }}
+.zona-3 {{ background:#FFF7ED; color:#9A3412; border-radius:4px; padding:1px 7px; font-size:0.71rem; font-weight:600; }}
+.zona-4 {{ background:#FFF1F2; color:#9F1239; border-radius:4px; padding:1px 7px; font-size:0.71rem; font-weight:600; }}
+@media (prefers-color-scheme: dark) {{
+  .zona-0 {{ background:#172554; color:#93C5FD; }}
+  .zona-1 {{ background:#052E16; color:#86EFAC; }}
+  .zona-2 {{ background:#422006; color:#FCD34D; }}
+  .zona-3 {{ background:#431407; color:#FDBA74; }}
+  .zona-4 {{ background:#4C0519; color:#FDA4AF; }}
+}}
+
+/* ══════════════════════════════════════════
+   ESTADO BADGES
+   ══════════════════════════════════════════ */
+.est-badge {{
+    display: inline-flex; align-items: center;
+    border-radius: 4px;
+    padding: 3px 8px; font-size: 0.72rem; font-weight: 600;
+    white-space: nowrap; letter-spacing: 0.1px;
+}}
+.eb-busqueda      {{ background:#EFF6FF; color:#1D4ED8; }}
+.eb-encontrado    {{ background:#F0FDF4; color:#15803D; }}
+.eb-malstock      {{ background:#FFFBEB; color:#B45309; }}
+.eb-llamarsuc     {{ background:#FFF7ED; color:#C2410C; }}
+.eb-resuelto      {{ background:#FAF5FF; color:#7C3AED; }}
+.eb-llamarcliente {{ background:#FFF1F2; color:#BE123C; }}
+@media (prefers-color-scheme: dark) {{
+  .eb-busqueda      {{ background:#1E3A8A; color:#93C5FD; }}
+  .eb-encontrado    {{ background:#14532D; color:#86EFAC; }}
+  .eb-malstock      {{ background:#451A03; color:#FCD34D; }}
+  .eb-llamarsuc     {{ background:#431407; color:#FDBA74; }}
+  .eb-resuelto      {{ background:#2E1065; color:#C4B5FD; }}
+  .eb-llamarcliente {{ background:#4C0519; color:#FDA4AF; }}
+}}
+
+/* ══════════════════════════════════════════
+   TABLA DE RESULTADOS
    ══════════════════════════════════════════ */
 .tbl-wrap {{
-    border: 1px solid var(--border-color);
-    border-radius: 10px; overflow: hidden;
-    margin-top: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg); overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    margin-top: 8px;
 }}
 .tbl-hdr {{
     display: grid;
-    grid-template-columns: 90px 1fr 180px 60px 130px;
+    grid-template-columns: 88px 1fr 180px 56px 130px;
     background: var(--bg-secondary);
-    padding: 9px 14px;
-    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.8px;
-    text-transform: uppercase; color: var(--text-muted);
-    border-bottom: 1px solid var(--border-color);
+    padding: 10px 16px;
+    font-size: 0.67rem; font-weight: 700;
+    letter-spacing: 0.9px; text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
 }}
 .tbl-group-hdr {{
-    background: {AZUL}18;
+    background: {AZUL}0D;
     border-left: 3px solid {AZUL};
-    padding: 6px 14px; font-size: 0.8rem; font-weight: 700;
+    padding: 7px 16px; font-size: 0.78rem; font-weight: 700;
     color: {AZUL}; display: flex; align-items: center; gap: 8px;
 }}
 @media (prefers-color-scheme: dark) {{
-  .tbl-group-hdr {{ color: #90CAF9; background: #0D2E5A; border-left-color: #90CAF9; }}
+  .tbl-group-hdr {{ color: #93C5FD; background: #172554; border-left-color: #3B82F6; }}
 }}
 .tbl-row {{
     display: grid;
-    grid-template-columns: 90px 1fr 180px 60px 130px;
-    padding: 10px 14px; font-size: 0.84rem;
-    border-bottom: 1px solid var(--border-color);
+    grid-template-columns: 88px 1fr 180px 56px 130px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
     align-items: center; color: var(--text-primary);
     background: var(--bg-card);
-    transition: background 0.12s;
+    transition: background 0.1s;
+    font-size: 0.84rem;
 }}
 .tbl-row:hover {{ background: var(--bg-secondary); }}
 .tbl-row:last-child {{ border-bottom: none; }}
-.tbl-row.sin-cob {{ background: #FFEBEE; }}
-@media (prefers-color-scheme: dark) {{ .tbl-row.sin-cob {{ background: #3D0A0A; }} }}
-.tbl-pedido  {{ font-weight: 700; color: {AZUL}; font-size: 0.82rem; }}
-.tbl-prod    {{ font-weight: 600; }}
-.tbl-prod-sub {{ font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }}
-.tbl-farm    {{ font-size: 0.83rem; }}
-.tbl-farm-zona {{ font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }}
-.tbl-uds    {{ font-weight: 800; font-size: 1rem; color: {AZUL}; text-align: center; }}
-.est-badge {{
-    display: inline-block; border-radius: 10px;
-    padding: 3px 9px; font-size: 0.75rem; font-weight: 600;
-    white-space: nowrap;
+.tbl-row.sin-cob {{ background: #FFF1F2; }}
+@media (prefers-color-scheme: dark) {{ .tbl-row.sin-cob {{ background: #4C0519; }} }}
+.tbl-pedido   {{ font-weight: 700; color: {AZUL}; font-size: 0.8rem; letter-spacing: 0.2px; }}
+.tbl-prod     {{ font-weight: 600; color: var(--text-primary); }}
+.tbl-prod-sub {{ font-size: 0.73rem; color: var(--text-muted); margin-top: 3px; font-weight: 400; }}
+.tbl-farm     {{ font-size: 0.82rem; font-weight: 500; color: var(--text-primary); }}
+.tbl-farm-zona {{ margin-top: 3px; }}
+.tbl-uds     {{
+    font-weight: 800; font-size: 1.05rem; color: {AZUL};
+    text-align: center;
 }}
-.eb-busqueda      {{ background:#E3F2FD; color:{AZUL_OSCURO}; }}
-.eb-encontrado    {{ background:#E8F5E9; color:{VERDE}; }}
-.eb-malstock      {{ background:#FFF8E1; color:#F57F17; }}
-.eb-llamarsuc     {{ background:#FFF3E0; color:#E65100; }}
-.eb-resuelto      {{ background:#F3E5F5; color:#6A1B9A; }}
-.eb-llamarcliente {{ background:#FFEBEE; color:#C62828; }}
+
+/* ══════════════════════════════════════════
+   HISTORIAL
+   ══════════════════════════════════════════ */
+.hist-hdr {{
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md) var(--r-md) 0 0;
+    padding: 10px 16px;
+    font-size: 0.69rem; font-weight: 700;
+    letter-spacing: 0.8px; text-transform: uppercase;
+    color: var(--text-muted); display: flex;
+}}
+.hist-row {{
+    background: var(--bg-card);
+    border: 1px solid var(--border); border-top: none;
+    padding: 12px 16px; font-size: 0.84rem;
+    display: flex; align-items: center;
+    color: var(--text-primary);
+    transition: background 0.1s;
+}}
+.hist-row:hover {{ background: var(--bg-secondary); }}
+.hist-row:last-child {{ border-radius: 0 0 var(--r-md) var(--r-md); }}
+.hc-id   {{ width: 58px; flex-shrink: 0; color: {AZUL}; font-weight: 700; font-size: 0.8rem; }}
+.hc-name {{ flex: 1; }}
+.hc-hora {{ width: 115px; flex-shrink: 0; color: var(--text-muted); font-size: 0.75rem; }}
+.hc-stat {{ width: 155px; flex-shrink: 0; text-align: center; }}
+.hc-dl   {{ width: 78px; flex-shrink: 0; text-align: right; }}
+
+/* ══════════════════════════════════════════
+   CONFIG CARDS / AYUDA
+   ══════════════════════════════════════════ */
+.cfg-card {{
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 18px 22px; margin-bottom: 12px;
+}}
+.cfg-card-title {{
+    color: var(--text-primary); font-weight: 700; font-size: 0.9rem;
+    margin-bottom: 12px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}}
+.help-step {{
+    display: flex; gap: 16px; align-items: flex-start;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 16px 20px; margin-bottom: 10px;
+}}
+.help-num {{
+    background: {AZUL}; color: white; border-radius: 50%;
+    width: 28px; height: 28px; display: flex;
+    align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+}}
+.help-body strong {{ color: {AZUL}; font-weight: 700; }}
+.help-body p {{ color: var(--text-secondary); font-size: 0.83rem; margin: 4px 0 0 0; line-height: 1.5; }}
+
+/* ══════════════════════════════════════════
+   OVERRIDE ROWS
+   ══════════════════════════════════════════ */
+.override-row {{
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md); padding: 10px 14px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 12px;
+    transition: box-shadow 0.15s;
+}}
+.override-row:hover {{ box-shadow: var(--shadow-sm); }}
+.override-producto {{ font-weight: 600; color: var(--text-primary); flex: 1; font-size: 0.85rem; }}
+.override-sucursal {{ color: var(--text-secondary); font-size: 0.83rem; }}
+.override-zona     {{ font-size: 0.72rem; }}
+.override-stock    {{ font-size: 0.78rem; color: var(--text-muted); }}
+
+/* ══════════════════════════════════════════
+   VISTA CADETE
+   ══════════════════════════════════════════ */
+.cadete-progress-wrap {{
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-sm);
+    padding: 18px 20px; margin-bottom: 20px;
+}}
+.cadete-progress-title {{
+    font-size: 1rem; font-weight: 700;
+    color: var(--text-primary); margin-bottom: 0;
+}}
+.cadete-farmacia-hdr {{
+    background: {AZUL};
+    color: white; border-radius: var(--r-md) var(--r-md) 0 0;
+    padding: 12px 16px; font-weight: 700; font-size: 0.9rem;
+    margin-top: 18px; display: flex; align-items: center; gap: 10px;
+    letter-spacing: 0.1px;
+}}
+.cadete-farmacia-badge {{
+    background: rgba(255,255,255,0.18);
+    border-radius: 6px;
+    padding: 3px 10px; font-size: 0.75rem; margin-left: auto;
+    font-weight: 600;
+}}
+.cadete-item {{
+    background: var(--bg-card);
+    border: 1px solid var(--border); border-top: none;
+    padding: 14px 16px;
+}}
+.cadete-item:last-child {{ border-radius: 0 0 var(--r-md) var(--r-md); }}
+.cadete-producto {{
+    font-weight: 700; color: var(--text-primary);
+    font-size: 0.97rem; line-height: 1.3;
+}}
+.cadete-meta {{
+    color: var(--text-muted); font-size: 0.77rem;
+    margin-top: 4px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}}
+.cadete-qty {{
+    background: {AZUL}18; color: {AZUL};
+    border: 1px solid {AZUL}30;
+    border-radius: 5px;
+    padding: 2px 9px; font-weight: 700; font-size: 0.82rem; display: inline-block;
+}}
+.est-busqueda      {{ background:#EFF6FF; color:#1D4ED8; border-radius:4px; padding:3px 8px; font-size:0.75rem; font-weight:600; }}
+.est-encontrado    {{ background:#F0FDF4; color:#15803D; border-radius:4px; padding:3px 8px; font-size:0.75rem; font-weight:600; }}
+.est-malstock      {{ background:#FFFBEB; color:#B45309; border-radius:4px; padding:3px 8px; font-size:0.75rem; font-weight:600; }}
+.est-llamar        {{ background:#FFF7ED; color:#C2410C; border-radius:4px; padding:3px 8px; font-size:0.75rem; font-weight:600; }}
+.est-llamarcliente {{ background:#FFF1F2; color:#BE123C; border-radius:4px; padding:3px 8px; font-size:0.75rem; font-weight:600; }}
 @media (prefers-color-scheme: dark) {{
-  .eb-busqueda      {{ background:#0D2E5A; color:#90CAF9; }}
-  .eb-encontrado    {{ background:#0D3320; color:#81C784; }}
-  .eb-malstock      {{ background:#3D2E00; color:#FFD54F; }}
-  .eb-llamarsuc     {{ background:#3D1F00; color:#FFB74D; }}
-  .eb-resuelto      {{ background:#2A0A40; color:#CE93D8; }}
-  .eb-llamarcliente {{ background:#3D0A0A; color:#EF9A9A; }}
+  .est-busqueda      {{ background:#1E3A8A; color:#93C5FD; }}
+  .est-encontrado    {{ background:#14532D; color:#86EFAC; }}
+  .est-malstock      {{ background:#451A03; color:#FCD34D; }}
+  .est-llamar        {{ background:#431407; color:#FDBA74; }}
+  .est-llamarcliente {{ background:#4C0519; color:#FDA4AF; }}
+}}
+
+/* ── Inputs ── */
+[data-testid="stTextInput"] > div > div > input {{
+    border-radius: var(--r-sm) !important;
+    border-color: var(--border-strong) !important;
+    font-size: 0.85rem !important;
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+}}
+[data-testid="stTextInput"] > div > div > input:focus {{
+    border-color: {AZUL} !important;
+    box-shadow: 0 0 0 2px {AZUL}25 !important;
+}}
+
+/* ══════════════════════════════════════════
+   TABS (st.tabs)
+   ══════════════════════════════════════════ */
+[data-testid="stTabs"] > div:first-child {{
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border) !important;
+    border-bottom: none !important;
+    border-radius: var(--r-md) var(--r-md) 0 0 !important;
+    gap: 2px !important;
+    padding: 4px 4px 0 4px !important;
+}}
+[data-testid="stTabs"] button[role="tab"] {{
+    border-radius: var(--r-sm) var(--r-sm) 0 0 !important;
+    font-size: 0.87rem !important;
+    font-weight: 600 !important;
+    color: var(--text-muted) !important;
+    padding: 8px 20px !important;
+    border: none !important;
+    background: transparent !important;
+    font-family: 'Inter', sans-serif !important;
+    transition: color 0.15s !important;
+}}
+[data-testid="stTabs"] button[role="tab"]:hover {{
+    color: var(--text-primary) !important;
+    background: rgba(0,0,0,0.03) !important;
+}}
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {{
+    color: {AZUL} !important;
+    background: var(--bg-card) !important;
+    border-bottom: 2px solid {AZUL} !important;
+    font-weight: 700 !important;
+}}
+[data-testid="stTabs"] > div:last-child {{
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 0 0 var(--r-md) var(--r-md) !important;
+    padding: 16px 12px 12px 12px !important;
+}}
+
+/* ══════════════════════════════════════════
+   CADETE — BARRA INFERIOR FIJA
+   ══════════════════════════════════════════ */
+.cadete-sticky-bar {{
+    position: fixed; bottom: 0;
+    left: 234px; right: 0; z-index: 900;
+    background: var(--bg-card);
+    border-top: 2px solid var(--border);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.10);
+    padding: 11px 28px;
+    display: flex; align-items: center; gap: 14px;
+}}
+.cadete-sticky-stat {{
+    font-size: 0.84rem; font-weight: 600;
+    color: var(--text-primary); white-space: nowrap;
+}}
+.cadete-sticky-bar-bg {{
+    flex: 1; height: 8px; border-radius: 4px;
+    background: var(--border); overflow: hidden;
+}}
+.cadete-sticky-bar-fill {{
+    height: 8px; border-radius: 4px;
+    transition: width 0.4s ease;
+}}
+.cadete-sticky-pct {{
+    font-weight: 800; font-size: 1rem;
+    white-space: nowrap; min-width: 44px; text-align: right;
+}}
+@media (max-width: 768px) {{
+    .cadete-sticky-bar {{ left: 0 !important; padding: 10px 16px; }}
 }}
 
 /* ── Misc ── */
-#MainMenu, footer, header {{ visibility:hidden; }}
-.block-container {{ padding-top:22px; padding-bottom:36px; }}
+#MainMenu, footer, header {{ visibility: hidden; }}
 </style>
 """
 
@@ -669,84 +915,84 @@ def _aplicar_overrides(df: pd.DataFrame) -> pd.DataFrame:
 
 def _render_sidebar():
     with st.sidebar:
+        # ── Logo ──────────────────────────────────────────
         st.markdown(f"""
         <div class="sb-logo">
           <div class="sb-logo-icon">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <!-- Cruz farmacia -->
-              <rect x="11" y="3" width="6" height="22" rx="2" fill="{AZUL}"/>
-              <rect x="3" y="11" width="22" height="6" rx="2" fill="{AZUL}"/>
-              <!-- G encima -->
-              <circle cx="19" cy="19" r="8" fill="{ROSA}"/>
-              <text x="19" y="23" text-anchor="middle" font-family="Arial" font-size="9"
-                    font-weight="900" fill="white">G</text>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="8" y="1" width="4" height="18" rx="1.5" fill="white"/>
+              <rect x="1" y="8" width="18" height="4" rx="1.5" fill="white"/>
             </svg>
           </div>
-          <div class="sb-brand-text">
-            <div class="sb-brand-name">Farmacias & Perfumerías</div>
-            <div class="sb-brand-sub">GLOBAL · Stock Ecommerce</div>
+          <div>
+            <div class="sb-brand-name">Farmacias Global</div>
+            <div class="sb-brand-sub">Stock · Operaciones</div>
           </div>
         </div>
         """, unsafe_allow_html=True)
 
         pagina_actual = st.session_state.pagina
 
-        # ── OPERACIONES
-        st.markdown('<div class="sb-section-label">OPERACIONES</div>', unsafe_allow_html=True)
-        for key, icon, label in [
-            ("dashboard",   "📊", "Dashboard"),
-            ("nuevo_cruce", "⚡", "Nuevo Cruce"),
-            ("historial",   "📋", "Historial"),
-        ]:
+        def _nav_item(key, icon, label):
             if pagina_actual == key:
-                st.markdown(f'<span class="nav-active">{icon}&nbsp;&nbsp;{label}</span>',
-                            unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="nav-active">{icon}&nbsp; {label}</div>',
+                    unsafe_allow_html=True)
             else:
                 st.button(f"{icon}  {label}", key=f"nav_{key}",
                           use_container_width=True,
                           on_click=_ir_a, args=(key,))
+
+        # ── OPERACIONES
+        st.markdown('<div class="sb-section-label">Operaciones</div>', unsafe_allow_html=True)
+        _nav_item("dashboard",   "◼", "Dashboard")
+        _nav_item("nuevo_cruce", "＋", "Nuevo Cruce")
+        _nav_item("historial",   "≡", "Historial")
 
         # ── CADETE
-        st.markdown('<div class="sb-section-label">CADETE</div>', unsafe_allow_html=True)
-        for key, icon, label in [
-            ("cadete", "🚴", "Vista Cadete"),
-        ]:
-            if pagina_actual == key:
-                st.markdown(f'<span class="nav-active">{icon}&nbsp;&nbsp;{label}</span>',
-                            unsafe_allow_html=True)
-            else:
-                st.button(f"{icon}  {label}", key=f"nav_{key}",
-                          use_container_width=True,
-                          on_click=_ir_a, args=(key,))
+        st.markdown('<div class="sb-section-label">Trabajo</div>', unsafe_allow_html=True)
+        _nav_item("cadete", "→", "Vista Cadete")
 
         # ── SISTEMA
-        st.markdown('<div class="sb-section-label">SISTEMA</div>', unsafe_allow_html=True)
-        for key, icon, label in [
-            ("configuracion", "⚙️",  "Configuración"),
-            ("ayuda",         "❓",  "Ayuda"),
-        ]:
-            if pagina_actual == key:
-                st.markdown(f'<span class="nav-active">{icon}&nbsp;&nbsp;{label}</span>',
-                            unsafe_allow_html=True)
-            else:
-                st.button(f"{icon}  {label}", key=f"nav_{key}",
-                          use_container_width=True,
-                          on_click=_ir_a, args=(key,))
+        st.markdown('<div class="sb-section-label">Sistema</div>', unsafe_allow_html=True)
+        _nav_item("configuracion", "◎", "Configuración")
+        _nav_item("ayuda",         "?", "Ayuda")
 
-        # Contador de sesión
-        if st.session_state.historial:
-            n = len(st.session_state.historial)
+        # ── Estado de sesión ───────────────────────────────
+        res = st.session_state.ultimo_resultado
+        if res:
+            df_r = st.session_state.df_ruta_editable
+            enc = sum(1 for v in st.session_state.estados_cadete.values()
+                      if v in {"Encontrado", "Mal stock - Resuelto"})
+            total = len(df_r) if df_r is not None else 0
+            pct   = int(enc / total * 100) if total > 0 else 0
+            bar_c = "#059669" if pct == 100 else "#2563EB"
             st.markdown(f"""
-            <div style="margin:20px 6px 0 6px; background:rgba(255,255,255,0.12);
-                        border-radius:8px; padding:9px 12px; font-size:0.8rem;">
-              📊 <strong>{n}</strong> cruce(s) esta sesión
+            <div style="margin:20px 8px 0 8px;padding:12px 14px;
+                        background:rgba(255,255,255,0.05);
+                        border:1px solid rgba(255,255,255,0.08);
+                        border-radius:8px;">
+              <div style="font-size:0.69rem;color:#64748B;letter-spacing:0.8px;
+                          text-transform:uppercase;font-weight:700;margin-bottom:8px">
+                Sesión activa
+              </div>
+              <div style="font-size:0.8rem;color:#CBD5E1;font-weight:500;margin-bottom:6px">
+                {res.get('filas',0)} filas · {res.get('sin_cob',0)} sin cob.
+              </div>
+              <div style="background:rgba(255,255,255,0.1);border-radius:4px;height:4px">
+                <div style="height:4px;border-radius:4px;width:{max(4,pct)}%;
+                            background:{bar_c};transition:width 0.3s"></div>
+              </div>
+              <div style="font-size:0.72rem;color:#64748B;margin-top:5px">
+                Cadete: {enc}/{total} encontrados
+              </div>
             </div>
             """, unsafe_allow_html=True)
 
         st.markdown("""
         <div style="position:absolute;bottom:14px;left:0;right:0;
-                    text-align:center;opacity:0.45;font-size:0.7rem;padding:0 10px;">
-          Operaciones Ecommerce · v1.1
+                    text-align:center;color:#334155;font-size:0.67rem;padding:0 10px;">
+          v1.2 · Global Ecommerce
         </div>
         """, unsafe_allow_html=True)
 
@@ -918,11 +1164,25 @@ def _page_dashboard(cfg):
     enc_cadete = sum(1 for v in estados_cadete.values() if v in {"Encontrado","Mal stock - Resuelto"})
 
     # ── Greeting ──────────────────────────────────────────
+    estado_operacion = "Operación activa" if res else "Sin actividad"
+    dot_color = VERDE if res else "#94A3B8"
     st.markdown(f"""
-    <div class="dash-greeting">Buen día · {dia_semana} {fecha_fmt}</div>
-    <div class="dash-sub">
-      {"Tenés una planilla activa · " + str(filas_planilla) + " filas generadas" if res
-       else "No hay planilla activa. Generá un nuevo cruce para empezar."}
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+      <div>
+        <div class="dash-greeting">Buen día, {dia_semana}</div>
+        <div class="dash-sub">{fecha_fmt} &nbsp;·&nbsp;
+          {"Planilla activa · " + str(filas_planilla) + " filas"
+           if res else "Sin planilla generada hoy"}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;
+                  background:var(--bg-card);border:1px solid var(--border);
+                  border-radius:20px;padding:6px 14px;font-size:0.78rem;
+                  font-weight:600;color:var(--text-secondary);margin-top:4px">
+        <span style="width:7px;height:7px;border-radius:50%;
+                     background:{dot_color};display:inline-block"></span>
+        {estado_operacion}
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -931,31 +1191,38 @@ def _page_dashboard(cfg):
     with c1:
         st.markdown(f"""
         <div class="kpi-card kpi-info">
+          <span class="kpi-icon">📦</span>
           <div class="kpi-label">Pedidos activos</div>
           <div class="kpi-value">{pedidos_unicos if pedidos_unicos else "—"}</div>
           <div class="kpi-detail">{filas_planilla} líneas en planilla</div>
         </div>""", unsafe_allow_html=True)
     with c2:
         cls = "kpi-crit" if sin_cobertura > 0 else "kpi-ok"
+        icn = "🔴" if sin_cobertura > 0 else "✅"
         st.markdown(f"""
         <div class="kpi-card {cls}">
+          <span class="kpi-icon">{icn}</span>
           <div class="kpi-label">Sin cobertura</div>
           <div class="kpi-value">{sin_cobertura if res else "—"}</div>
-          <div class="kpi-detail">{"Requieren gestión manual" if sin_cobertura > 0 else "Todo cubierto"}</div>
+          <div class="kpi-detail">{"Requieren gestión manual" if sin_cobertura > 0 else "Todos cubiertos"}</div>
         </div>""", unsafe_allow_html=True)
     with c3:
         cls = "kpi-warn" if stock_sosp > 0 else "kpi-ok"
+        icn = "⚠️" if stock_sosp > 0 else "✅"
         st.markdown(f"""
         <div class="kpi-card {cls}">
-          <div class="kpi-label">Stock sospechoso</div>
+          <span class="kpi-icon">{icn}</span>
+          <div class="kpi-label">Stock a verificar</div>
           <div class="kpi-value">{stock_sosp if res else "—"}</div>
           <div class="kpi-detail">{"Verificar antes de enviar" if stock_sosp > 0 else "Sin alertas"}</div>
         </div>""", unsafe_allow_html=True)
     with c4:
-        cls = "kpi-ok" if enc_cadete > 0 else "kpi-info"
+        cls = "kpi-ok" if enc_cadete >= filas_planilla > 0 else ("kpi-info" if enc_cadete > 0 else "kpi-info")
+        icn = "✅" if (enc_cadete >= filas_planilla > 0) else "🚴"
         st.markdown(f"""
         <div class="kpi-card {cls}">
-          <div class="kpi-label">Encontrados (cadete)</div>
+          <span class="kpi-icon">{icn}</span>
+          <div class="kpi-label">Cadete — encontrados</div>
           <div class="kpi-value">{enc_cadete if estados_cadete else "—"}</div>
           <div class="kpi-detail">{"de " + str(filas_planilla) + " asignados" if filas_planilla else "Sin actividad"}</div>
         </div>""", unsafe_allow_html=True)
@@ -1053,10 +1320,10 @@ def _page_dashboard(cfg):
         # ── Último cruce ───────────────────────────────────
         if hist:
             ultimo = hist[0]
-            badge_cob = (f'<span style="color:#C62828;font-weight:700">'
+            badge_cob = (f'<span style="color:#BE123C;font-weight:700">'
                          f'⚠️ {ultimo["sin_cob"]} sin cobertura</span>'
                          if ultimo["sin_cob"] > 0
-                         else '<span style="color:#2E7D32;font-weight:700">✅ Completo</span>')
+                         else '<span style="color:#059669;font-weight:700">✅ Completo</span>')
             st.markdown(f"""
             <div class="dash-section-title">Último cruce generado</div>
             <div class="dash-ultimo-cruce">
@@ -1095,10 +1362,24 @@ def _page_nuevo_cruce(cfg):
     # ── Resultado anterior visible ─────────────────────────
     res = st.session_state.ultimo_resultado
     if res:
+        sin_cob = res["sin_cob"]
+        banner_bg = f"background:linear-gradient(135deg,{AZUL} 0%,{AZUL_OSCURO} 100%)"
+        if sin_cob > 0:
+            banner_bg = f"background:linear-gradient(135deg,#B45309 0%,#92400E 100%)"
         st.markdown(f"""
-        <div class="result-banner">
-          <strong>✅ Último cruce generado · {res['hora']}</strong><br>
-          <span style="opacity:0.85;font-size:0.86rem">{res['filename']}</span>
+        <div class="result-banner" style="{banner_bg}">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-weight:700;font-size:0.95rem;margin-bottom:3px">
+                {"⚠️ Cruce con productos sin cobertura" if sin_cob > 0 else "✅ Planilla generada correctamente"}
+              </div>
+              <div style="opacity:0.8;font-size:0.8rem">{res['hora']} &nbsp;·&nbsp; {res['filename']}</div>
+            </div>
+            <div style="text-align:right;font-size:0.8rem;opacity:0.85">
+              {res['filas']} filas &nbsp;·&nbsp;
+              {"<strong>" + str(sin_cob) + " sin cobertura</strong>" if sin_cob > 0 else "Todo cubierto"}
+            </div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -1125,35 +1406,10 @@ def _page_nuevo_cruce(cfg):
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Toggle de vista ────────────────────────────────
-        st.markdown('<p class="sec-label">👁️ Vista de la planilla</p>', unsafe_allow_html=True)
-        col_v1, col_v2, _ = st.columns([1, 1, 3])
-        with col_v1:
-            if st.button("📦  Por pedido",
-                         type="primary" if st.session_state.vista_planilla == "pedido" else "secondary",
-                         use_container_width=True,
-                         help="Agrupa todos los productos del mismo pedido juntos"):
-                st.session_state.vista_planilla = "pedido"
-        with col_v2:
-            if st.button("🗺️  Ruta cadete",
-                         type="primary" if st.session_state.vista_planilla == "ruta" else "secondary",
-                         use_container_width=True,
-                         help="Agrupa por sucursal para minimizar paradas"):
-                st.session_state.vista_planilla = "ruta"
-
-        # ── Aplicar overrides y ordenamiento ──────────────
+        # ── Aplicar overrides ──────────────────────────────
         from src.optimizer import ordenar_por_pedido, ordenar_por_ruta
         df_con_overrides = _aplicar_overrides(df_editable) if df_editable is not None \
                            else res.get("df_ruta", pd.DataFrame())
-
-        if st.session_state.vista_planilla == "ruta":
-            df_final = ordenar_por_ruta(df_con_overrides)
-            st.caption("🗺️ **Vista Ruta:** ordenado por sucursal → N° pedido. "
-                       "El cadete va a una sucursal y busca todos los productos de una vez.")
-        else:
-            df_final = ordenar_por_pedido(df_con_overrides)
-            st.caption("📦 **Vista Pedido:** ordenado por N° pedido → zona. "
-                       "Todos los productos de un mismo pedido aparecen juntos.")
 
         # ── Cambio manual de sucursal ──────────────────────
         if df_editable is not None and not df_editable.empty:
@@ -1245,7 +1501,8 @@ def _page_nuevo_cruce(cfg):
                     f"el Excel refleja esos cambios.")
 
         # ── Botón descarga ─────────────────────────────────
-        excel_dl = _excel_a_bytes(df_final, res["df_sin_stock"], cfg["estados_busqueda"])
+        df_export = ordenar_por_pedido(df_con_overrides)
+        excel_dl = _excel_a_bytes(df_export, res["df_sin_stock"], cfg["estados_busqueda"])
         st.download_button(
             label="📥  Descargar Planilla Excel",
             data=excel_dl,
@@ -1254,15 +1511,23 @@ def _page_nuevo_cruce(cfg):
             use_container_width=True,
         )
 
-        # ── Vista previa ───────────────────────────────────
-        if not df_final.empty:
+        # ── Vista previa con tabs ─────────────────────────
+        if not df_con_overrides.empty:
             st.markdown('<p class="sec-label">📋 Planilla Cadete</p>', unsafe_allow_html=True)
             col_flt, _ = st.columns([2, 3])
             with col_flt:
                 filtro_txt = st.text_input(
                     "Buscar", placeholder="🔍 Filtrar por pedido, producto o farmacia…",
                     label_visibility="collapsed", key="filtro_tabla")
-            _render_tabla_mejorada(df_final, filtro=filtro_txt)
+
+            tab_ped, tab_ruta = st.tabs(["📦  Por pedido", "🗺️  Ruta cadete"])
+            with tab_ped:
+                st.caption("📦 **Por pedido:** todos los productos del mismo N° pedido juntos. "
+                           "Útil para verificar que un pedido queda completo.")
+                _render_tabla_mejorada(ordenar_por_pedido(df_con_overrides), filtro=filtro_txt)
+            with tab_ruta:
+                st.caption("🗺️ **Ruta cadete:** agrupado por sucursal para minimizar paradas.")
+                _render_tabla_mejorada(ordenar_por_ruta(df_con_overrides), filtro=filtro_txt)
 
         if not res["df_sin_stock"].empty:
             st.markdown('<p class="sec-label">⚠️ Productos sin cobertura</p>',
@@ -1447,14 +1712,14 @@ def _page_historial():
         badge = (f'<span style="background:#FFF3E0;color:#E65100;border-radius:10px;'
                  f'padding:2px 8px;font-size:0.75rem;">⚠️ {item["sin_cob"]} sin cob.</span>'
                  if item["sin_cob"] > 0
-                 else '<span style="background:#E8F5E9;color:#2E7D32;border-radius:10px;'
+                 else '<span style="background:#F0FDF4;color:#059669;border-radius:10px;'
                       'padding:2px 8px;font-size:0.75rem;">✅ Completo</span>')
 
         st.markdown(f"""
         <div class="hist-row">
           <span class="hc-id">{item["id"]}</span>
           <span class="hc-name">
-            <strong style="color:{AZUL_OSCURO}">{item["pedidos"]}</strong><br>
+            <strong style="color:var(--text-primary)">{item["pedidos"]}</strong><br>
             <span style="color:#999;font-size:0.78rem">{item["stock"]}</span>
           </span>
           <span class="hc-hora">{item["hora"]}</span>
@@ -1809,24 +2074,28 @@ def _page_cadete(cfg):
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Descarga y reset ───────────────────────────────────
-    col_dl, col_reset = st.columns([4, 1])
+    # ── CSS para espacio libre sobre la barra fija ─────────
+    st.markdown("<style>.block-container{padding-bottom:72px!important}</style>",
+                unsafe_allow_html=True)
+
+    # ── Acciones: descarga y reset ─────────────────────────
+    res_data = st.session_state.ultimo_resultado
+    col_dl, col_reset = st.columns([5, 1])
     with col_dl:
-        res_data = st.session_state.ultimo_resultado
         if res_data:
             excel_bytes = _excel_a_bytes(df, res_data["df_sin_stock"], estados_opciones)
             st.download_button(
-                label="📥  Descargar Excel con estados actualizados",
+                label="📥  Descargar Excel actualizado",
                 data=excel_bytes,
                 file_name=res_data.get("filename", "planilla_cadete.xlsx"),
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
     with col_reset:
-        if st.button("↩️", use_container_width=True, help="Resetear todos los estados"):
+        if st.button("↩️ Reset", use_container_width=True, help="Resetear todos los estados"):
             st.session_state.estados_cadete = {}
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
     # ── Farmacias en orden de ruta ─────────────────────────
     todas_farmacias = list(df["Farmacia"].unique()) if "Farmacia" in df.columns else []
@@ -1848,7 +2117,7 @@ def _page_cadete(cfg):
             zona_cls = "zona-4"
 
         # Header con color según si está completa
-        hdr_bg = "#2E7D32" if farm_lista else ("#C62828" if es_sin_cob else AZUL)
+        hdr_bg = "#059669" if farm_lista else ("#BE123C" if es_sin_cob else AZUL)
         check_icon = "✅" if farm_lista else "🏪"
         pct_farm = int(enc_farm / total_farm * 100) if total_farm > 0 else 0
 
@@ -1870,7 +2139,7 @@ def _page_cadete(cfg):
                 st.markdown(f"""
                 <div class="cadete-item" style="display:flex;justify-content:space-between;align-items:center">
                   <div>
-                    <div class="cadete-producto" style="color:#C62828">{prod}</div>
+                    <div class="cadete-producto" style="color:#BE123C">{prod}</div>
                     <div class="cadete-meta">
                       {"Pedido: <strong>#" + ped + "</strong> &nbsp;" if ped not in ("","nan","None") else ""}
                       <span class="cadete-qty">× {uds}</span>
@@ -1897,11 +2166,11 @@ def _page_cadete(cfg):
 
             # Fondo según estado
             if encontrado:
-                item_bg = "#E8F5E9" if True else "#0D3320"
-                prod_style = "color:#2E7D32;text-decoration:line-through"
+                item_bg = "#F0FDF4"
+                prod_style = "color:#059669;text-decoration:line-through"
             elif sin_stock_it:
                 item_bg = "#FFF8E1"
-                prod_style = "color:#F57F17"
+                prod_style = "color:#B45309"
             else:
                 item_bg = "var(--bg-card)"
                 prod_style = "color:var(--text-primary)"
@@ -1909,7 +2178,7 @@ def _page_cadete(cfg):
             # Alertas inline
             alertas_html = ""
             if sosp:
-                alertas_html += '<div style="background:#FFF8E1;border-left:3px solid #F57F17;padding:4px 8px;border-radius:4px;font-size:0.78rem;margin-top:4px">⚠️ Stock sospechoso — verificar con la sucursal</div>'
+                alertas_html += '<div style="background:#FFFBEB;border-left:3px solid #D97706;padding:5px 10px;border-radius:5px;font-size:0.77rem;margin-top:6px;color:#92400E;font-weight:500">⚠️ Stock sospechoso — verificar con la sucursal</div>'
             if zona_r:
                 alertas_html += '<div style="background:#FFF3E0;border-left:3px solid #E65100;padding:4px 8px;border-radius:4px;font-size:0.78rem;margin-top:4px">📞 Sucursal remota — llamar antes de ir</div>'
 
@@ -1977,6 +2246,23 @@ def _page_cadete(cfg):
                 st.success(f"✅ Farmacia completa — siguiente: **{proxima}**")
 
         st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── Barra inferior fija ────────────────────────────────
+    bar_fill  = max(3, pct)
+    bar_color = VERDE if pct == 100 else (AZUL if pct > 0 else "#94A3B8")
+    icono_bar = "✅" if pct == 100 else "🚴"
+    st.markdown(f"""
+    <div class="cadete-sticky-bar">
+      <span class="cadete-sticky-stat">
+        {icono_bar}&nbsp; {encontrados}/{total} productos
+      </span>
+      <div class="cadete-sticky-bar-bg">
+        <div class="cadete-sticky-bar-fill"
+             style="width:{bar_fill}%;background:{bar_color}"></div>
+      </div>
+      <span class="cadete-sticky-pct" style="color:{bar_color}">{pct}%</span>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
