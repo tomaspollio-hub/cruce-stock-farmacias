@@ -128,12 +128,14 @@ optimizacion:
 
 # ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
 estados_busqueda:
-  - "Búsqueda"
-  - "Encontrado"
-  - "Mal stock"
-  - "Llamar a suc"
+  - "Búsqueda"          # estado inicial asignado por el sistema
+  - "Encontrado"        # cadete lo encontró y retiró
+  - "Mal stock"         # sucursal no tenía lo indicado
+  - "No encontrado"     # no existe en la sucursal
+  - "Requiere revisión" # dudoso, necesita confirmación
+  - "Llamar a suc"      # sucursal remota, llamar antes
   - "Mal stock - Resuelto"
-  - "Llamar cliente"
+  - "Llamar cliente"    # sin stock, avisar al cliente
 
 # ── NORMALIZACIÓN GTIN ──────────────────────────────────────
 gtin:
