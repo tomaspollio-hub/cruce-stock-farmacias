@@ -129,17 +129,26 @@ def _ir_a(pagina: str):
     st.session_state.pagina = pagina
 
 
-def _agregar_historial(nombre_ped, nombre_stk, filas, sin_cob, excel_bytes, filename):
+def _agregar_historial(
+    nombre_ped,
+    nombre_stk,
+    filas,
+    sin_cob,
+    excel_bytes,
+    filename,
+    analytics: dict | None = None,
+):
     n = len(st.session_state.historial) + 1
     st.session_state.historial.insert(0, {
-        "id":       f"C{n:03d}",
-        "pedidos":  nombre_ped,
-        "stock":    nombre_stk,
-        "hora":     datetime.now().strftime("%H:%M  %d/%m/%y"),
-        "filas":    filas,
-        "sin_cob":  sin_cob,
-        "bytes":    excel_bytes,
-        "filename": filename,
+        "id":        f"C{n:03d}",
+        "pedidos":   nombre_ped,
+        "stock":     nombre_stk,
+        "hora":      datetime.now().strftime("%H:%M  %d/%m/%y"),
+        "filas":     filas,
+        "sin_cob":   sin_cob,
+        "bytes":     excel_bytes,
+        "filename":  filename,
+        "analytics": analytics or {},
     })
 
 

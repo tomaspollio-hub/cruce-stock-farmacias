@@ -118,6 +118,7 @@ def _render_sidebar():
         _nav_item("dashboard",   "◼", "Dashboard")
         _nav_item("nuevo_cruce", "＋", "Nuevo Cruce")
         _nav_item("historial",   "≡", "Historial")
+        _nav_item("analitica",   "▲", "Analítica")
 
         # ── CADETE
         st.markdown('<div class="sb-section-label">Trabajo</div>', unsafe_allow_html=True)
@@ -1158,8 +1159,16 @@ def _page_nuevo_cruce(cfg):
     st.session_state.mapa_stock_guardado = mapa_stock
     st.session_state.overrides           = {}  # limpiar overrides del cruce anterior
 
+    from src.services.analytics import extraer_snapshot
+    _snap = extraer_snapshot(
+        df_ruta            = df_ruta,
+        df_sin_stock       = df_sin_stock,
+        resultado_matching = st.session_state.get("resultado_matching"),
+        pedidos_unicos     = pedidos_unicos,
+    )
     _agregar_historial(archivo_pedidos.name, archivo_stock.name,
-                       len(df_ruta), len(df_sin_stock), excel_bytes, filename)
+                       len(df_ruta), len(df_sin_stock), excel_bytes, filename,
+                       analytics=_snap)
 
     # ── Resumen de matching ──────────────────────────────────
     rm = st.session_state.get("resultado_matching")
@@ -1353,6 +1362,216 @@ def _page_historial():
             st.session_state.ultimo_resultado = None
             st.session_state.overrides = {}
             st.session_state.estados_cadete = {}
+
+
+# ════════════════════════════════════════════════════════════
+#  PÁGINA: ANALÍTICA
+# ════════════════════════════════════════════════════════════
+
+def _page_analitica():
+    from src.services.analytics import (
+        agregar_historial,
+        top_productos_problematicos,
+        top_sucursales_carga,
+        tendencia_cobertura,
+    )
+
+    items = st.session_state.historial
+    items_con_analytics = [i for i in items if i.get("analytics")]
+
+    st.markdown(f"""
+    <div class="page-hdr">
+      <div>
+        <p class="page-title">📊 Analítica Operativa</p>
+        <p class="page-sub">Patrones detectados en los cruces de esta sesión</p>
+      </div>
+      <span class="badge-azul">{len(items_con_analytics)} cruce(s)</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not items_con_analytics:
+        st.info(
+            "Todavía no hay datos para analizar. "
+            "Generá al menos un cruce para ver las métricas."
+        )
+        if st.button("⚡ Ir a Nuevo Cruce", on_click=_ir_a, args=("nuevo_cruce",)):
+            pass
+        return
+
+    # ── KPIs globales ─────────────────────────────────────────
+    agg = agregar_historial(items_con_analytics)
+    pct_avg = agg.get("pct_cobertura_avg", 0)
+    color_pct = VERDE if pct_avg >= 90 else (AMARILLO if pct_avg >= 70 else ROSA)
+
+    st.markdown('<p class="sec-label">Resumen de la sesión</p>', unsafe_allow_html=True)
+    k1, k2, k3, k4 = st.columns(4)
+
+    k1.markdown(f"""
+    <div class="kpi-card">
+      <div class="kpi-label">Cruces realizados</div>
+      <div class="kpi-value" style="color:{AZUL}">{agg['total_cruces']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k2.markdown(f"""
+    <div class="kpi-card">
+      <div class="kpi-label">Cobertura promedio</div>
+      <div class="kpi-value" style="color:{color_pct}">{pct_avg}%</div>
+      <div class="kpi-detail">min {agg['pct_cobertura_min']}% · max {agg['pct_cobertura_max']}%</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k3.markdown(f"""
+    <div class="kpi-card">
+      <div class="kpi-label">Sin cobertura acumulado</div>
+      <div class="kpi-value" style="color:{ROSA if agg['sin_cob_acum'] > 0 else VERDE}">
+        {agg['sin_cob_acum']}
+      </div>
+      <div class="kpi-detail">líneas sin stock</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    k4.markdown(f"""
+    <div class="kpi-card">
+      <div class="kpi-label">Mejor cruce</div>
+      <div class="kpi-value" style="color:{VERDE}">{agg['mejor_cruce_id']}</div>
+      <div class="kpi-detail">{agg['mejor_cruce_pct']}% cobertura</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # ── Tendencia de cobertura ────────────────────────────────
+    if len(items_con_analytics) > 1:
+        st.markdown('<p class="sec-label">Tendencia de cobertura</p>', unsafe_allow_html=True)
+        tendencia = tendencia_cobertura(items_con_analytics)
+        max_pct = max((t["pct"] for t in tendencia), default=100) or 100
+        for t in tendencia:
+            pct_t  = t["pct"]
+            bar_w  = max(4, int(pct_t / max_pct * 100))
+            c_bar  = VERDE if pct_t >= 90 else (AMARILLO if pct_t >= 70 else ROSA)
+            sin_badge = (
+                f'<span style="background:{ROSA}22;color:{ROSA};'
+                f'border-radius:10px;padding:1px 7px;font-size:0.72rem;margin-left:6px">'
+                f'⚠️ {t["sin_cob"]} sin cob.</span>'
+            ) if t["sin_cob"] > 0 else ""
+            st.markdown(f"""
+            <div style="display:flex;align-items:center;gap:10px;
+                        margin-bottom:6px;font-size:0.82rem">
+              <span style="color:var(--text-muted);width:38px;
+                           text-align:right;flex-shrink:0">{t['id']}</span>
+              <div style="flex:1;background:var(--border);border-radius:4px;height:10px">
+                <div style="width:{bar_w}%;background:{c_bar};
+                            border-radius:4px;height:10px"></div>
+              </div>
+              <span style="font-weight:600;width:38px;color:{c_bar}">{pct_t}%</span>
+              <span style="color:var(--text-muted);font-size:0.75rem;
+                           width:120px;flex-shrink:0">{t['hora']}</span>
+              {sin_badge}
+            </div>
+            """, unsafe_allow_html=True)
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── Productos problemáticos + Sucursales ──────────────────
+    col_prod, col_sucs = st.columns(2)
+
+    with col_prod:
+        st.markdown('<p class="sec-label">Productos sin cobertura frecuentes</p>',
+                    unsafe_allow_html=True)
+        prods = top_productos_problematicos(items_con_analytics, top_n=10)
+        if prods:
+            max_v = prods[0]["veces"]
+            for i, p in enumerate(prods):
+                bar_w = max(6, int(p["veces"] / max_v * 100))
+                rank_color = ROSA if i < 3 else AMARILLO if i < 6 else "var(--text-muted)"
+                st.markdown(f"""
+                <div style="margin-bottom:6px">
+                  <div style="display:flex;align-items:center;
+                              justify-content:space-between;margin-bottom:2px">
+                    <span style="font-size:0.8rem;color:var(--text);
+                                 flex:1;min-width:0;overflow:hidden;
+                                 text-overflow:ellipsis;white-space:nowrap"
+                          title="{p['producto']}">{p['producto'][:40]}</span>
+                    <span style="font-size:0.75rem;font-weight:700;
+                                 color:{rank_color};margin-left:8px;
+                                 flex-shrink:0">{p['veces']}×</span>
+                  </div>
+                  <div style="background:var(--border);border-radius:3px;height:5px">
+                    <div style="width:{bar_w}%;background:{rank_color};
+                                border-radius:3px;height:5px"></div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<p style="color:var(--text-muted);font-size:0.82rem">'
+                '✅ Sin faltantes registrados.</p>',
+                unsafe_allow_html=True,
+            )
+
+    with col_sucs:
+        st.markdown('<p class="sec-label">Sucursales con más carga</p>',
+                    unsafe_allow_html=True)
+        sucs = top_sucursales_carga(items_con_analytics, top_n=10)
+        if sucs:
+            max_l = sucs[0]["lineas"]
+            for i, s in enumerate(sucs):
+                bar_w = max(6, int(s["lineas"] / max_l * 100))
+                c_bar = AZUL if i < 3 else AZUL_CLARO
+                st.markdown(f"""
+                <div style="margin-bottom:6px">
+                  <div style="display:flex;align-items:center;
+                              justify-content:space-between;margin-bottom:2px">
+                    <span style="font-size:0.8rem;color:var(--text);
+                                 flex:1;min-width:0;overflow:hidden;
+                                 text-overflow:ellipsis;white-space:nowrap"
+                          title="{s['sucursal']}">{s['sucursal'][:38]}</span>
+                    <span style="font-size:0.75rem;font-weight:700;
+                                 color:{c_bar};margin-left:8px;
+                                 flex-shrink:0">{s['lineas']} líns.</span>
+                  </div>
+                  <div style="background:var(--border);border-radius:3px;height:5px">
+                    <div style="width:{bar_w}%;background:{c_bar};
+                                border-radius:3px;height:5px"></div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown(
+                '<p style="color:var(--text-muted);font-size:0.82rem">'
+                'Sin datos de sucursales.</p>',
+                unsafe_allow_html=True,
+            )
+
+    # ── Detalle por cruce (expandible) ────────────────────────
+    st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
+    with st.expander("Ver detalle por cruce"):
+        for item in items_con_analytics:
+            snap = item.get("analytics", {})
+            pct_i = snap.get("pct_cobertura", 0)
+            c_i   = VERDE if pct_i >= 90 else (AMARILLO if pct_i >= 70 else ROSA)
+            n_sin = len(snap.get("productos_sin_cob", []))
+            multi = snap.get("pedidos_multisucursal", 0)
+            st.markdown(f"""
+            <div style="border-left:3px solid {c_i};padding:8px 12px;
+                        margin-bottom:8px;background:var(--card-bg);border-radius:4px">
+              <div style="display:flex;align-items:center;
+                          justify-content:space-between;margin-bottom:4px">
+                <span style="font-weight:700;font-size:0.85rem">{item['id']}
+                  &nbsp;·&nbsp;
+                  <span style="color:{c_i}">{pct_i}% cobertura</span>
+                </span>
+                <span style="font-size:0.75rem;color:var(--text-muted)">{item['hora']}</span>
+              </div>
+              <div style="font-size:0.77rem;color:var(--text-muted);
+                          display:flex;gap:16px;flex-wrap:wrap">
+                <span>📦 {snap.get('pedidos_unicos','—')} pedidos</span>
+                <span>🏪 {snap.get('n_sucursales','—')} sucursales</span>
+                <span>{'⚠️ ' + str(n_sin) + ' sin cob.' if n_sin else '✅ Sin faltantes'}</span>
+                {'<span>🔀 ' + str(multi) + ' pedidos multi-sucursal</span>' if multi else ''}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
@@ -1980,6 +2199,7 @@ def main():
     if   pagina == "dashboard":      _page_dashboard(cfg)
     elif pagina == "nuevo_cruce":    _page_nuevo_cruce(cfg)
     elif pagina == "historial":      _page_historial()
+    elif pagina == "analitica":      _page_analitica()
     elif pagina == "cadete":         _page_cadete(cfg)
     elif pagina == "configuracion":  _page_configuracion(cfg)
     elif pagina == "ayuda":          _page_ayuda()
