@@ -2060,8 +2060,10 @@ def _page_cadete(cfg):
             with st.container():
                 st.markdown(
                     f'<div style="border-left:4px solid {border_c};'
-                    f'background:var(--card-bg);border-radius:8px;'
-                    f'padding:10px 12px 6px;margin-bottom:2px">',
+                    f'border:1px solid var(--border);border-left:4px solid {border_c};'
+                    f'background:var(--card-bg);border-radius:10px;'
+                    f'padding:12px 14px 8px;margin-bottom:14px;'
+                    f'box-shadow:0 2px 8px rgba(0,0,0,0.18)">',
                     unsafe_allow_html=True,
                 )
 
