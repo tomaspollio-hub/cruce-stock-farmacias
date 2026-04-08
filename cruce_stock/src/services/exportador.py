@@ -27,6 +27,7 @@ def excel_a_bytes(
     estados_busqueda: list,
     estados_cadete: dict | None = None,
     gestor_estados=None,
+    observaciones_cadete: dict | None = None,
 ) -> bytes:
     """
     Genera el archivo Excel y devuelve sus bytes.
@@ -52,6 +53,12 @@ def excel_a_bytes(
     # Enriquecer con trazabilidad del GestorEstados si está disponible
     if gestor_estados is not None:
         _enriquecer_con_gestor(df_exp, gestor_estados)
+
+    # Agregar columna de observaciones del cadete
+    if observaciones_cadete:
+        df_exp["Observación cadete"] = [
+            observaciones_cadete.get(i, "") for i in df_exp.index
+        ]
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         path_tmp = tmp.name

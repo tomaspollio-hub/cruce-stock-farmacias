@@ -107,6 +107,7 @@ def _init_session():
         "vista_planilla":      "pedido",   # "pedido" | "ruta"
         "estados_cadete":      {},         # {row_idx → estado actualizado por el cadete}
         "gestor_estados":      None,       # GestorEstados activo (se crea al generar planilla)
+        "observaciones_cadete":{},         # {row_idx → str} observaciones registradas por el cadete
     }
     for k, v in defaults.items():
         if k not in st.session_state:
