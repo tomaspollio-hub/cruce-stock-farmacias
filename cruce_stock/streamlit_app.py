@@ -1774,6 +1774,43 @@ def _page_ayuda():
 
 
 # ════════════════════════════════════════════════════════════
+#  IMAGEN DE PRODUCTO — Open Food Facts / Open Beauty Facts
+# ════════════════════════════════════════════════════════════
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _imagen_producto(gtin_raw: str) -> str | None:
+    """
+    Busca la imagen frontal del producto en Open Food Facts (o Open Beauty Facts)
+    usando el GTIN/EAN. Resultado cacheado 24 h para no repetir llamadas.
+    Retorna la URL de la imagen o None si no se encuentra.
+    """
+    if not gtin_raw or gtin_raw in ("nan", "None", ""):
+        return None
+    # Si hay múltiples GTINs separados por coma, usar solo el primero
+    gtin = gtin_raw.split(",")[0].strip()
+    if not gtin:
+        return None
+    try:
+        import urllib.request, json as _json
+        for base in (
+            "https://world.openfoodfacts.org",
+            "https://world.openbeautyfacts.org",
+        ):
+            url = f"{base}/api/v2/product/{gtin}?fields=image_front_url,image_url"
+            req = urllib.request.Request(url, headers={"User-Agent": "GlobalFarmacias/1.0"})
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                data = _json.loads(resp.read().decode())
+            if data.get("status") == 1:
+                prod = data.get("product", {})
+                img = prod.get("image_front_url") or prod.get("image_url")
+                if img:
+                    return img
+    except Exception:
+        pass
+    return None
+
+
+# ════════════════════════════════════════════════════════════
 #  PÁGINA: VISTA CADETE
 # ════════════════════════════════════════════════════════════
 
@@ -1991,64 +2028,106 @@ def _page_cadete(cfg):
             producto  = str(row.get("Producto", ""))[:60]
             variante  = str(row.get("Tipo / Variante", "") or "")
             nro_ped   = str(row.get("N° Pedido", "") or "")
+            fecha_ped = str(row.get("Fecha Pedido", "") or "")
+            hora_ped  = str(row.get("Hora Pedido",  "") or "")
             cantidad  = row.get("Unidades a buscar", row.get("Cantidad pedida", "?"))
             gtin_raw  = str(row.get("GTIN", "") or "")
             zetti_id  = str(row.get("Zetti (ID)", "") or "")
             gtin_key  = str(row.get("_gtin_key", gtin_raw or zetti_id) or "")
             sosp      = row.get("⚠️ Stock", "") == "⚠️ Verificar"
             zona_r    = zona_label == "Remota"
-            estado_og = str(row.get("Estado de búsqueda", "Búsqueda"))
+            estado_og  = str(row.get("Estado de búsqueda", "Búsqueda"))
             estado_act = estados_actuales.get(idx, estado_og)
             encontrado = estado_act in ENC_SET
             problema   = estado_act in {"Mal stock", "No encontrado", "Llamar cliente"}
-
-            # Fondo por estado
-            if encontrado:
-                item_bg    = "#F0FDF4"; prod_style = "color:#059669;text-decoration:line-through"
-            elif problema:
-                item_bg    = "#FFF8E1"; prod_style = "color:#B45309"
-            elif estado_act in {"Requiere revisión", "En revisión"}:
-                item_bg    = "#FFFBEB"; prod_style = "color:#92400E"
-            else:
-                item_bg    = "var(--bg-card)"; prod_style = "color:var(--text-primary)"
-
-            # Chips de código
-            chips = ""
-            if gtin_raw and gtin_raw not in ("nan", "None", ""):
-                chips += f'<span class="cadete-codigo-chip">GTIN {gtin_raw[:20]}</span>'
-            if zetti_id and zetti_id not in ("nan", "None", ""):
-                chips += f'<span class="cadete-codigo-chip">Z: {zetti_id}</span>'
-            if nro_ped and nro_ped not in ("", "nan", "None"):
-                chips += f'<span class="cadete-codigo-chip">Ped. #{nro_ped}</span>'
-
-            alertas_html = ""
-            if sosp:
-                alertas_html += '<div class="cadete-alerta-warn">⚠️ Stock sospechoso — verificar cantidad</div>'
-            if zona_r:
-                alertas_html += '<div class="cadete-alerta-info">📞 Sucursal remota — llamar antes de ir</div>'
-
             obs_guardada = obs_cadete.get(idx, "")
 
-            st.markdown(f"""
-            <div class="cadete-item" style="background:{item_bg}">
-              <div style="display:flex;justify-content:space-between;
-                          align-items:flex-start;gap:10px">
-                <div style="flex:1;min-width:0">
-                  <div class="cadete-producto" style="{prod_style}">{producto}</div>
-                  {"<div class='cadete-variante'>" + variante + "</div>"
-                    if variante and variante not in ("nan","None","") else ""}
-                  <div class="cadete-codigos">
-                    <span class="cadete-qty">× {cantidad}</span>
-                    {"&nbsp;" + chips if chips else ""}
-                  </div>
-                  {alertas_html}
-                  {"<div style='font-size:0.78rem;color:#64748B;margin-top:3px'>💬 " + obs_guardada + "</div>"
-                    if obs_guardada and encontrado else ""}
-                </div>
-                <div style="flex-shrink:0;padding-top:2px">{_badge_estado(estado_act)}</div>
-              </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Colores por estado
+            if encontrado:
+                border_c = VERDE
+                name_style = f"font-size:1rem;font-weight:700;color:{VERDE};text-decoration:line-through;margin:0"
+            elif problema:
+                border_c = AMARILLO
+                name_style = "font-size:1rem;font-weight:700;color:#B45309;margin:0"
+            elif estado_act in {"Requiere revisión", "En revisión"}:
+                border_c = AMARILLO
+                name_style = "font-size:1rem;font-weight:700;color:#92400E;margin:0"
+            else:
+                border_c = "var(--border)"
+                name_style = "font-size:1rem;font-weight:700;color:var(--text-primary);margin:0"
+
+            # ── Card container ─────────────────────────────
+            with st.container():
+                st.markdown(
+                    f'<div style="border-left:4px solid {border_c};'
+                    f'background:var(--card-bg);border-radius:8px;'
+                    f'padding:10px 12px 6px;margin-bottom:2px">',
+                    unsafe_allow_html=True,
+                )
+
+                # Fila 1: imagen + nombre + badge
+                col_img, col_info = st.columns([1, 7])
+                with col_img:
+                    img_url = _imagen_producto(gtin_raw)
+                    if img_url:
+                        st.image(img_url, width=62)
+                    else:
+                        st.markdown(
+                            '<div style="width:62px;height:62px;border-radius:6px;'
+                            'background:var(--border);display:flex;align-items:center;'
+                            'justify-content:center;font-size:1.6rem">💊</div>',
+                            unsafe_allow_html=True,
+                        )
+                with col_info:
+                    # Nombre + badge en la misma fila
+                    badge = _badge_estado(estado_act)
+                    st.markdown(
+                        f'<div style="display:flex;justify-content:space-between;'
+                        f'align-items:flex-start;gap:8px">'
+                        f'<p style="{name_style}">{producto}</p>'
+                        f'<div style="flex-shrink:0">{badge}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                    # Variante
+                    if variante and variante not in ("nan", "None", ""):
+                        st.markdown(
+                            f'<p style="margin:0 0 4px;font-size:0.78rem;'
+                            f'color:var(--text-muted)">{variante}</p>',
+                            unsafe_allow_html=True,
+                        )
+                    # Cantidad + códigos
+                    chip_parts = [f'<span class="cadete-qty">× {cantidad}</span>']
+                    if nro_ped and nro_ped not in ("", "nan", "None"):
+                        chip_parts.append(f'<span class="cadete-codigo-chip">Ped. #{nro_ped}</span>')
+                    if gtin_raw and gtin_raw not in ("nan", "None", ""):
+                        chip_parts.append(f'<span class="cadete-codigo-chip">GTIN {gtin_raw[:22]}</span>')
+                    if zetti_id and zetti_id not in ("nan", "None", ""):
+                        chip_parts.append(f'<span class="cadete-codigo-chip">SKU {zetti_id}</span>')
+                    if fecha_ped and fecha_ped not in ("", "nan", "None"):
+                        hora_txt = f" {hora_ped}" if hora_ped and hora_ped not in ("", "nan", "None") else ""
+                        chip_parts.append(f'<span class="cadete-codigo-chip">📅 {fecha_ped}{hora_txt}</span>')
+                    st.markdown(
+                        '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'
+                        + " ".join(chip_parts) + "</div>",
+                        unsafe_allow_html=True,
+                    )
+                    # Alertas
+                    if sosp:
+                        st.markdown(
+                            '<div class="cadete-alerta-warn">⚠️ Stock sospechoso — verificar cantidad</div>',
+                            unsafe_allow_html=True,
+                        )
+                    if zona_r:
+                        st.markdown(
+                            '<div class="cadete-alerta-info">📞 Sucursal remota — llamar antes de ir</div>',
+                            unsafe_allow_html=True,
+                        )
+                    # Observación guardada (estado encontrado)
+                    if obs_guardada and encontrado:
+                        st.caption(f"💬 {obs_guardada}")
+
+                st.markdown("</div>", unsafe_allow_html=True)
 
             # ── Controles por estado ───────────────────────
             if encontrado:

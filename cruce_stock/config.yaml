@@ -7,7 +7,11 @@
 pedidos:
   # Nombres posibles de cada columna (en cualquier capitalización)
   col_nro_pedido: ["n° pedido", "nro pedido", "numero pedido", "numero de pedido",
-                   "order", "pedido", "identificador", "id pedido", "n pedido"]
+                   "nro_pedido", "order number", "order_number", "order id",
+                   "id pedido", "n pedido", "pedido nro"]
+                   # NOTA: "identificador" y "order"/"pedido" solos fueron eliminados
+                   # porque matcheaban columnas incorrectas. Agregá aquí el nombre
+                   # exacto de tu columna si no se detecta automáticamente.
   col_estado:    ["estado", "status"]
   col_producto:  ["producto", "product", "nombre"]
   col_variante:  ["variante", "variant", "presentacion"]
@@ -15,6 +19,10 @@ pedidos:
   col_sku:       ["sku", "cod_sku"]          # hace match con ID del stock
   col_gtin:      ["gtin", "codigo de barra", "ean", "barcode"]  # hace match con SKU del stock
   col_unidades:  ["unidades", "cantidad", "qty", "units"]
+  col_fecha:     ["fecha", "fecha pedido", "fecha_pedido", "fecha creacion",
+                  "fecha_creacion", "created_at", "date", "fecha orden", "fecha_orden"]
+  col_hora:      ["hora", "hora pedido", "hora_pedido", "time", "hora_creacion",
+                  "created_time", "hora creacion"]
 
   # Valor del estado que indica pedido activo
   estado_activo: "abierta"

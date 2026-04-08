@@ -282,6 +282,8 @@ def construir_planilla(
     col_gtin_ped    = mapa_pedidos["gtin"]
     col_unidades    = mapa_pedidos["unidades"]
     col_producto    = mapa_pedidos["producto"]
+    col_fecha_ped   = mapa_pedidos.get("fecha")        # puede ser None
+    col_hora_ped    = mapa_pedidos.get("hora")         # puede ser None
 
     col_id_stock    = mapa_stock["id"]
     col_sku_stock   = mapa_stock["sku"]
@@ -318,6 +320,13 @@ def construir_planilla(
 
         sku_pedido  = str(pedido[col_sku_ped]).strip()  if pd.notna(pedido[col_sku_ped])  else ""
         gtin_pedido = str(pedido[col_gtin_ped]).strip() if pd.notna(pedido[col_gtin_ped]) else ""
+
+        fecha_pedido = ""
+        hora_pedido  = ""
+        if col_fecha_ped and col_fecha_ped in pedido.index and pd.notna(pedido[col_fecha_ped]):
+            fecha_pedido = str(pedido[col_fecha_ped]).strip()
+        if col_hora_ped and col_hora_ped in pedido.index and pd.notna(pedido[col_hora_ped]):
+            hora_pedido = str(pedido[col_hora_ped]).strip()
 
         # Usar la columna pre-normalizada si existe (normalizar_pedidos la agrega)
         if "_unidades_int" in pedido.index:
@@ -420,6 +429,8 @@ def construir_planilla(
         for asig in asignaciones:
             filas_ruta.append({
                 "N° Pedido":          nro_pedido,
+                "Fecha Pedido":       fecha_pedido,
+                "Hora Pedido":        hora_pedido,
                 "Producto":           nombre_producto,
                 "Tipo / Variante":    variante,
                 "Zetti (ID)":         sku_pedido,
