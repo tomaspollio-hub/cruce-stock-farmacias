@@ -2,12 +2,17 @@
 state.py
 Gestión de estado de la aplicación: servidor compartido y sesión local.
 """
+from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
 import streamlit as st
 
-from src.services.estados import GestorEstados, EstadoItem
+# Import lazy para evitar que un error en src.services.estados
+# rompa el arranque completo de la app.
+def _get_gestor_cls():
+    from src.services.estados import GestorEstados
+    return GestorEstados
 
 
 # ════════════════════════════════════════════════════════════
@@ -53,7 +58,7 @@ def _set_estado_cadete(
     Returns:
         (True, "") si OK | (False, mensaje_error) si transición inválida.
     """
-    gestor: GestorEstados = st.session_state.get("gestor_estados") or GestorEstados()
+    gestor = st.session_state.get("gestor_estados") or _get_gestor_cls()()
 
     if forzar:
         gestor.forzar(idx, estado, motivo=motivo, origen=origen)
@@ -113,7 +118,7 @@ def _inicializar_gestor(df_ruta) -> None:
     Crea un GestorEstados nuevo a partir del df_ruta recién generado.
     Llama después de construir_planilla() para arrancar la sesión limpia.
     """
-    gestor = GestorEstados.desde_df(df_ruta)
+    gestor = _get_gestor_cls().desde_df(df_ruta)
     st.session_state["gestor_estados"] = gestor
     # Sincronizar dict plano desde el nuevo gestor
     st.session_state["estados_cadete"] = gestor.to_dict_plano()
