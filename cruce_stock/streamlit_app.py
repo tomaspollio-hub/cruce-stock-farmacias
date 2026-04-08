@@ -174,25 +174,26 @@ def _render_sidebar():
 # ════════════════════════════════════════════════════════════
 
 def _page_dashboard(cfg):
-    import calendar
-
-    dias_es = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
+    dias_es  = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
     meses_es = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
-    ahora = datetime.now()
+    ahora      = datetime.now()
     dia_semana = dias_es[ahora.weekday()]
+    hora_fmt   = ahora.strftime("%H:%M")
     fecha_fmt  = f"{ahora.day} {meses_es[ahora.month]} {ahora.year}"
 
     res      = st.session_state.ultimo_resultado
     df_ruta  = st.session_state.df_ruta_editable
     hist     = st.session_state.historial
 
-    # ── Calcular métricas ──────────────────────────────────
-    pedidos_unicos  = 0
-    filas_planilla  = 0
-    sin_cobertura   = 0
-    stock_sosp      = 0
-    pct_cubierto    = 0
+    # ── Métricas ───────────────────────────────────────────
+    pedidos_unicos = 0
+    filas_planilla = 0
+    sin_cobertura  = 0
+    stock_sosp     = 0
+    pct_cubierto   = 100
     sucursales_uso: dict = {}
+    zonas_resumen: dict  = {}
+    n_remotas = 0
 
     if res:
         pedidos_unicos = res.get("pedidos_unicos", res.get("pedidos_activos", 0))
@@ -200,186 +201,288 @@ def _page_dashboard(cfg):
         sin_cobertura  = res.get("sin_cob", 0)
 
     if df_ruta is not None and not df_ruta.empty:
-        stock_sosp = int((df_ruta.get("⚠️ Stock", pd.Series()) == "⚠️ Verificar").sum())
-        total_asig = len(df_ruta[df_ruta.get("Farmacia", pd.Series()) != "— SIN COBERTURA —"])
+        stock_sosp  = int((df_ruta.get("⚠️ Stock", pd.Series()) == "⚠️ Verificar").sum())
+        total_asig  = len(df_ruta[df_ruta.get("Farmacia", pd.Series()) != "— SIN COBERTURA —"])
         pct_cubierto = int(total_asig / len(df_ruta) * 100) if len(df_ruta) > 0 else 100
-        # Conteo por farmacia
         if "Farmacia" in df_ruta.columns:
             for farm, cnt in df_ruta["Farmacia"].value_counts().items():
                 if farm != "— SIN COBERTURA —":
                     sucursales_uso[str(farm)] = int(cnt)
+        if "Zona" in df_ruta.columns:
+            for zona, cnt in df_ruta["Zona"].value_counts().items():
+                zonas_resumen[str(zona)] = int(cnt)
+            remotas = df_ruta[df_ruta["Zona"] == "Remota"]
+            n_remotas = len(remotas["Farmacia"].unique()) if "Farmacia" in remotas.columns else len(remotas)
 
-    estados_cadete  = st.session_state.get("estados_cadete", {})
-    enc_cadete = sum(1 for v in estados_cadete.values() if v in {"Encontrado","Mal stock - Resuelto"})
+    estados_cadete = st.session_state.get("estados_cadete", {})
+    enc_cadete     = sum(1 for v in estados_cadete.values() if v in {"Encontrado","Mal stock - Resuelto"})
+    pct_cadete     = int(enc_cadete / filas_planilla * 100) if filas_planilla > 0 else 0
 
-    # ── Greeting ──────────────────────────────────────────
-    estado_operacion = "Operación activa" if res else "Sin actividad"
-    dot_color = VERDE if res else "#94A3B8"
+    # ── Alertas priorizadas (calculadas antes de renderizar) ──
+    alertas = []
+    if sin_cobertura > 0:
+        alertas.append(("crit", "🔴", f"{sin_cobertura} producto(s) sin cobertura",
+                        "Requieren gestión manual antes de enviar al cadete", "nuevo_cruce"))
+    if stock_sosp > 0:
+        alertas.append(("warn", "⚠️", f"{stock_sosp} ítem(s) con stock sospechoso",
+                        f"Stock > {cfg['optimizacion'].get('stock_sospechoso_umbral',200)} uds — verificar con la sucursal", None))
+    if n_remotas > 0:
+        alertas.append(("info", "📞", f"{n_remotas} sucursal(es) remota(s) asignada(s)",
+                        "Coordinar por teléfono antes de enviar el cadete", "cadete"))
+    if not hist:
+        alertas.append(("info", "⚡", "Sin planilla generada en esta sesión",
+                        "Cargá los archivos de pedidos y stock para comenzar", "nuevo_cruce"))
+
+    tiene_actividad = res is not None
+
+    # ═══════════════════════════════════════════════════════
+    #  HEADER — saludo + estado operativo
+    # ═══════════════════════════════════════════════════════
+    dot_color    = VERDE if tiene_actividad else "#94A3B8"
+    estado_label = "Operación activa" if tiene_actividad else "Sin actividad"
+    alerta_badge = (f'<span style="background:#BE123C;color:#fff;font-size:0.7rem;'
+                    f'font-weight:700;border-radius:10px;padding:2px 8px;margin-left:8px">'
+                    f'{len([a for a in alertas if a[0]=="crit"])} crítica(s)</span>'
+                    if any(a[0] == "crit" for a in alertas) else "")
+
     st.markdown(f"""
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:24px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;
+                margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-color)">
       <div>
-        <div class="dash-greeting">Buen día, {dia_semana}</div>
-        <div class="dash-sub">{fecha_fmt} &nbsp;·&nbsp;
-          {"Planilla activa · " + str(filas_planilla) + " filas"
-           if res else "Sin planilla generada hoy"}
+        <div class="dash-greeting">Buen día — {dia_semana} {fecha_fmt}</div>
+        <div class="dash-sub" style="margin-top:3px">
+          {hora_fmt} &nbsp;·&nbsp;
+          {"<strong>" + str(filas_planilla) + " líneas en planilla</strong> · " + str(pedidos_unicos) + " pedidos"
+           if tiene_actividad else "Sin planilla activa"}
+          {alerta_badge}
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:7px;
-                  background:var(--bg-card);border:1px solid var(--border);
-                  border-radius:20px;padding:6px 14px;font-size:0.78rem;
-                  font-weight:600;color:var(--text-secondary);margin-top:4px">
+      <div style="display:flex;align-items:center;gap:6px;
+                  background:var(--bg-card);border:1px solid var(--border-color);
+                  border-radius:20px;padding:5px 13px;font-size:0.77rem;
+                  font-weight:600;color:var(--text-secondary);margin-top:4px;flex-shrink:0">
         <span style="width:7px;height:7px;border-radius:50%;
                      background:{dot_color};display:inline-block"></span>
-        {estado_operacion}
+        {estado_label}
       </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── KPI cards ─────────────────────────────────────────
+    # ═══════════════════════════════════════════════════════
+    #  ACCIÓN PRINCIPAL (si no hay actividad, ocupa la atención)
+    # ═══════════════════════════════════════════════════════
+    if not tiene_actividad:
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,{AZUL} 0%,{AZUL_OSCURO} 100%);
+                    border-radius:14px;padding:24px 28px;margin-bottom:24px;
+                    display:flex;align-items:center;justify-content:space-between;gap:16px">
+          <div>
+            <div style="color:#fff;font-size:1.1rem;font-weight:700;margin-bottom:4px">
+              ⚡ Generá la planilla del cadete
+            </div>
+            <div style="color:rgba(255,255,255,0.75);font-size:0.85rem">
+              Cargá el archivo de pedidos y el stock de sucursales para comenzar
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.button("⚡  Ir a Nuevo Cruce", type="primary",
+                  use_container_width=True, on_click=_ir_a, args=("nuevo_cruce",))
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ═══════════════════════════════════════════════════════
+    #  KPI CARDS
+    # ═══════════════════════════════════════════════════════
     c1, c2, c3, c4 = st.columns(4)
+
+    # Card 1 — Pedidos
     with c1:
+        det1 = f"{filas_planilla} líneas · {len(sucursales_uso)} sucursales" if tiene_actividad else "Cargá un cruce"
         st.markdown(f"""
         <div class="kpi-card kpi-info">
           <span class="kpi-icon">📦</span>
-          <div class="kpi-label">Pedidos activos</div>
-          <div class="kpi-value">{pedidos_unicos if pedidos_unicos else "—"}</div>
-          <div class="kpi-detail">{filas_planilla} líneas en planilla</div>
+          <div class="kpi-label">Pedidos únicos</div>
+          <div class="kpi-value">{pedidos_unicos if tiene_actividad else "—"}</div>
+          <div class="kpi-detail">{det1}</div>
         </div>""", unsafe_allow_html=True)
+
+    # Card 2 — Cobertura con mini-barra
     with c2:
-        cls = "kpi-crit" if sin_cobertura > 0 else "kpi-ok"
-        icn = "🔴" if sin_cobertura > 0 else "✅"
+        cls2 = "kpi-crit" if sin_cobertura > 0 else "kpi-ok"
+        icn2 = "🔴" if sin_cobertura > 0 else "✅"
+        bar2_w = max(4, pct_cubierto) if tiene_actividad else 0
+        bar2_c = VERDE if pct_cubierto == 100 else (ROSA if sin_cobertura > 0 else AZUL)
+        det2   = f"{sin_cobertura} sin cobertura" if sin_cobertura > 0 else "Todos cubiertos"
         st.markdown(f"""
-        <div class="kpi-card {cls}">
-          <span class="kpi-icon">{icn}</span>
-          <div class="kpi-label">Sin cobertura</div>
-          <div class="kpi-value">{sin_cobertura if res else "—"}</div>
-          <div class="kpi-detail">{"Requieren gestión manual" if sin_cobertura > 0 else "Todos cubiertos"}</div>
+        <div class="kpi-card {cls2}">
+          <span class="kpi-icon">{icn2}</span>
+          <div class="kpi-label">Cobertura</div>
+          <div class="kpi-value">{pct_cubierto}%</div>
+          <div style="background:var(--border-color);border-radius:4px;height:4px;margin:5px 0">
+            <div style="height:4px;border-radius:4px;width:{bar2_w}%;background:{bar2_c}"></div>
+          </div>
+          <div class="kpi-detail">{det2 if tiene_actividad else "Sin datos"}</div>
         </div>""", unsafe_allow_html=True)
+
+    # Card 3 — Stock sospechoso
     with c3:
-        cls = "kpi-warn" if stock_sosp > 0 else "kpi-ok"
-        icn = "⚠️" if stock_sosp > 0 else "✅"
+        cls3 = "kpi-warn" if stock_sosp > 0 else "kpi-ok"
+        icn3 = "⚠️" if stock_sosp > 0 else "✅"
+        det3 = f"Umbral: {cfg['optimizacion'].get('stock_sospechoso_umbral',200)} uds" if stock_sosp > 0 else "Sin alertas de stock"
         st.markdown(f"""
-        <div class="kpi-card {cls}">
-          <span class="kpi-icon">{icn}</span>
+        <div class="kpi-card {cls3}">
+          <span class="kpi-icon">{icn3}</span>
           <div class="kpi-label">Stock a verificar</div>
-          <div class="kpi-value">{stock_sosp if res else "—"}</div>
-          <div class="kpi-detail">{"Verificar antes de enviar" if stock_sosp > 0 else "Sin alertas"}</div>
+          <div class="kpi-value">{stock_sosp if tiene_actividad else "—"}</div>
+          <div class="kpi-detail">{det3}</div>
         </div>""", unsafe_allow_html=True)
+
+    # Card 4 — Progreso cadete con mini-barra
     with c4:
-        cls = "kpi-ok" if enc_cadete >= filas_planilla > 0 else ("kpi-info" if enc_cadete > 0 else "kpi-info")
-        icn = "✅" if (enc_cadete >= filas_planilla > 0) else "🚴"
+        icn4 = "✅" if (enc_cadete >= filas_planilla > 0) else "🚴"
+        cls4 = "kpi-ok" if (enc_cadete >= filas_planilla > 0) else "kpi-info"
+        bar4_w = max(4, pct_cadete) if estados_cadete else 0
+        det4   = f"{enc_cadete}/{filas_planilla} · {pct_cadete}%" if filas_planilla else "Sin actividad"
         st.markdown(f"""
-        <div class="kpi-card {cls}">
-          <span class="kpi-icon">{icn}</span>
-          <div class="kpi-label">Cadete — encontrados</div>
+        <div class="kpi-card {cls4}">
+          <span class="kpi-icon">{icn4}</span>
+          <div class="kpi-label">Cadete</div>
           <div class="kpi-value">{enc_cadete if estados_cadete else "—"}</div>
-          <div class="kpi-detail">{"de " + str(filas_planilla) + " asignados" if filas_planilla else "Sin actividad"}</div>
+          <div style="background:var(--border-color);border-radius:4px;height:4px;margin:5px 0">
+            <div style="height:4px;border-radius:4px;width:{bar4_w}%;
+                 background:{VERDE if pct_cadete==100 else AZUL}"></div>
+          </div>
+          <div class="kpi-detail">{det4}</div>
         </div>""", unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
 
+    # ═══════════════════════════════════════════════════════
+    #  COLUMNAS PRINCIPALES
+    # ═══════════════════════════════════════════════════════
     col_izq, col_der = st.columns([3, 2])
 
     with col_izq:
-        # ── Progreso de cobertura ──────────────────────────
-        if res:
-            bar_w = max(4, pct_cubierto)
-            color_bar = VERDE if pct_cubierto == 100 else AZUL
+        # ── Alertas priorizadas ────────────────────────────
+        if alertas:
+            st.markdown('<div class="dash-section-title">Alertas del día</div>',
+                        unsafe_allow_html=True)
+            for tipo, icon, titulo, detalle, dest in alertas:
+                border_c = {"crit":"#E11D48","warn":"#D97706","info":AZUL}.get(tipo, AZUL)
+                bg_c     = {"crit":"#FFF1F2","warn":"#FFFBEB","info":"#EFF6FF"}.get(tipo,"#EFF6FF")
+                st.markdown(f"""
+                <div style="border-left:3px solid {border_c};background:{bg_c};
+                            border-radius:0 8px 8px 0;padding:10px 14px;
+                            margin-bottom:7px;display:flex;align-items:flex-start;gap:10px">
+                  <span style="font-size:1.1rem;flex-shrink:0">{icon}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-weight:600;font-size:0.87rem;
+                                color:var(--text-primary)">{titulo}</div>
+                    <div style="font-size:0.79rem;color:var(--text-muted);
+                                margin-top:1px">{detalle}</div>
+                  </div>
+                </div>
+                """, unsafe_allow_html=True)
+                if dest:
+                    dest_label = {"nuevo_cruce":"⚡ Ir a Nuevo Cruce",
+                                  "cadete":"🚴 Abrir Vista Cadete"}.get(dest, "→")
+                    # Solo mostrar botón para la primera alerta con destino
+                    break
+            st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+        # ── Barras de progreso ─────────────────────────────
+        if tiene_actividad:
+            st.markdown('<div class="dash-section-title">Estado operativo</div>',
+                        unsafe_allow_html=True)
+            bar_cob_w = max(4, pct_cubierto)
+            color_cob = VERDE if pct_cubierto == 100 else AZUL
             st.markdown(f"""
-            <div class="dash-section-title">Estado de cobertura</div>
             <div class="dash-progress-wrap">
-              <div class="dash-progress-label">
-                {pct_cubierto}% de pedidos con sucursal asignada &nbsp;·&nbsp;
-                {sin_cobertura} sin cobertura
+              <div style="display:flex;justify-content:space-between;
+                          align-items:center;margin-bottom:5px">
+                <span class="dash-progress-label" style="margin:0">
+                  Cobertura de pedidos
+                </span>
+                <span style="font-size:0.88rem;font-weight:700;color:{color_cob}">
+                  {pct_cubierto}%
+                </span>
               </div>
               <div class="dash-progress-bar-bg">
-                <div class="dash-progress-bar" style="width:{bar_w}%;background:{color_bar}"></div>
+                <div class="dash-progress-bar" style="width:{bar_cob_w}%;background:{color_cob}"></div>
+              </div>
+              <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px">
+                {filas_planilla - sin_cobertura} productos con sucursal asignada
+                {"· <strong style='color:#BE123C'>" + str(sin_cobertura) + " sin cobertura</strong>" if sin_cobertura > 0 else "· todos cubiertos"}
               </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # ── Progreso cadete ────────────────────────────
             if estados_cadete and filas_planilla > 0:
-                pct_cad = int(enc_cadete / filas_planilla * 100)
                 st.markdown(f"""
                 <div class="dash-progress-wrap">
-                  <div class="dash-progress-label">
-                    Cadete: {enc_cadete}/{filas_planilla} productos encontrados ({pct_cad}%)
+                  <div style="display:flex;justify-content:space-between;
+                              align-items:center;margin-bottom:5px">
+                    <span class="dash-progress-label" style="margin:0">Progreso cadete</span>
+                    <span style="font-size:0.88rem;font-weight:700;
+                                 color:{VERDE if pct_cadete==100 else AZUL}">
+                      {pct_cadete}%
+                    </span>
                   </div>
                   <div class="dash-progress-bar-bg">
-                    <div class="dash-progress-bar" style="width:{max(4,pct_cad)}%"></div>
+                    <div class="dash-progress-bar"
+                         style="width:{max(4,pct_cadete)}%;
+                                background:{VERDE if pct_cadete==100 else AZUL}"></div>
+                  </div>
+                  <div style="font-size:0.76rem;color:var(--text-muted);margin-top:4px">
+                    {enc_cadete} encontrados · {filas_planilla - enc_cadete} pendientes
                   </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-        # ── Alertas ────────────────────────────────────────
-        alertas = []
-        if sin_cobertura > 0:
-            alertas.append(("crit", "🔴", f"{sin_cobertura} producto(s) sin cobertura — requieren gestión manual"))
-        if stock_sosp > 0:
-            alertas.append(("warn", "⚠️", f"{stock_sosp} fila(s) con stock sospechoso — verificar con la sucursal"))
-        if df_ruta is not None and not df_ruta.empty and "Zona" in df_ruta.columns:
-            remotas = df_ruta[df_ruta["Zona"] == "Remota"]
-            if not remotas.empty:
-                n_r = len(remotas["Farmacia"].unique()) if "Farmacia" in remotas.columns else len(remotas)
-                alertas.append(("info", "📞", f"{n_r} sucursal(es) remota(s) — llamar antes de enviar cadete"))
-        if not hist:
-            alertas.append(("info", "⚡", "No hay planilla generada hoy — hacé clic en Nuevo Cruce para empezar"))
-
-        if alertas:
-            st.markdown('<div class="dash-section-title">Alertas</div>', unsafe_allow_html=True)
-            for tipo, icon, msg in alertas:
-                st.markdown(
-                    f'<div class="dash-alert-row dash-alert-{tipo}">{icon}&nbsp; {msg}</div>',
-                    unsafe_allow_html=True)
-
         # ── Acciones rápidas ───────────────────────────────
-        st.markdown('<div class="dash-section-title">Acciones rápidas</div>', unsafe_allow_html=True)
-        qa1, qa2, qa3 = st.columns(3)
-        with qa1:
+        st.markdown('<div class="dash-section-title">Acciones</div>', unsafe_allow_html=True)
+        if tiene_actividad:
+            qa1, qa2, qa3 = st.columns(3)
+            with qa1:
+                st.button("⚡  Nuevo Cruce", type="primary", use_container_width=True,
+                          on_click=_ir_a, args=("nuevo_cruce",))
+            with qa2:
+                st.button("🚴  Vista Cadete", use_container_width=True,
+                          on_click=_ir_a, args=("cadete",))
+            with qa3:
+                st.button("📋  Historial", use_container_width=True,
+                          on_click=_ir_a, args=("historial",))
+        else:
             st.button("⚡  Nuevo Cruce", type="primary", use_container_width=True,
                       on_click=_ir_a, args=("nuevo_cruce",))
-        with qa2:
-            st.button("🚴  Vista Cadete", use_container_width=True,
-                      on_click=_ir_a, args=("cadete",))
-        with qa3:
-            st.button("📋  Historial", use_container_width=True,
-                      on_click=_ir_a, args=("historial",))
+            qa2, qa3 = st.columns(2)
+            with qa2:
+                st.button("🚴  Vista Cadete", use_container_width=True,
+                          on_click=_ir_a, args=("cadete",))
+            with qa3:
+                st.button("📋  Historial", use_container_width=True,
+                          on_click=_ir_a, args=("historial",))
 
     with col_der:
-        # ── Sucursales más usadas ──────────────────────────
-        if sucursales_uso:
-            st.markdown('<div class="dash-section-title">Sucursales más usadas hoy</div>',
-                        unsafe_allow_html=True)
-            max_cnt = max(sucursales_uso.values()) if sucursales_uso else 1
-            top5 = sorted(sucursales_uso.items(), key=lambda x: x[1], reverse=True)[:6]
-            for nombre, cnt in top5:
-                pct_bar = int(cnt / max_cnt * 100)
-                nombre_corto = nombre[:28] + "…" if len(nombre) > 28 else nombre
-                st.markdown(f"""
-                <div class="dash-suc-row">
-                  <span class="dash-suc-name">{nombre_corto}</span>
-                  <span class="dash-suc-bar-wrap">
-                    <span class="dash-suc-bar" style="width:{pct_bar}%"></span>
-                  </span>
-                  <span class="dash-suc-cnt">{cnt}</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # ── Último cruce ───────────────────────────────────
+        # ── Último cruce + descarga ────────────────────────
         if hist:
             ultimo = hist[0]
-            badge_cob = (f'<span style="color:#BE123C;font-weight:700">'
-                         f'⚠️ {ultimo["sin_cob"]} sin cobertura</span>'
-                         if ultimo["sin_cob"] > 0
-                         else '<span style="color:#059669;font-weight:700">✅ Completo</span>')
+            sin_u  = ultimo["sin_cob"]
+            badge_cob = (f'<span style="color:#BE123C;font-weight:700">⚠️ {sin_u} sin cob.</span>'
+                         if sin_u > 0 else
+                         '<span style="color:#059669;font-weight:700">✅ Completo</span>')
             st.markdown(f"""
-            <div class="dash-section-title">Último cruce generado</div>
+            <div class="dash-section-title">Último cruce</div>
             <div class="dash-ultimo-cruce">
               <span class="dash-uc-icon">📁</span>
-              <div style="flex:1">
-                <div class="dash-uc-name">{ultimo["pedidos"]}</div>
-                <div class="dash-uc-meta">{ultimo["hora"]} &nbsp;·&nbsp; {ultimo["filas"]} filas &nbsp;·&nbsp; {badge_cob}</div>
+              <div style="flex:1;min-width:0">
+                <div class="dash-uc-name" style="white-space:nowrap;overflow:hidden;
+                     text-overflow:ellipsis">{ultimo["pedidos"]}</div>
+                <div class="dash-uc-meta">
+                  {ultimo["hora"]} &nbsp;·&nbsp;
+                  {ultimo["filas"]} filas &nbsp;·&nbsp;
+                  {badge_cob}
+                </div>
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -391,6 +494,56 @@ def _page_dashboard(cfg):
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+        # ── Distribución por zona ──────────────────────────
+        if zonas_resumen:
+            st.markdown('<div class="dash-section-title">Distribución por zona</div>',
+                        unsafe_allow_html=True)
+            zona_icons = {"Deposito":"🏭","NQN Capital":"🏙️",
+                          "Centenario/Plottier":"🏘️","Cercana":"📍","Remota":"🗺️"}
+            zona_cls_m = {"Deposito":"zona-0","NQN Capital":"zona-1",
+                          "Centenario/Plottier":"zona-2","Cercana":"zona-3","Remota":"zona-4"}
+            max_z = max(zonas_resumen.values()) if zonas_resumen else 1
+            for zona, cnt in sorted(zonas_resumen.items(),
+                                    key=lambda x: x[1], reverse=True):
+                icn_z  = zona_icons.get(zona, "📍")
+                zcls   = zona_cls_m.get(zona, "zona-1")
+                pct_z  = int(cnt / max_z * 100)
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;gap:8px;
+                            margin-bottom:6px;font-size:0.82rem">
+                  <span style="width:20px;text-align:center">{icn_z}</span>
+                  <span class="{zcls}" style="width:130px;flex-shrink:0">{zona}</span>
+                  <div style="flex:1;background:var(--border-color);
+                              border-radius:4px;height:6px">
+                    <div style="height:6px;border-radius:4px;
+                                width:{pct_z}%;background:{AZUL}"></div>
+                  </div>
+                  <span style="width:26px;text-align:right;font-weight:600;
+                               color:var(--text-secondary)">{cnt}</span>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+        # ── Top sucursales ─────────────────────────────────
+        if sucursales_uso:
+            st.markdown('<div class="dash-section-title">Top sucursales</div>',
+                        unsafe_allow_html=True)
+            max_cnt = max(sucursales_uso.values())
+            top6    = sorted(sucursales_uso.items(), key=lambda x: x[1], reverse=True)[:6]
+            for nombre, cnt in top6:
+                pct_bar     = int(cnt / max_cnt * 100)
+                nombre_corto = nombre[:26] + "…" if len(nombre) > 26 else nombre
+                st.markdown(f"""
+                <div class="dash-suc-row">
+                  <span class="dash-suc-name">{nombre_corto}</span>
+                  <span class="dash-suc-bar-wrap">
+                    <span class="dash-suc-bar" style="width:{pct_bar}%"></span>
+                  </span>
+                  <span class="dash-suc-cnt">{cnt}</span>
+                </div>
+                """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════
@@ -681,63 +834,225 @@ def _page_nuevo_cruce(cfg):
         st.markdown('<p class="sec-label">🔄 Ejecutar nuevo cruce</p>',
                     unsafe_allow_html=True)
 
-    # ── Carga de archivos ──────────────────────────────────
+    # ── Flujo guiado por pasos ────────────────────────────────
+    tiene_pedidos = False
+    tiene_stock   = False
+    df_prev_p: pd.DataFrame | None = None
+    df_prev_s: pd.DataFrame | None = None
+
+    def _leer_preview(uf) -> pd.DataFrame | None:
+        try:
+            uf.seek(0)
+            ext = pathlib.Path(uf.name).suffix.lower()
+            df = pd.read_excel(uf) if ext in (".xlsx", ".xls") \
+                 else pd.read_csv(uf, sep=None, engine="python", dtype=str)
+            uf.seek(0)
+            return df
+        except Exception:
+            try: uf.seek(0)
+            except Exception: pass
+            return None
+
+    def _paso_dot(n, label, activo, listo):
+        color_dot = VERDE if listo else (AZUL if activo else "var(--border)")
+        color_txt = "var(--text)" if (activo or listo) else "var(--text-muted)"
+        icon      = "✓" if listo else str(n)
+        return (
+            f'<div style="display:flex;align-items:center;gap:6px">'
+            f'<div style="width:22px;height:22px;border-radius:50%;background:{color_dot};'
+            f'display:flex;align-items:center;justify-content:center;'
+            f'font-size:0.7rem;font-weight:700;color:#fff;flex-shrink:0">{icon}</div>'
+            f'<span style="font-size:0.8rem;font-weight:600;color:{color_txt}">{label}</span>'
+            f'</div>'
+        )
+
+    # ── PASO 1: Carga de archivos ─────────────────────────────
+    st.markdown('<p class="sec-label">📂 Archivos de entrada</p>', unsafe_allow_html=True)
     col1, col2 = st.columns(2)
+
     with col1:
-        st.markdown("""
-        <div class="upload-zone">
-          <div class="upload-zone-title">📋 Archivo de Pedidos</div>
-          <div class="upload-zone-sub">Exportá los pedidos con estado <em>Abierta</em><br>.xlsx o .csv</div>
-        </div>
-        """, unsafe_allow_html=True)
-        archivo_pedidos = st.file_uploader("Pedidos", type=["xlsx","xls","csv","txt"],
-                                           label_visibility="collapsed", key="up_pedidos")
+        archivo_pedidos = st.file_uploader(
+            "📋 Archivo de Pedidos",
+            type=["xlsx", "xls", "csv", "txt"],
+            key="up_pedidos",
+            help="Exportá los pedidos con estado Abierta desde el sistema",
+        )
         if archivo_pedidos:
-            st.success(f"✅ {archivo_pedidos.name}")
+            df_prev_p = _leer_preview(archivo_pedidos)
+            if df_prev_p is not None:
+                tiene_pedidos = True
+                n_f = len(df_prev_p); n_c = len(df_prev_p.columns)
+                cols_str = ", ".join(df_prev_p.columns[:4].tolist())
+                if n_c > 4: cols_str += f" +{n_c - 4} más"
+                st.markdown(f"""
+                <div style="background:{VERDE}12;border:1px solid {VERDE}40;
+                            border-radius:8px;padding:10px 14px;margin-top:4px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span style="color:{VERDE};font-size:1rem">✓</span>
+                    <span style="font-weight:600;font-size:0.85rem;
+                                 color:var(--text)">{archivo_pedidos.name}</span>
+                  </div>
+                  <div style="font-size:0.75rem;color:var(--text-muted);
+                               display:flex;gap:16px;flex-wrap:wrap">
+                    <span>🗂 <strong>{n_f}</strong> filas</span>
+                    <span>📐 <strong>{n_c}</strong> columnas</span>
+                  </div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);
+                               margin-top:4px;font-style:italic">{cols_str}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning(f"⚠️ No se pudo leer el archivo.")
+        else:
+            st.markdown(f"""
+            <div style="border:2px dashed var(--border);border-radius:8px;
+                        padding:18px 14px;text-align:center;
+                        color:var(--text-muted);font-size:0.8rem;margin-top:4px">
+              <div style="font-size:1.4rem;margin-bottom:4px">📋</div>
+              Pedidos con estado <em>Abierta</em><br>
+              <span style="font-size:0.72rem;opacity:0.7">.xlsx · .xls · .csv</span>
+            </div>
+            """, unsafe_allow_html=True)
 
     with col2:
-        st.markdown("""
-        <div class="upload-zone">
-          <div class="upload-zone-title">🏪 Stock de Sucursales</div>
-          <div class="upload-zone-sub">Exportá desde la base de datos<br>.xlsx o .csv</div>
+        archivo_stock = st.file_uploader(
+            "🏪 Stock de Sucursales",
+            type=["xlsx", "xls", "csv", "txt"],
+            key="up_stock",
+            help="Exportá el stock actualizado desde la base de datos",
+        )
+        if archivo_stock:
+            df_prev_s = _leer_preview(archivo_stock)
+            if df_prev_s is not None:
+                tiene_stock = True
+                n_f_s = len(df_prev_s); n_c_s = len(df_prev_s.columns)
+                cols_str_s = ", ".join(df_prev_s.columns[:4].tolist())
+                if n_c_s > 4: cols_str_s += f" +{n_c_s - 4} más"
+                st.markdown(f"""
+                <div style="background:{VERDE}12;border:1px solid {VERDE}40;
+                            border-radius:8px;padding:10px 14px;margin-top:4px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span style="color:{VERDE};font-size:1rem">✓</span>
+                    <span style="font-weight:600;font-size:0.85rem;
+                                 color:var(--text)">{archivo_stock.name}</span>
+                  </div>
+                  <div style="font-size:0.75rem;color:var(--text-muted);
+                               display:flex;gap:16px;flex-wrap:wrap">
+                    <span>🗂 <strong>{n_f_s}</strong> filas</span>
+                    <span>📐 <strong>{n_c_s}</strong> columnas</span>
+                  </div>
+                  <div style="font-size:0.72rem;color:var(--text-muted);
+                               margin-top:4px;font-style:italic">{cols_str_s}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.warning(f"⚠️ No se pudo leer el archivo.")
+        else:
+            st.markdown(f"""
+            <div style="border:2px dashed var(--border);border-radius:8px;
+                        padding:18px 14px;text-align:center;
+                        color:var(--text-muted);font-size:0.8rem;margin-top:4px">
+              <div style="font-size:1.4rem;margin-bottom:4px">🏪</div>
+              Stock actual de sucursales<br>
+              <span style="font-size:0.72rem;opacity:0.7">.xlsx · .xls · .csv</span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    # ── PASO 2: Mini resumen pre-cruce ────────────────────────
+    if tiene_pedidos and tiene_stock and df_prev_p is not None and df_prev_s is not None:
+        from src.matcher import mapear_columnas_pedidos, mapear_columnas_stock
+        _est_activo = cfg["pedidos"].get("estado_activo", "")
+        _n_ped_unicos = _n_lineas = _n_sucs = _n_prods = "—"
+        try:
+            _mp = mapear_columnas_pedidos(df_prev_p, cfg)
+            _ms = mapear_columnas_stock(df_prev_s, cfg)
+            if _mp.get("estado") and _mp["estado"] in df_prev_p.columns:
+                _df_act = df_prev_p[
+                    df_prev_p[_mp["estado"]]
+                    .apply(lambda v: str(v).strip().lower()) == _est_activo.lower()
+                ]
+                _n_lineas = len(_df_act)
+                _col_nro  = _mp.get("nro_pedido")
+                if _col_nro and _col_nro in _df_act.columns:
+                    _n_ped_unicos = int(_df_act[_col_nro].nunique())
+            _col_nodo = _ms.get("nodo")
+            if _col_nodo and _col_nodo in df_prev_s.columns:
+                _n_sucs = df_prev_s[_col_nodo].nunique()
+            _col_id = _ms.get("gtin") or _ms.get("sku")
+            if _col_id and _col_id in df_prev_s.columns:
+                _n_prods = df_prev_s[_col_id].nunique()
+        except Exception:
+            pass
+
+        st.markdown(f"""
+        <div style="background:var(--card-bg);border:1px solid var(--border);
+                    border-radius:10px;padding:14px 18px;margin-bottom:12px">
+          <div style="font-size:0.72rem;font-weight:700;letter-spacing:0.6px;
+                      color:var(--text-muted);margin-bottom:10px">RESUMEN PRE-CRUCE</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+            <div style="text-align:center;padding:8px;background:var(--bg);
+                        border-radius:6px;border:1px solid var(--border)">
+              <div style="font-size:1.3rem;font-weight:700;color:{AZUL}">{_n_ped_unicos}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">Pedidos únicos</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--bg);
+                        border-radius:6px;border:1px solid var(--border)">
+              <div style="font-size:1.3rem;font-weight:700;color:{AZUL}">{_n_lineas}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">Líneas activas</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--bg);
+                        border-radius:6px;border:1px solid var(--border)">
+              <div style="font-size:1.3rem;font-weight:700;color:{SLATE}">{_n_sucs}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">Sucursales</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--bg);
+                        border-radius:6px;border:1px solid var(--border)">
+              <div style="font-size:1.3rem;font-weight:700;color:{SLATE}">{_n_prods}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px">Productos en stock</div>
+            </div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
-        archivo_stock = st.file_uploader("Stock", type=["xlsx","xls","csv","txt"],
-                                         label_visibility="collapsed", key="up_stock")
-        if archivo_stock:
-            st.success(f"✅ {archivo_stock.name}")
 
-    # Vista previa colapsada
-    if archivo_pedidos or archivo_stock:
-        with st.expander("👁️  Ver vista previa de los archivos"):
-            if archivo_pedidos:
-                archivo_pedidos.seek(0)
-                try:
-                    ext = pathlib.Path(archivo_pedidos.name).suffix.lower()
-                    df_p = pd.read_excel(archivo_pedidos) if ext in (".xlsx",".xls") \
-                           else pd.read_csv(archivo_pedidos, sep=None, engine="python", dtype=str)
-                    st.caption("Pedidos — primeras 5 filas")
-                    st.dataframe(df_p.head(5), use_container_width=True)
-                    archivo_pedidos.seek(0)
-                except Exception as e:
-                    st.warning(f"No se pudo previsualizar: {e}")
-            if archivo_stock:
-                archivo_stock.seek(0)
-                try:
-                    ext = pathlib.Path(archivo_stock.name).suffix.lower()
-                    df_s = pd.read_excel(archivo_stock) if ext in (".xlsx",".xls") \
-                           else pd.read_csv(archivo_stock, sep=None, engine="python", dtype=str)
-                    st.caption("Stock — primeras 5 filas")
-                    st.dataframe(df_s.head(5), use_container_width=True)
-                    archivo_stock.seek(0)
-                except Exception as e:
-                    st.warning(f"No se pudo previsualizar: {e}")
+    # ── Indicador de pasos ────────────────────────────────────
+    _p1_ok  = tiene_pedidos and tiene_stock
+    _sep    = '<div style="flex:1;height:1px;background:var(--border);margin:0 6px"></div>'
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:4px;margin-bottom:12px">'
+        f'{_paso_dot(1,"Archivos cargados", True, _p1_ok)}'
+        f'{_sep}'
+        f'{_paso_dot(2,"Resumen validado", _p1_ok, _p1_ok)}'
+        f'{_sep}'
+        f'{_paso_dot(3,"Generar planilla", _p1_ok, False)}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    if archivo_pedidos is None or archivo_stock is None:
-        st.info("⬆️  Cargá los dos archivos para habilitar la generación.")
+    if not (tiene_pedidos and tiene_stock):
+        faltan = []
+        if not tiene_pedidos: faltan.append("pedidos")
+        if not tiene_stock:   faltan.append("stock")
+        st.info(f"⬆️  Falta cargar: **{' y '.join(faltan)}**.")
         return
+
+    # ── PASO 3: CTA ───────────────────────────────────────────
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,{AZUL} 0%,{AZUL_OSCURO} 100%);
+                border-radius:10px;padding:16px 20px;margin-bottom:8px;
+                display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="color:#fff;font-weight:700;font-size:0.95rem">
+          Listo para generar la planilla del cadete
+        </div>
+        <div style="color:rgba(255,255,255,0.75);font-size:0.78rem;margin-top:2px">
+          El sistema asignará las sucursales óptimas y generará el Excel de despacho
+        </div>
+      </div>
+      <div style="font-size:1.8rem">⚡</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     if not st.button("⚡  GENERAR PLANILLA DEL CADETE", type="primary",
                      use_container_width=True):
