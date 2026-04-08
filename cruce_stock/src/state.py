@@ -7,6 +7,8 @@ from datetime import datetime
 import pandas as pd
 import streamlit as st
 
+from src.services.estados import GestorEstados, EstadoItem
+
 
 # ════════════════════════════════════════════════════════════
 #  ESTADO COMPARTIDO — sincronización cadete ↔ oficina
@@ -30,16 +32,49 @@ def _servidor_estado() -> dict:
     }
 
 
-def _set_estado_cadete(idx: int, estado: str):
+def _set_estado_cadete(
+    idx: int,
+    estado: str,
+    motivo: str = "",
+    farmacia_nueva: str = "",
+    origen: str = "cadete",
+    forzar: bool = False,
+) -> tuple[bool, str]:
     """
     Actualiza el estado de un ítem en la sesión local Y en el
     estado compartido del servidor (visible desde otras sesiones).
+
+    Delega al GestorEstados para validar la transición y registrar
+    el evento con trazabilidad.
+
+    Args:
+        forzar: si True, salta la validación de transición (para resets del sistema).
+
+    Returns:
+        (True, "") si OK | (False, mensaje_error) si transición inválida.
     """
-    st.session_state.estados_cadete[idx] = estado
-    srv = _servidor_estado()
-    srv["estados_cadete"][idx] = estado
-    srv["ultima_actualizacion"] = datetime.now().strftime("%H:%M:%S")
-    srv["sesion_activa"] = True
+    gestor: GestorEstados = st.session_state.get("gestor_estados") or GestorEstados()
+
+    if forzar:
+        gestor.forzar(idx, estado, motivo=motivo, origen=origen)
+        ok, msg = True, ""
+    else:
+        ok, msg = gestor.transicionar(
+            idx, estado, motivo=motivo, farmacia_nueva=farmacia_nueva, origen=origen
+        )
+
+    if ok:
+        # Sincronizar dict plano (compatibilidad con servidor + exportador)
+        estado_final = gestor.estado_str(idx)
+        st.session_state.estados_cadete[idx] = estado_final
+        st.session_state["gestor_estados"] = gestor
+
+        srv = _servidor_estado()
+        srv["estados_cadete"][idx] = estado_final
+        srv["ultima_actualizacion"] = datetime.now().strftime("%H:%M:%S")
+        srv["sesion_activa"] = True
+
+    return ok, msg
 
 
 def _sincronizar_desde_servidor():
@@ -66,10 +101,22 @@ def _init_session():
         "df_ruta_editable":    None,
         "vista_planilla":      "pedido",   # "pedido" | "ruta"
         "estados_cadete":      {},         # {row_idx → estado actualizado por el cadete}
+        "gestor_estados":      None,       # GestorEstados activo (se crea al generar planilla)
     }
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
+
+
+def _inicializar_gestor(df_ruta) -> None:
+    """
+    Crea un GestorEstados nuevo a partir del df_ruta recién generado.
+    Llama después de construir_planilla() para arrancar la sesión limpia.
+    """
+    gestor = GestorEstados.desde_df(df_ruta)
+    st.session_state["gestor_estados"] = gestor
+    # Sincronizar dict plano desde el nuevo gestor
+    st.session_state["estados_cadete"] = gestor.to_dict_plano()
 
 
 def _ir_a(pagina: str):

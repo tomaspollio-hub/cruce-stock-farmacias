@@ -300,9 +300,15 @@ def construir_planilla(
     logger.info(f"Pedidos activos: {len(df_activos)} filas | "
                 f"Pedidos únicos: {df_activos[col_nro_pedido].nunique() if col_nro_pedido else 'N/D'}")
 
+    from src.services.asignacion import asignar_producto_inteligente
+
     filas_ruta: list[dict]       = []
     filas_sin_stock: list[dict]  = []
     stock_por_producto: dict     = {}
+
+    # Consolidación: registro de nodos ya asignados por pedido
+    # {nro_pedido → set de nombres de farmacia asignadas}
+    nodos_por_pedido: dict[str, set[str]] = {}
 
     for _, pedido in df_activos.iterrows():
         # N° de pedido
@@ -313,11 +319,15 @@ def construir_planilla(
         sku_pedido  = str(pedido[col_sku_ped]).strip()  if pd.notna(pedido[col_sku_ped])  else ""
         gtin_pedido = str(pedido[col_gtin_ped]).strip() if pd.notna(pedido[col_gtin_ped]) else ""
 
-        try:
-            unidades = int(float(str(pedido[col_unidades]).strip()))
-        except (ValueError, TypeError):
-            unidades = 1
-            logger.warning(f"Unidades no legibles para '{pedido[col_producto]}', asumiendo 1")
+        # Usar la columna pre-normalizada si existe (normalizar_pedidos la agrega)
+        if "_unidades_int" in pedido.index:
+            unidades = int(pedido["_unidades_int"])
+        else:
+            try:
+                unidades = int(float(str(pedido[col_unidades]).strip()))
+            except (ValueError, TypeError):
+                unidades = 1
+                logger.warning(f"Unidades no legibles para '{pedido[col_producto]}', asumiendo 1")
 
         nombre_producto = str(pedido[col_producto]) if pd.notna(pedido[col_producto]) else ""
         variante = ""
@@ -325,20 +335,32 @@ def construir_planilla(
             val = pedido[mapa_pedidos["variante"]]
             variante = str(val) if pd.notna(val) else ""
 
-        # ── Buscar en stock (3 llaves) ───────────────────
-        gtins_pedido = [g.strip().lower() for g in gtin_pedido.split(",") if g.strip()]
+        # ── Buscar en stock usando columnas normalizadas ─────
+        # Precondición: df_pedidos y df_stock pasaron por normalizar_pedidos()
+        # / normalizar_stock() de src.services.normalizacion.
+        gtin_norm = str(pedido.get("_gtin_norm", "") or "").strip()
+        sku_norm  = str(pedido.get("_sku_norm",  "") or "").strip()
 
-        mask1 = df_stock[col_id_stock].apply(
-            lambda v: str(v).strip().lower()) == sku_pedido.lower()
-        mask2 = df_stock[col_sku_stock].apply(
-            lambda v: str(v).strip().lower() in gtins_pedido) \
-            if gtins_pedido else pd.Series(False, index=df_stock.index)
-        mask3 = df_stock[col_id_stock].apply(
-            lambda v: str(v).strip().lower() in gtins_pedido) \
-            if gtins_pedido else pd.Series(False, index=df_stock.index)
+        # Soporte GTINs múltiples separados por coma
+        gtins_norm = [g.strip() for g in gtin_norm.split(",") if g.strip()]
 
-        df_encontrado = df_stock[mask1 | mask2 | mask3]
-        gtin_key = sku_pedido or gtin_pedido
+        # Prioridad 1: match por GTIN (pedido) vs _id_norm / _sku_norm (stock)
+        if gtins_norm:
+            df_encontrado = df_stock[
+                df_stock["_id_norm"].isin(gtins_norm) |
+                df_stock["_sku_norm"].isin(gtins_norm)
+            ]
+        else:
+            df_encontrado = pd.DataFrame(columns=df_stock.columns)
+
+        # Prioridad 2: fallback por SKU si no hubo match por GTIN
+        if df_encontrado.empty and sku_norm:
+            df_encontrado = df_stock[
+                (df_stock["_id_norm"] == sku_norm) |
+                (df_stock["_sku_norm"] == sku_norm)
+            ]
+
+        gtin_key = gtin_norm or sku_norm or gtin_pedido or sku_pedido
 
         if df_encontrado.empty:
             logger.warning(
@@ -357,8 +379,9 @@ def construir_planilla(
 
         stock_por_producto[gtin_key] = df_encontrado.copy()
 
-        # ── Optimizar sucursales ─────────────────────────
-        asignaciones = optimizar_producto(
+        # ── Asignación inteligente de sucursales ─────────
+        nodos_ya = nodos_por_pedido.get(nro_pedido, set())
+        asignaciones = asignar_producto_inteligente(
             gtin_key=gtin_key,
             unidades_requeridas=unidades,
             df_stock_producto=df_encontrado,
@@ -366,9 +389,16 @@ def construir_planilla(
             col_stock=col_stk,
             zonas_cfg=zonas_cfg,
             zona_labels=zona_labels,
+            cfg=cfg,
             max_sucursales=max_suc,
             umbral_stock_sospechoso=umbral_sosp,
+            nodos_ya_asignados=nodos_ya,
         )
+
+        # Actualizar nodos asignados para este pedido
+        for asig in asignaciones:
+            if asig["farmacia"] != "— SIN COBERTURA —":
+                nodos_por_pedido.setdefault(nro_pedido, set()).add(asig["farmacia"])
 
         if not asignaciones:
             filas_sin_stock.append({
@@ -405,6 +435,9 @@ def construir_planilla(
                 # internos (no van al Excel)
                 "_gtin_key":          gtin_key,
                 "prioridad":          asig["prioridad"],
+                "_criterio":          asig.get("criterio_asignacion", ""),
+                "_tier":              asig.get("tier", 2),
+                "_consolida_pedido":  asig.get("consolida_pedido", False),
             })
 
     df_ruta      = pd.DataFrame(filas_ruta)

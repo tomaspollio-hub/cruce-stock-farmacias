@@ -38,11 +38,15 @@ from src.state import (
     _set_estado_cadete,
     _sincronizar_desde_servidor,
     _init_session,
+    _inicializar_gestor,
     _ir_a,
     _agregar_historial,
     _aplicar_overrides,
 )
-from src.services.exportador import excel_a_bytes as _excel_a_bytes_svc
+from src.services.exportador import (
+    excel_a_bytes as _excel_a_bytes_svc,
+    excel_a_bytes_pro as _excel_a_bytes_pro_svc,
+)
 
 
 # ════════════════════════════════════════════════════════════
@@ -64,12 +68,13 @@ def _guardar_temporal(uploaded_file) -> str:
     return tmp.name
 
 
-def _excel_a_bytes(df_ruta, df_sin_stock, estados_busqueda) -> bytes:
+def _excel_a_bytes(df_ruta, df_sin_stock, estados_busqueda, gestor_estados=None) -> bytes:
     return _excel_a_bytes_svc(
         df_ruta=df_ruta,
         df_sin_stock=df_sin_stock,
         estados_busqueda=estados_busqueda,
         estados_cadete=st.session_state.get("estados_cadete", {}),
+        gestor_estados=gestor_estados or st.session_state.get("gestor_estados"),
     )
 
 
@@ -742,6 +747,8 @@ def _page_nuevo_cruce(cfg):
     from src.loader import cargar_archivo
     from src.matcher import mapear_columnas_pedidos, mapear_columnas_stock
     from src.optimizer import construir_planilla
+    from src.services.normalizacion import normalizar_pedidos, normalizar_stock
+    from src.services.matching import ejecutar_matching
 
     limpiar_log()
     barra = st.progress(0, text="Iniciando...")
@@ -756,14 +763,48 @@ def _page_nuevo_cruce(cfg):
         mapa_pedidos = mapear_columnas_pedidos(df_pedidos, cfg)
         mapa_stock   = mapear_columnas_stock(df_stock, cfg)
 
-        barra.progress(60, text="Cruzando stock y optimizando sucursales...")
+        barra.progress(45, text="Normalizando datos...")
+        df_pedidos = normalizar_pedidos(df_pedidos, mapa_pedidos)
+        df_stock   = normalizar_stock(df_stock,   mapa_stock)
+
+        barra.progress(55, text="Analizando cobertura...")
+        resultado_matching = ejecutar_matching(
+            df_pedidos, df_stock, mapa_pedidos, mapa_stock, cfg
+        )
+        st.session_state["resultado_matching"] = resultado_matching
+
+        barra.progress(60, text="Asignando sucursales (tiers + consolidación)...")
         df_ruta, df_sin_stock, stock_por_producto = construir_planilla(
             df_pedidos=df_pedidos, df_stock=df_stock,
             mapa_pedidos=mapa_pedidos, mapa_stock=mapa_stock, cfg=cfg,
         )
 
-        barra.progress(85, text="Generando Excel...")
-        excel_bytes = _excel_a_bytes(df_ruta, df_sin_stock, cfg["estados_busqueda"])
+        from src.services.asignacion import calcular_resumenes_pedidos
+        resumenes_ped = calcular_resumenes_pedidos(df_ruta)
+        st.session_state["resumenes_pedidos"] = resumenes_ped
+
+        _inicializar_gestor(df_ruta)
+
+        # Calcular pedidos_unicos dentro del try (necesario para el Excel)
+        _df_act = df_pedidos[
+            df_pedidos[mapa_pedidos["estado"]]
+            .apply(lambda v: str(v).strip().lower()) == cfg["pedidos"]["estado_activo"].lower()
+        ]
+        _col_nro = mapa_pedidos.get("nro_pedido")
+        _pedidos_unicos = int(_df_act[_col_nro].nunique()) if _col_nro else len(_df_act)
+
+        barra.progress(85, text="Generando Excel profesional...")
+        excel_bytes = _excel_a_bytes_pro_svc(
+            df_ruta            = df_ruta,
+            df_sin_stock       = df_sin_stock,
+            estados_busqueda   = cfg["estados_busqueda"],
+            gestor_estados     = st.session_state.get("gestor_estados"),
+            resultado_matching = st.session_state.get("resultado_matching"),
+            resumenes_pedidos  = resumenes_ped,
+            archivo_pedidos    = archivo_pedidos.name,
+            archivo_stock      = archivo_stock.name,
+            pedidos_unicos     = _pedidos_unicos,
+        )
         barra.progress(100, text="¡Listo!")
 
     except Exception as e:
@@ -803,6 +844,67 @@ def _page_nuevo_cruce(cfg):
 
     _agregar_historial(archivo_pedidos.name, archivo_stock.name,
                        len(df_ruta), len(df_sin_stock), excel_bytes, filename)
+
+    # ── Resumen de matching ──────────────────────────────────
+    rm = st.session_state.get("resultado_matching")
+    if rm:
+        rs = rm.resumen
+        pct = rs.pct_cobertura()
+        color_cob = "#059669" if pct >= 90 else "#D97706" if pct >= 70 else "#E11D48"
+        with st.expander(
+            f"📊 Cobertura del cruce: **{pct}%** "
+            f"({rs.con_match_gtin} GTIN · {rs.con_match_sku} SKU · {rs.sin_match} sin match)",
+            expanded=(rs.sin_match > 0 or rs.ambiguos > 0),
+        ):
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total líneas",    rs.total_lineas)
+            c2.metric("Match GTIN",      rs.con_match_gtin,  delta=None)
+            c3.metric("Match SKU",       rs.con_match_sku,   delta=None)
+            c4.metric("Sin match",       rs.sin_match,       delta=None)
+            c5.metric("Ambiguos",        rs.ambiguos,        delta=None)
+
+            if rs.gtin_duplicados or rs.sku_duplicados:
+                st.caption(
+                    f"⚠️ GTINs con filas duplicadas en stock: **{rs.gtin_duplicados}** · "
+                    f"SKUs con filas duplicadas: **{rs.sku_duplicados}**"
+                )
+            if rs.sin_match > 0:
+                sin_match_items = [
+                    f"- {l.producto} (GTIN: {l.gtin or '—'} / SKU: {l.sku or '—'})"
+                    for l in rm.lineas if not l.match_encontrado
+                ]
+                st.markdown("**Líneas sin match:**\n" + "\n".join(sin_match_items[:20]))
+                if len(sin_match_items) > 20:
+                    st.caption(f"… y {len(sin_match_items) - 20} más.")
+
+    # ── Resumen por pedido (asignación inteligente) ──────────
+    resumenes = st.session_state.get("resumenes_pedidos", [])
+    if resumenes:
+        hay_problemas = any(r.filas_sin_cobertura > 0 for r in resumenes)
+        with st.expander(
+            f"🗂 Resumen por pedido ({len(resumenes)} pedido(s))",
+            expanded=hay_problemas,
+        ):
+            for rp in resumenes:
+                icon = "✅" if rp.filas_sin_cobertura == 0 else "⚠️"
+                tier_desc = ""
+                if rp.tiers_usados:
+                    partes = []
+                    nombres = {0: "prioritarias", 1: "segunda opción", 2: "resto", 3: "último recurso"}
+                    for t in sorted(rp.tiers_usados):
+                        partes.append(f"{rp.tiers_usados[t]}× {nombres.get(t, f'tier {t}')}")
+                    tier_desc = " · ".join(partes)
+                consolida_txt = (
+                    f" · {rp.filas_consolidadas} consolidada(s)" if rp.filas_consolidadas else ""
+                )
+                st.markdown(
+                    f"{icon} **Pedido #{rp.nro_pedido}** — "
+                    f"{rp.total_sucursales} sucursal(es): "
+                    f"`{'`, `'.join(rp.sucursales_involucradas) or '—'}`  \n"
+                    f"&nbsp;&nbsp;&nbsp;&nbsp;Productos: {rp.filas_con_cobertura} con cobertura"
+                    f"{', **' + str(rp.filas_sin_cobertura) + ' sin cobertura**' if rp.filas_sin_cobertura else ''}"
+                    + (f"  \n&nbsp;&nbsp;&nbsp;&nbsp;Tiers: {tier_desc}{consolida_txt}" if tier_desc else "")
+                )
 
     # Advertencias
     registros = get_log_records()
@@ -1230,7 +1332,7 @@ def _page_cadete(cfg):
             )
     with col_reset:
         if st.button("↩️ Reset", use_container_width=True, help="Resetear todos los estados"):
-            st.session_state.estados_cadete = {}
+            _inicializar_gestor(st.session_state.get("df_ruta_editable"))
             srv = _servidor_estado()
             srv["estados_cadete"] = {}
             srv["ultima_actualizacion"] = None

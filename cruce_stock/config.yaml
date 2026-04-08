@@ -141,3 +141,65 @@ estados_busqueda:
 gtin:
   longitud_estandar: 14    # rellenar con ceros a la izquierda hasta este largo
   longitudes_validas: [8, 12, 13, 14]
+
+# ── ASIGNACIÓN INTELIGENTE DE SUCURSAL ──────────────────────
+#
+#  Sistema de tiers (0 = mayor prioridad):
+#  Tier 0 → sucursales preferidas (nombre exacto del nodo)
+#  Tier 1 → segunda opción (nombre exacto + palabras clave)
+#  Tier 2 → todas las demás (valor por defecto)
+#  Tier 3 → último recurso (palabras clave — evitar salvo necesidad)
+#
+#  El matching es case-insensitive y sin tildes.
+#  Los nombres de nodo deben coincidir exactamente con los valores
+#  en el archivo de stock (columna nodo/sucursal).
+#
+asignacion:
+
+  # Tier 0 — Sucursales preferidas operativamente
+  # El cadete prioriza siempre estas primero.
+  nodos_tier_0:
+    - "don-alderete 145-nqn"
+    - "glo-combate 712-nqn"
+    - "cra-cabellera 1460-nqn"
+    - "cra-illia 774-nqn"
+    - "apt-olascoaga 1045-nqn"
+    - "don-sarmiento 346-nqn"
+    - "don-sm 4305-nqn"
+
+  # Tier 1 — Segunda opción
+  # Si no hay stock en tier 0, se busca aquí.
+  nodos_tier_1:
+    - "apt-ecommerce-nqn"
+  palabras_clave_tier_1:
+    - "centro"
+    - "oeste"
+
+  # Tier 2 — Resto de sucursales (default, no requiere configuración)
+
+  # Tier 3 — Último recurso
+  # Se usan solo si no hay stock en tiers 0-2.
+  palabras_clave_tier_3:
+    - "madryn"
+    - "cutral-co"
+    - "cutral co"
+    - "cutralco"
+    - "añelo"
+    - "anelo"
+    - "zapala"
+    - "plottier"
+    - "chañar"
+    - "chanar"
+
+  # Activar consolidación: preferir sucursal que ya cubre otro producto del mismo pedido
+  consolidacion_por_pedido: true
+
+  # Máximo de sucursales por producto (heredado de optimizacion.max_sucursales_por_producto
+  # si no se define aquí)
+  max_sucursales_por_producto: 3
+
+# ── COORDENADAS DE NODOS (para uso futuro — ruteo geográfico) ─
+#  Fuente: planilla maestra de nodos.
+#  Formato: nombre_nodo: [latitud, longitud]
+#  Pendiente: cargar desde archivo externo en Etapa 4.
+nodos_geo: {}  # reservado para etapa de ruteo geográfico
