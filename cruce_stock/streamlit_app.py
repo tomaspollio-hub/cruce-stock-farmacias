@@ -1903,15 +1903,53 @@ def _page_cadete(cfg):
     pedidos_lista = sorted({str(v) for v in df.get("N° Pedido", pd.Series()).unique()
                             if str(v) not in ("", "nan", "None")})
     opciones_ped  = ["Todos"] + pedidos_lista
-    opciones_est  = ["Todos"] + [
-        "Pendiente", "Encontrado", "No encontrado", "Mal stock",
-        "Requiere revisión", "Llamar a suc",
-    ]
 
-    fc, pc, ec = st.columns(3)
-    filtro_farm  = fc.selectbox("🏪 Sucursal",  opciones_farm, key="cad_filtro_farm")
-    filtro_ped   = pc.selectbox("📋 Pedido",     opciones_ped,  key="cad_filtro_ped")
-    filtro_est   = ec.selectbox("🔵 Estado",     opciones_est,  key="cad_filtro_est")
+    # Sucursal y pedido: selectbox (muchas opciones)
+    fc, pc = st.columns(2)
+    filtro_farm = fc.selectbox("🏪 Sucursal", opciones_farm, key="cad_filtro_farm")
+    filtro_ped  = pc.selectbox("📋 Pedido",   opciones_ped,  key="cad_filtro_ped")
+
+    # Estado: botones rápidos (7) — más táctil que selectbox
+    FILTROS_EST = ["Todos", "Pendiente", "Encontrado", "No encontrado",
+                   "Mal stock", "Requiere revisión", "Llamar a suc"]
+    _fe_key = "cad_filtro_est_btn"
+    if _fe_key not in st.session_state:
+        st.session_state[_fe_key] = "Todos"
+    filtro_est = st.session_state[_fe_key]
+
+    btn_cols = st.columns(len(FILTROS_EST))
+    for _i, _opt in enumerate(FILTROS_EST):
+        _activo = filtro_est == _opt
+        _color  = {"Encontrado": VERDE, "No encontrado": ROSA,
+                   "Mal stock": AMARILLO, "Requiere revisión": AMARILLO,
+                   "Llamar a suc": AZUL_CLARO}.get(_opt, AZUL if _activo else None)
+        _label  = {"Todos": "Todos", "Pendiente": "⏳", "Encontrado": "✅",
+                   "No encontrado": "❌", "Mal stock": "📦",
+                   "Requiere revisión": "🔍", "Llamar a suc": "📞"}.get(_opt, _opt)
+        with btn_cols[_i]:
+            if st.button(
+                _label, key=f"fest_{_i}",
+                use_container_width=True,
+                type="primary" if _activo else "secondary",
+                help=_opt,
+            ):
+                st.session_state[_fe_key] = _opt
+                st.rerun()
+
+    # ── Modo compacto toggle ────────────────────────────────
+    _compact_key = "cad_modo_compacto"
+    if _compact_key not in st.session_state:
+        st.session_state[_compact_key] = False
+    col_mode, _ = st.columns([1, 5])
+    with col_mode:
+        if st.button(
+            "◫ Compacto" if not st.session_state[_compact_key] else "◻ Detallado",
+            key="btn_compact", use_container_width=True,
+            help="Alternar entre vista detallada y compacta",
+        ):
+            st.session_state[_compact_key] = not st.session_state[_compact_key]
+            st.rerun()
+    modo_compacto = st.session_state[_compact_key]
 
     # ── Acciones: descarga y reset ─────────────────────────
     res_data = st.session_state.ultimo_resultado
@@ -1990,15 +2028,24 @@ def _page_cadete(cfg):
         if es_sin_cob:
             zona_cls = "zona-4"
 
-        hdr_bg    = "#059669" if farm_lista else ("#BE123C" if es_sin_cob else AZUL)
+        hdr_bg     = "#059669" if farm_lista else ("#BE123C" if es_sin_cob else AZUL)
         check_icon = "✅" if farm_lista else "🏪"
         pct_farm   = int(enc_farm / total_farm * 100) if total_farm > 0 else 0
+        bar_farm_w = max(0, pct_farm)
+        bar_farm_c = "#FFFFFF55" if not farm_lista else "#FFFFFF99"
 
         st.markdown(f"""
-        <div class="cadete-farmacia-hdr" style="background:{hdr_bg}">
-          {check_icon} &nbsp; <strong>{farmacia}</strong>
-          &nbsp; <span class="{zona_cls}" style="flex-shrink:0">{zona_label}</span>
-          <span class="cadete-farmacia-badge">{enc_farm}/{total_farm} &nbsp; {pct_farm}%</span>
+        <div class="cadete-farmacia-hdr" style="background:{hdr_bg};
+             padding-bottom:0;overflow:hidden">
+          <div style="display:flex;align-items:center;padding:10px 14px 6px">
+            {check_icon} &nbsp; <strong>{farmacia}</strong>
+            &nbsp; <span class="{zona_cls}" style="flex-shrink:0">{zona_label}</span>
+            <span class="cadete-farmacia-badge">{enc_farm}/{total_farm} &nbsp; {pct_farm}%</span>
+          </div>
+          <div style="height:3px;background:rgba(255,255,255,0.25)">
+            <div style="height:3px;width:{bar_farm_w}%;background:#fff;
+                        transition:width 0.4s ease"></div>
+          </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -2032,6 +2079,8 @@ def _page_cadete(cfg):
             hora_ped  = str(row.get("Hora Pedido",  "") or "")
             cantidad  = row.get("Unidades a buscar", row.get("Cantidad pedida", "?"))
             gtin_raw  = str(row.get("GTIN", "") or "")
+            # Solo primer GTIN si hay varios separados por coma
+            gtin_display = gtin_raw.split(",")[0].strip() if gtin_raw else ""
             zetti_id  = str(row.get("Zetti (ID)", "") or "")
             gtin_key  = str(row.get("_gtin_key", gtin_raw or zetti_id) or "")
             sosp      = row.get("⚠️ Stock", "") == "⚠️ Verificar"
@@ -2042,21 +2091,102 @@ def _page_cadete(cfg):
             problema   = estado_act in {"Mal stock", "No encontrado", "Llamar cliente"}
             obs_guardada = obs_cadete.get(idx, "")
 
+            # Fecha formateada: "2026-04-04 00:00:00" → "04/04 · 00:43"
+            fecha_fmt = ""
+            if fecha_ped and fecha_ped not in ("", "nan", "None"):
+                try:
+                    import re as _re
+                    _d = _re.search(r"(\d{4})-(\d{2})-(\d{2})", fecha_ped)
+                    if _d:
+                        fecha_fmt = f"{_d.group(3)}/{_d.group(2)}"
+                    else:
+                        fecha_fmt = fecha_ped[:10]
+                except Exception:
+                    fecha_fmt = fecha_ped[:10]
+            hora_fmt = ""
+            if hora_ped and hora_ped not in ("", "nan", "None"):
+                hora_fmt = hora_ped[:5]
+            elif fecha_ped and ":" in fecha_ped:
+                # datetime en columna fecha (ej "2026-04-04 00:43")
+                _parts = fecha_ped.split(" ")
+                if len(_parts) >= 2:
+                    hora_fmt = _parts[1][:5]
+
             # Colores por estado
             if encontrado:
-                border_c = VERDE
-                name_style = f"font-size:1rem;font-weight:700;color:{VERDE};text-decoration:line-through;margin:0"
+                border_c   = VERDE
+                name_color = VERDE
+                name_deco  = "line-through"
             elif problema:
-                border_c = AMARILLO
-                name_style = "font-size:1rem;font-weight:700;color:#B45309;margin:0"
+                border_c   = ROSA
+                name_color = "#B45309"
+                name_deco  = "none"
             elif estado_act in {"Requiere revisión", "En revisión"}:
-                border_c = AMARILLO
-                name_style = "font-size:1rem;font-weight:700;color:#92400E;margin:0"
+                border_c   = AMARILLO
+                name_color = "#92400E"
+                name_deco  = "none"
             else:
-                border_c = "var(--border)"
-                name_style = "font-size:1rem;font-weight:700;color:var(--text-primary);margin:0"
+                border_c   = "var(--border)"
+                name_color = "var(--text-primary)"
+                name_deco  = "none"
 
-            # ── Card container ─────────────────────────────
+            # Placeholder imagen: inicial del producto en círculo de color
+            inicial   = producto[0].upper() if producto else "?"
+            pal_bg    = {"A":"#6366F1","B":"#EC4899","C":"#F59E0B","D":"#10B981",
+                         "E":"#3B82F6","F":"#8B5CF6","G":"#EF4444","H":"#14B8A6",
+                         "I":"#F97316","J":"#06B6D4","K":"#84CC16","L":"#A855F7",
+                         "M":"#E11D48","N":"#0EA5E9","O":"#D97706","P":"#059669",
+                         "Q":"#7C3AED","R":"#DC2626","S":"#2563EB","T":"#16A34A",
+                         "U":"#9333EA","V":"#CA8A04","W":"#0891B2","X":"#BE185D",
+                         "Y":"#15803D","Z":"#1D4ED8"}.get(inicial, AZUL)
+
+            # ── Card: modo compacto ─────────────────────────
+            if modo_compacto:
+                badge = _badge_estado(estado_act)
+                nro_label = f"<span style='color:var(--text-muted);font-size:0.75rem;margin-right:6px'>#{nro_ped}</span>" if nro_ped not in ("","nan","None") else ""
+                st.markdown(
+                    f'<div style="border-left:4px solid {border_c};'
+                    f'border:1px solid var(--border);border-left:4px solid {border_c};'
+                    f'border-radius:8px;padding:8px 12px;margin-bottom:8px;'
+                    f'display:flex;align-items:center;justify-content:space-between;gap:8px;'
+                    f'box-shadow:0 1px 4px rgba(0,0,0,0.15)">'
+                    f'<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">'
+                    f'<span style="background:{pal_bg};color:#fff;border-radius:50%;'
+                    f'width:28px;height:28px;display:flex;align-items:center;'
+                    f'justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0">'
+                    f'{inicial}</span>'
+                    f'<div style="min-width:0">'
+                    f'{nro_label}'
+                    f'<span style="font-weight:600;font-size:0.88rem;color:{name_color};'
+                    f'text-decoration:{name_deco}">{producto[:45]}</span>'
+                    f'</div></div>'
+                    f'<div style="display:flex;align-items:center;gap:8px;flex-shrink:0">'
+                    f'<span class="cadete-qty" style="font-size:0.9rem">×{cantidad}</span>'
+                    f'{badge}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                # En modo compacto: botones solo si no encontrado
+                if not encontrado:
+                    _bc1, _bc2, _bc3 = st.columns(3)
+                    with _bc1:
+                        if st.button("✅", key=f"enc_{idx}", use_container_width=True,
+                                     type="primary", help="Encontrado"):
+                            _confirmar_con_obs(idx, "Encontrado")
+                    with _bc2:
+                        if st.button("📦", key=f"mal_{idx}", use_container_width=True,
+                                     help="Mal stock"):
+                            _confirmar_con_obs(idx, "Mal stock")
+                    with _bc3:
+                        if st.button("❌", key=f"noenc_{idx}", use_container_width=True,
+                                     help="No encontrado"):
+                            _confirmar_con_obs(idx, "No encontrado")
+                else:
+                    if st.button("↩️", key=f"undo_{idx}", help="Deshacer"):
+                        _set_estado_cadete(idx, "Búsqueda", forzar=True)
+                continue  # saltar card detallada
+
+            # ── Card: modo detallado ────────────────────────
             with st.container():
                 st.markdown(
                     f'<div style="border-left:4px solid {border_c};'
@@ -2067,7 +2197,6 @@ def _page_cadete(cfg):
                     unsafe_allow_html=True,
                 )
 
-                # Fila 1: imagen + nombre + badge
                 col_img, col_info = st.columns([1, 7])
                 with col_img:
                     img_url = _imagen_producto(gtin_raw)
@@ -2075,18 +2204,27 @@ def _page_cadete(cfg):
                         st.image(img_url, width=62)
                     else:
                         st.markdown(
-                            '<div style="width:62px;height:62px;border-radius:6px;'
-                            'background:var(--border);display:flex;align-items:center;'
-                            'justify-content:center;font-size:1.6rem">💊</div>',
+                            f'<div style="width:62px;height:62px;border-radius:8px;'
+                            f'background:{pal_bg};display:flex;align-items:center;'
+                            f'justify-content:center;font-size:1.6rem;font-weight:700;'
+                            f'color:#fff">{inicial}</div>',
                             unsafe_allow_html=True,
                         )
                 with col_info:
-                    # Nombre + badge en la misma fila
                     badge = _badge_estado(estado_act)
+                    # N° pedido destacado arriba del nombre
+                    if nro_ped and nro_ped not in ("", "nan", "None"):
+                        st.markdown(
+                            f'<p style="margin:0 0 2px;font-size:0.72rem;font-weight:700;'
+                            f'letter-spacing:0.5px;color:var(--text-muted)">PEDIDO #{nro_ped}</p>',
+                            unsafe_allow_html=True,
+                        )
+                    # Nombre + badge
                     st.markdown(
                         f'<div style="display:flex;justify-content:space-between;'
-                        f'align-items:flex-start;gap:8px">'
-                        f'<p style="{name_style}">{producto}</p>'
+                        f'align-items:flex-start;gap:8px;margin-bottom:2px">'
+                        f'<p style="font-size:1rem;font-weight:700;color:{name_color};'
+                        f'text-decoration:{name_deco};margin:0;line-height:1.3">{producto}</p>'
                         f'<div style="flex-shrink:0">{badge}</div>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -2098,17 +2236,26 @@ def _page_cadete(cfg):
                             f'color:var(--text-muted)">{variante}</p>',
                             unsafe_allow_html=True,
                         )
-                    # Cantidad + códigos
-                    chip_parts = [f'<span class="cadete-qty">× {cantidad}</span>']
-                    if nro_ped and nro_ped not in ("", "nan", "None"):
-                        chip_parts.append(f'<span class="cadete-codigo-chip">Ped. #{nro_ped}</span>')
-                    if gtin_raw and gtin_raw not in ("nan", "None", ""):
-                        chip_parts.append(f'<span class="cadete-codigo-chip">GTIN {gtin_raw[:22]}</span>')
+                    # Chips: cantidad · GTIN · SKU · fecha
+                    chip_parts = [
+                        f'<span style="background:{border_c}22;color:{border_c};'
+                        f'border:1px solid {border_c}44;border-radius:20px;'
+                        f'padding:2px 10px;font-size:0.82rem;font-weight:700">'
+                        f'× {cantidad}</span>'
+                    ]
+                    if gtin_display and gtin_display not in ("nan", "None", ""):
+                        chip_parts.append(
+                            f'<span class="cadete-codigo-chip">GTIN {gtin_display}</span>'
+                        )
                     if zetti_id and zetti_id not in ("nan", "None", ""):
-                        chip_parts.append(f'<span class="cadete-codigo-chip">SKU {zetti_id}</span>')
-                    if fecha_ped and fecha_ped not in ("", "nan", "None"):
-                        hora_txt = f" {hora_ped}" if hora_ped and hora_ped not in ("", "nan", "None") else ""
-                        chip_parts.append(f'<span class="cadete-codigo-chip">📅 {fecha_ped}{hora_txt}</span>')
+                        chip_parts.append(
+                            f'<span class="cadete-codigo-chip">SKU {zetti_id}</span>'
+                        )
+                    if fecha_fmt:
+                        hora_label = f" · {hora_fmt}" if hora_fmt else ""
+                        chip_parts.append(
+                            f'<span class="cadete-codigo-chip">📅 {fecha_fmt}{hora_label}</span>'
+                        )
                     st.markdown(
                         '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">'
                         + " ".join(chip_parts) + "</div>",
@@ -2125,7 +2272,6 @@ def _page_cadete(cfg):
                             '<div class="cadete-alerta-info">📞 Sucursal remota — llamar antes de ir</div>',
                             unsafe_allow_html=True,
                         )
-                    # Observación guardada (estado encontrado)
                     if obs_guardada and encontrado:
                         st.caption(f"💬 {obs_guardada}")
 
@@ -2141,52 +2287,35 @@ def _page_cadete(cfg):
                     if obs_guardada:
                         st.caption(f"💬 {obs_guardada}")
             else:
-                # Campo de observación
-                obs_val = st.text_input(
-                    "💬 Observación (opcional)",
-                    value=st.session_state.get(f"obs_{idx}", ""),
+                # Observación
+                st.text_input(
+                    "obs", value=st.session_state.get(f"obs_{idx}", ""),
                     key=f"obs_{idx}",
-                    placeholder="Ej: Stock en estante B, llamar a Marta...",
+                    placeholder="💬 Observación (opcional)...",
                     label_visibility="collapsed",
                 )
 
-                # Botones de acción
-                if zona_r:
-                    b1, b2, b3, b4 = st.columns(4)
-                    with b1:
-                        if st.button("✅ Encontrado", key=f"enc_{idx}",
-                                     use_container_width=True, type="primary"):
-                            _confirmar_con_obs(idx, "Encontrado")
-                    with b2:
-                        if st.button("📦 Mal stock", key=f"mal_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "Mal stock")
-                    with b3:
-                        if st.button("📞 Llamar", key=f"call_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "Llamar a suc")
-                    with b4:
-                        if st.button("🔍 Revisar", key=f"rev_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "Requiere revisión")
-                else:
-                    b1, b2, b3, b4 = st.columns(4)
-                    with b1:
-                        if st.button("✅ Encontrado", key=f"enc_{idx}",
-                                     use_container_width=True, type="primary"):
-                            _confirmar_con_obs(idx, "Encontrado")
-                    with b2:
-                        if st.button("📦 Mal stock", key=f"mal_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "Mal stock")
-                    with b3:
-                        if st.button("❌ No encontrado", key=f"noenc_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "No encontrado")
-                    with b4:
-                        if st.button("🔍 Revisar", key=f"rev_{idx}",
-                                     use_container_width=True):
-                            _confirmar_con_obs(idx, "Requiere revisión")
+                # Botones: "Encontrado" ocupa el doble, el resto iguales
+                # Layout: [Encontrado=2] [Mal stock=1] [No encontrado=1] [Revisar=1]
+                b1, b2, b3, b4 = st.columns([2, 1, 1, 1])
+                with b1:
+                    if st.button("✅  Encontrado", key=f"enc_{idx}",
+                                 use_container_width=True, type="primary"):
+                        _confirmar_con_obs(idx, "Encontrado")
+                with b2:
+                    if st.button("📦 Mal stock", key=f"mal_{idx}",
+                                 use_container_width=True):
+                        _confirmar_con_obs(idx, "Mal stock")
+                with b3:
+                    _lbl3 = "📞 Llamar" if zona_r else "❌ No enc."
+                    _acc3  = "Llamar a suc" if zona_r else "No encontrado"
+                    if st.button(_lbl3, key=f"noenc_{idx}",
+                                 use_container_width=True):
+                        _confirmar_con_obs(idx, _acc3)
+                with b4:
+                    if st.button("🔍 Revisar", key=f"rev_{idx}",
+                                 use_container_width=True):
+                        _confirmar_con_obs(idx, "Requiere revisión")
 
                 # ── Ver alternativas ───────────────────────
                 if estado_act in {"No encontrado", "Mal stock", "Requiere revisión"}:
