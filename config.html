@@ -42,6 +42,27 @@
     .tier-3 { background: #fee2e2; color: #b91c1c; }
     .param-row { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-5); }
     .param-row:last-child { margin-bottom: 0; }
+
+    /* Sugerencias */
+    .sug-item {
+      display: flex; align-items: flex-start; gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      border-left: 3px solid transparent;
+    }
+    .sug-item:last-child { border-bottom: none; }
+    .sug-item.sug-up   { border-left-color: var(--success); }
+    .sug-item.sug-down { border-left-color: var(--danger); }
+    .sug-item.sug-warn { border-left-color: var(--warning); }
+    .sug-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 2px; }
+    .sug-info { flex: 1; min-width: 0; }
+    .sug-title { font-weight: var(--font-semibold); font-size: var(--text-sm); margin-bottom: 2px; }
+    .sug-nodo  { font-size: var(--text-xs); color: var(--text-muted); font-family: monospace; margin-bottom: var(--space-2); word-break: break-all; }
+    .sug-stats { display: flex; gap: var(--space-4); flex-wrap: wrap; }
+    .sug-stat  { font-size: var(--text-xs); color: var(--text-secondary); }
+    .sug-stat strong { font-weight: 600; }
+    .sug-actions { display: flex; gap: var(--space-2); flex-shrink: 0; align-items: flex-start; flex-wrap: wrap; justify-content: flex-end; }
+    .sug-empty { padding: var(--space-6); text-align: center; color: var(--text-muted); font-size: var(--text-sm); }
   </style>
 </head>
 <body>
@@ -69,6 +90,17 @@
   <div class="page-header">
     <h1 class="page-title">Configuración del sistema</h1>
     <p class="page-subtitle">Ajustá los tiers de asignación y los parámetros del optimizador</p>
+  </div>
+
+  <!-- Sugerencias automáticas -->
+  <div id="sug-section" style="max-width:1000px;margin-bottom:var(--space-6);display:none">
+    <div class="card">
+      <div class="card-header" style="cursor:pointer" id="sug-toggle">
+        <h2 class="card-title">🤖 Sugerencias automáticas <span id="sug-badge" style="font-size:var(--text-sm);font-weight:400;color:var(--text-muted)"></span></h2>
+        <span id="sug-chevron" style="font-size:var(--text-lg);color:var(--text-muted)">▾</span>
+      </div>
+      <div id="sug-body" class="card-body" style="padding:0"></div>
+    </div>
   </div>
 
   <div class="grid-2" style="max-width:1000px;align-items:start">
@@ -286,22 +318,8 @@
     const btn = document.getElementById('btn-guardar');
     btn.disabled = true;
     btn.textContent = 'Guardando...';
-
-    // Leer valores de los inputs de optimización
-    state.asignacion.consolidacion_por_pedido    = document.getElementById('opt-consolida').checked;
-    state.optimizacion.stock_seguridad           = parseInt(document.getElementById('opt-stock-seg').value) || 0;
-    state.optimizacion.max_sucursales_por_producto = parseInt(document.getElementById('opt-max-suc').value) || 3;
-    state.optimizacion.stock_sospechoso_umbral   = parseInt(document.getElementById('opt-umbral').value) || 200;
-
     try {
-      const res  = await auth.apiFetch('/api/config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(state),
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.motivo);
-      showToast('Configuración guardada', 'success');
+      await guardarConfig(true);
     } catch (err) {
       showToast(`Error al guardar: ${err.message}`, 'danger');
     } finally {
@@ -310,18 +328,165 @@
     }
   });
 
+  // ── Sugerencias automáticas ───────────────────────────────────────────────────
+
+  const DISMISSED_KEY = 'config_sug_dismissed_v1';
+
+  function getSugDismissed() {
+    try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) || '[]')); }
+    catch { return new Set(); }
+  }
+  function dismissSug(id) {
+    const d = getSugDismissed(); d.add(id);
+    localStorage.setItem(DISMISSED_KEY, JSON.stringify([...d]));
+  }
+
+  async function guardarConfig(showMsg = true) {
+    state.asignacion.consolidacion_por_pedido      = document.getElementById('opt-consolida').checked;
+    state.optimizacion.stock_seguridad             = parseInt(document.getElementById('opt-stock-seg').value) || 0;
+    state.optimizacion.max_sucursales_por_producto = parseInt(document.getElementById('opt-max-suc').value) || 3;
+    state.optimizacion.stock_sospechoso_umbral     = parseInt(document.getElementById('opt-umbral').value) || 200;
+    const res  = await auth.apiFetch('/api/config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.motivo);
+    if (showMsg) showToast('Configuración guardada', 'success');
+  }
+
+  function aplicarSugerencia(sug) {
+    const a = state.asignacion;
+    if (sug.tipo === 'promover_tier0') {
+      if (!a.nodos_tier_0.includes(sug.nodo)) a.nodos_tier_0.push(sug.nodo);
+      a.nodos_tier_1 = a.nodos_tier_1.filter(n => n !== sug.nodo);
+    } else if (sug.tipo === 'promover_tier1') {
+      if (!a.nodos_tier_1.includes(sug.nodo)) a.nodos_tier_1.push(sug.nodo);
+    } else if (sug.tipo === 'bajar_tier') {
+      a.nodos_tier_0 = a.nodos_tier_0.filter(n => n !== sug.nodo);
+      a.nodos_tier_1 = a.nodos_tier_1.filter(n => n !== sug.nodo);
+    } else if (sug.tipo === 'stock_seguridad') {
+      state.optimizacion.stock_seguridad = sug.valor_sugerido;
+      document.getElementById('opt-stock-seg').value = sug.valor_sugerido;
+    }
+    renderAll();
+    guardarConfig(false).then(() => showToast('Cambio aplicado y guardado', 'success'))
+                        .catch(e => showToast(`Error: ${e.message}`, 'danger'));
+    dismissSug(sug.id);
+    renderSugerencias(window._sugerencias || []);
+  }
+
+  function renderSugerencias(sugs) {
+    window._sugerencias = sugs;
+    const dismissed = getSugDismissed();
+    const visibles   = sugs.filter(s => !dismissed.has(s.id));
+
+    const section = document.getElementById('sug-section');
+    const badge   = document.getElementById('sug-badge');
+    const body    = document.getElementById('sug-body');
+
+    if (visibles.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = '';
+    badge.textContent = `· ${visibles.length} sugerencia${visibles.length !== 1 ? 's' : ''}`;
+
+    const TIPO_META = {
+      promover_tier0: { cls: 'sug-up',   icon: '⬆',  titulo: 'Promover a Tier 0' },
+      promover_tier1: { cls: 'sug-up',   icon: '↑',  titulo: 'Promover a Tier 1' },
+      bajar_tier:     { cls: 'sug-down', icon: '⬇',  titulo: 'Revisar prioridad' },
+      sin_cobertura_producto: { cls: 'sug-warn', icon: '⚠', titulo: 'Sin cobertura recurrente' },
+      stock_seguridad: { cls: 'sug-warn', icon: '🛡', titulo: 'Stock de seguridad bajo' },
+    };
+
+    body.innerHTML = visibles.map(s => {
+      const m = TIPO_META[s.tipo] || { cls: '', icon: '•', titulo: s.tipo };
+
+      let statsHtml = '';
+      let acciones  = '';
+
+      if (s.tipo === 'promover_tier0' || s.tipo === 'promover_tier1' || s.tipo === 'bajar_tier') {
+        statsHtml = `
+          <div class="sug-nodo">${s.nodo}</div>
+          <div class="sug-stats">
+            <span class="sug-stat">Confiabilidad <strong>${s.confiabilidad}%</strong></span>
+            <span class="sug-stat">Mal stock <strong>${s.mal_stock_pct}%</strong></span>
+            <span class="sug-stat"><strong>${s.lineas}</strong> líneas · <strong>${s.cruces}</strong> cruces</span>
+          </div>`;
+        const accionLabel = s.tipo === 'bajar_tier' ? 'Quitar de tier 0/1' : 'Aplicar';
+        acciones = `<button class="btn btn-primary btn-sm" data-sug-apply='${JSON.stringify(s)}'>✓ ${accionLabel}</button>`;
+      } else if (s.tipo === 'sin_cobertura_producto') {
+        statsHtml = `
+          <div class="sug-nodo">${s.producto}</div>
+          <div class="sug-stats">
+            <span class="sug-stat">Sin stock en <strong>${s.tasa}%</strong> de los cruces</span>
+            <span class="sug-stat"><strong>${s.cruces}</strong> cruces analizados</span>
+          </div>`;
+        acciones = '';
+      } else if (s.tipo === 'stock_seguridad') {
+        statsHtml = `
+          <div class="sug-stats">
+            <span class="sug-stat">MAL_STOCK global <strong>${s.mal_stock_pct}%</strong></span>
+            <span class="sug-stat">Actual <strong>${s.valor_actual}</strong> → Sugerido <strong>${s.valor_sugerido}</strong></span>
+          </div>`;
+        acciones = `<button class="btn btn-primary btn-sm" data-sug-apply='${JSON.stringify(s)}'>✓ Aplicar</button>`;
+      }
+
+      return `
+        <div class="sug-item ${m.cls}">
+          <div class="sug-icon">${m.icon}</div>
+          <div class="sug-info">
+            <div class="sug-title">${m.titulo}</div>
+            ${statsHtml}
+          </div>
+          <div class="sug-actions">
+            ${acciones}
+            <button class="btn btn-ghost btn-sm" data-sug-dismiss="${s.id}">Ignorar</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  // Toggle collapse
+  document.getElementById('sug-toggle').addEventListener('click', () => {
+    const body = document.getElementById('sug-body');
+    const chev = document.getElementById('sug-chevron');
+    const hidden = body.style.display === 'none';
+    body.style.display = hidden ? '' : 'none';
+    chev.textContent   = hidden ? '▾' : '▸';
+  });
+
+  // Event delegation — apply & dismiss
+  document.getElementById('sug-body').addEventListener('click', e => {
+    const applyBtn   = e.target.closest('[data-sug-apply]');
+    const dismissBtn = e.target.closest('[data-sug-dismiss]');
+    if (applyBtn)   aplicarSugerencia(JSON.parse(applyBtn.dataset.sugApply));
+    if (dismissBtn) { dismissSug(dismissBtn.dataset.sugDismiss); renderSugerencias(window._sugerencias || []); }
+  });
+
   // ── Carga inicial ─────────────────────────────────────────────────────────────
 
   try {
-    const res  = await auth.apiFetch('/api/config');
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.motivo);
-    if (data.asignacion)  Object.assign(state.asignacion,  data.asignacion);
-    if (data.optimizacion) Object.assign(state.optimizacion, data.optimizacion);
+    const [resCfg, resSug] = await Promise.all([
+      auth.apiFetch('/api/config'),
+      auth.apiFetch('/api/config/sugerencias'),
+    ]);
+    const dataCfg = await resCfg.json();
+    const dataSug = await resSug.json().catch(() => null);
+
+    if (!dataCfg.ok) throw new Error(dataCfg.motivo);
+    if (dataCfg.asignacion)   Object.assign(state.asignacion,   dataCfg.asignacion);
+    if (dataCfg.optimizacion) Object.assign(state.optimizacion, dataCfg.optimizacion);
     renderAll();
+
+    if (dataSug?.ok) renderSugerencias(dataSug.sugerencias);
   } catch (err) {
     showToast(`Error al cargar configuración: ${err.message}`, 'danger');
   }
+
 </script>
 
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>

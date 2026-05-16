@@ -1092,6 +1092,150 @@ def config_guardar():
     return jsonify({'ok': True})
 
 
+@app.get('/api/config/sugerencias')
+@require_admin
+def config_sugerencias():
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+    except Exception as e:
+        return jsonify({'ok': False, 'motivo': str(e)}), 500
+
+    asig     = cfg.get('asignacion', {})
+    tier0    = {n.lower() for n in asig.get('nodos_tier_0', [])}
+    tier1_n  = {n.lower() for n in asig.get('nodos_tier_1', [])}
+    kw_tier1 = [k.lower() for k in asig.get('palabras_clave_tier_1', [])]
+    kw_tier3 = [k.lower() for k in asig.get('palabras_clave_tier_3', [])]
+
+    def tier_de(nodo):
+        nl = nodo.lower()
+        if nl in tier0: return 0
+        if nl in tier1_n or any(kw in nl for kw in kw_tier1): return 1
+        if any(kw in nl for kw in kw_tier3): return 3
+        return 2
+
+    db = get_db()
+
+    # ── Estadísticas por nodo ────────────────────────────────────
+    rows = db.execute('''
+        SELECT nodo_asignado,
+               COUNT(*)                                                      AS total,
+               COUNT(DISTINCT cruce_id)                                      AS cruces,
+               SUM(CASE WHEN estado = 'MAL_STOCK'    THEN 1 ELSE 0 END)     AS mal_stock,
+               SUM(CASE WHEN estado = 'ENCONTRADO'   THEN 1 ELSE 0 END)     AS encontrado,
+               SUM(CASE WHEN estado = 'NO_ENCONTRADO' THEN 1 ELSE 0 END)    AS no_encontrado
+        FROM lineas
+        WHERE nodo_asignado IS NOT NULL AND nodo_asignado != ''
+          AND estado NOT IN ('PENDIENTE', 'SIN_COBERTURA')
+        GROUP BY nodo_asignado
+        HAVING total >= 5
+        ORDER BY total DESC
+    ''').fetchall()
+
+    sugerencias = []
+
+    for r in rows:
+        nodo     = r['nodo_asignado']
+        total    = r['total']
+        enc      = r['encontrado']
+        mal      = r['mal_stock']
+        no_enc   = r['no_encontrado']
+        cruces   = r['cruces']
+        resuelto = enc + mal + no_enc
+        if resuelto == 0:
+            continue
+
+        conf     = enc / resuelto
+        mal_rate = mal / resuelto
+        tier_act = tier_de(nodo)
+
+        # Promover a Tier 0 — muy confiable y no está ya ahí
+        if tier_act > 0 and conf >= 0.95 and cruces >= 3:
+            sugerencias.append({
+                'id':          f'promover_tier0_{nodo}',
+                'tipo':        'promover_tier0',
+                'nodo':        nodo,
+                'tier_actual': tier_act,
+                'confiabilidad': round(conf * 100, 1),
+                'mal_stock_pct': round(mal_rate * 100, 1),
+                'lineas':      total,
+                'cruces':      cruces,
+            })
+        # Promover a Tier 1 — confiable pero en tier 2/3
+        elif tier_act >= 2 and conf >= 0.85 and cruces >= 3:
+            sugerencias.append({
+                'id':          f'promover_tier1_{nodo}',
+                'tipo':        'promover_tier1',
+                'nodo':        nodo,
+                'tier_actual': tier_act,
+                'confiabilidad': round(conf * 100, 1),
+                'mal_stock_pct': round(mal_rate * 100, 1),
+                'lineas':      total,
+                'cruces':      cruces,
+            })
+
+        # Bajar tier — mal stock frecuente en sucursal de alta prioridad
+        if tier_act <= 1 and mal_rate >= 0.30 and cruces >= 3:
+            sugerencias.append({
+                'id':          f'bajar_tier_{nodo}',
+                'tipo':        'bajar_tier',
+                'nodo':        nodo,
+                'tier_actual': tier_act,
+                'confiabilidad': round(conf * 100, 1),
+                'mal_stock_pct': round(mal_rate * 100, 1),
+                'lineas':      total,
+                'cruces':      cruces,
+            })
+
+    # ── Productos sin cobertura recurrente ───────────────────────
+    prod_rows = db.execute('''
+        SELECT gtin, producto,
+               COUNT(*)                                                   AS total,
+               SUM(CASE WHEN estado = 'SIN_COBERTURA' THEN 1 ELSE 0 END) AS sin_cob,
+               COUNT(DISTINCT cruce_id)                                   AS cruces
+        FROM lineas
+        WHERE gtin IS NOT NULL AND gtin != ''
+        GROUP BY gtin
+        HAVING total >= 5 AND CAST(sin_cob AS REAL) / total >= 0.70
+        ORDER BY sin_cob DESC
+        LIMIT 8
+    ''').fetchall()
+
+    for r in prod_rows:
+        tasa = r['sin_cob'] / r['total']
+        sugerencias.append({
+            'id':      f'sin_cobertura_{r["gtin"]}',
+            'tipo':    'sin_cobertura_producto',
+            'gtin':    r['gtin'],
+            'producto': r['producto'] or r['gtin'],
+            'tasa':    round(tasa * 100, 1),
+            'lineas':  r['total'],
+            'cruces':  r['cruces'],
+        })
+
+    # ── Stock de seguridad global ────────────────────────────────
+    opt       = cfg.get('optimizacion', {})
+    stock_seg = opt.get('stock_seguridad', 0)
+    t_asig = db.execute(
+        "SELECT COUNT(*) FROM lineas WHERE nodo_asignado != '' AND estado NOT IN ('PENDIENTE','SIN_COBERTURA')"
+    ).fetchone()[0]
+    t_mal  = db.execute(
+        "SELECT COUNT(*) FROM lineas WHERE nodo_asignado != '' AND estado = 'MAL_STOCK'"
+    ).fetchone()[0]
+
+    if t_asig >= 20 and t_mal / t_asig >= 0.15 and stock_seg < 5:
+        sugerencias.append({
+            'id':             'stock_seguridad_bajo',
+            'tipo':           'stock_seguridad',
+            'valor_actual':   stock_seg,
+            'valor_sugerido': min(stock_seg + 2, 10),
+            'mal_stock_pct':  round(t_mal / t_asig * 100, 1),
+        })
+
+    total_cruces = db.execute('SELECT COUNT(*) FROM cruces').fetchone()[0]
+    return jsonify({'ok': True, 'sugerencias': sugerencias, 'total_cruces': total_cruces})
+
+
 # ── Jornada del día ─────────────────────────────────────────────────────────────
 
 @app.get('/api/jornada/hoy')
