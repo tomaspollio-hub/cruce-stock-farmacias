@@ -1236,6 +1236,75 @@ def config_sugerencias():
     return jsonify({'ok': True, 'sugerencias': sugerencias, 'total_cruces': total_cruces})
 
 
+# ── Líneas manuales ─────────────────────────────────────────────────────────────
+
+@app.get('/api/cruces/<int:cid>/nodos')
+@require_auth
+def cruce_nodos(cid):
+    db   = get_db()
+    rows = db.execute('''
+        SELECT DISTINCT nodo_asignado FROM lineas
+        WHERE cruce_id = ? AND nodo_asignado IS NOT NULL AND nodo_asignado != ''
+        ORDER BY nodo_asignado
+    ''', (cid,)).fetchall()
+    return jsonify({'ok': True, 'nodos': [r['nodo_asignado'] for r in rows]})
+
+
+@app.post('/api/cruces/<int:cid>/lineas')
+@require_auth
+def cruce_agregar_linea(cid):
+    if g.rol not in ('admin', 'operador'):
+        return jsonify({'ok': False, 'motivo': 'sin_permiso'}), 403
+
+    body     = request.get_json(force=True)
+    gtin     = (body.get('gtin')          or '').strip()
+    sku      = (body.get('sku')           or '').strip()
+    producto = (body.get('producto')      or '').strip()
+    nodo     = (body.get('nodo_asignado') or '').strip()
+    unidades = int(body.get('unidades')   or 1)
+    nro_ped  = (body.get('nro_pedido')    or '').strip()
+    notas    = (body.get('notas')         or '').strip()
+
+    if not gtin and not sku:
+        return jsonify({'ok': False, 'motivo': 'se_requiere_gtin_o_sku'}), 400
+
+    db    = get_db()
+    cruce = db.execute('SELECT id FROM cruces WHERE id = ?', (cid,)).fetchone()
+    if not cruce:
+        return jsonify({'ok': False, 'motivo': 'cruce_no_encontrado'}), 404
+
+    # Calcular tier del nodo si fue especificado
+    tier = 2
+    if nodo:
+        try:
+            with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+                cfg = yaml.safe_load(f)
+            asig    = cfg.get('asignacion', {})
+            tier0   = {n.lower() for n in asig.get('nodos_tier_0', [])}
+            tier1_n = {n.lower() for n in asig.get('nodos_tier_1', [])}
+            kw1     = [k.lower() for k in asig.get('palabras_clave_tier_1', [])]
+            kw3     = [k.lower() for k in asig.get('palabras_clave_tier_3', [])]
+            nl = nodo.lower()
+            if nl in tier0:                               tier = 0
+            elif nl in tier1_n or any(k in nl for k in kw1): tier = 1
+            elif any(k in nl for k in kw3):               tier = 3
+        except Exception:
+            pass
+
+    now = datetime.now(timezone.utc).isoformat()
+    cur = db.execute('''
+        INSERT INTO lineas
+            (cruce_id, nro_pedido, gtin, sku, producto, unidades,
+             nodo_asignado, tier, estado, notas, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', ?, ?)
+    ''', (cid, nro_ped, gtin, sku, producto, unidades,
+          nodo or None, tier, notas, now))
+
+    db.execute('UPDATE cruces SET total_lineas = total_lineas + 1 WHERE id = ?', (cid,))
+    db.commit()
+    return jsonify({'ok': True, 'linea_id': cur.lastrowid})
+
+
 # ── Jornada del día ─────────────────────────────────────────────────────────────
 
 @app.get('/api/jornada/hoy')

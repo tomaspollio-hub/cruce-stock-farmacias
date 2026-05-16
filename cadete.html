@@ -1123,9 +1123,52 @@
     }
   });
 
+  // ── Poll de líneas nuevas ─────────────────────────────────────
+  // Detecta si el operador agregó productos mientras el cadete está en ruta
+
+  let totalLineasConocidas = 0;
+
+  async function pollLineasNuevas() {
+    try {
+      const r = await auth.apiFetch(`/api/cruces/${cruceId}`);
+      const d = await r.json();
+      if (!d.ok) return;
+      const total = d.cruce.total_lineas;
+      if (totalLineasConocidas > 0 && total > totalLineasConocidas) {
+        const nuevas = total - totalLineasConocidas;
+        mostrarBannerLineasNuevas(nuevas);
+      }
+      totalLineasConocidas = total;
+    } catch { /* ignorar errores de red */ }
+    setTimeout(pollLineasNuevas, 30000);
+  }
+
+  function mostrarBannerLineasNuevas(cantidad) {
+    let banner = document.getElementById('banner-lineas-nuevas');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'banner-lineas-nuevas';
+      banner.style.cssText = `
+        position:fixed;top:70px;left:50%;transform:translateX(-50%);
+        background:var(--accent);color:white;padding:10px 20px;
+        border-radius:999px;font-weight:600;font-size:var(--text-sm);
+        box-shadow:var(--shadow-lg);z-index:400;cursor:pointer;
+        display:flex;align-items:center;gap:8px;white-space:nowrap`;
+      banner.addEventListener('click', () => {
+        banner.remove();
+        cargarLineas();
+      });
+      document.body.appendChild(banner);
+    }
+    banner.innerHTML = `🆕 ${cantidad} producto${cantidad !== 1 ? 's' : ''} nuevo${cantidad !== 1 ? 's' : ''} agregado${cantidad !== 1 ? 's' : ''} — tocá para actualizar`;
+  }
+
   // ── Arranque ─────────────────────────────────────────────────
 
-  cargarLineas().catch(err => {
+  cargarLineas().then(() => {
+    totalLineasConocidas = lineas.length;
+    setTimeout(pollLineasNuevas, 30000);
+  }).catch(err => {
     console.error(err);
     showToast('Error al cargar la vista cadete', 'danger');
   });

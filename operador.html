@@ -242,6 +242,9 @@
         <span id="notif-icon">🔔</span>
         <span id="notif-label">Alertas</span>
       </button>
+      <button class="btn btn-primary btn-sm" id="btn-agregar-linea" style="gap:var(--space-1)">
+        ➕ Agregar producto
+      </button>
     </div>
   </div>
 
@@ -371,6 +374,61 @@
       <button class="btn btn-ghost btn-sm" id="firma-modal-close">✕</button>
     </div>
     <div id="firma-modal-body" style="text-align:center"></div>
+  </div>
+</div>
+
+<!-- Modal: agregar producto manual -->
+<div id="modal-agregar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
+  <div class="card" style="width:100%;max-width:480px">
+    <div class="card-header">
+      <h2 class="card-title">➕ Agregar producto al cruce</h2>
+      <button id="agregar-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+
+      <div style="display:flex;gap:var(--space-3)">
+        <div style="flex:1">
+          <label class="form-label" for="ag-gtin">GTIN / Código de barras</label>
+          <input class="form-input" id="ag-gtin" placeholder="Ej: 07891234000012">
+        </div>
+        <div style="flex:1">
+          <label class="form-label" for="ag-sku">SKU</label>
+          <input class="form-input" id="ag-sku" placeholder="Ej: COD-12345">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label" for="ag-producto">Nombre del producto <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
+        <input class="form-input" id="ag-producto" placeholder="Ej: Aspirina 500mg x 20">
+      </div>
+
+      <div style="display:flex;gap:var(--space-3)">
+        <div style="flex:2">
+          <label class="form-label" for="ag-nodo">Sucursal donde buscarlo <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
+          <input class="form-input" id="ag-nodo" list="ag-nodo-list" placeholder="Dejar vacío si el cadete lo busca">
+          <datalist id="ag-nodo-list"></datalist>
+        </div>
+        <div style="flex:1">
+          <label class="form-label" for="ag-unidades">Cantidad</label>
+          <input class="form-input" type="number" id="ag-unidades" value="1" min="1">
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label" for="ag-pedido">Nro. de pedido / referencia <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
+        <input class="form-input" id="ag-pedido" placeholder="Ej: B2B-9901, urgente-42">
+      </div>
+
+      <div>
+        <label class="form-label" for="ag-notas">Nota interna <span style="color:var(--text-muted);font-weight:400">(opcional)</span></label>
+        <input class="form-input" id="ag-notas" placeholder="Ej: B2B Partner, pedido telefónico">
+      </div>
+
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="agregar-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="agregar-confirm">Agregar al cruce</button>
+    </div>
   </div>
 </div>
 
@@ -939,10 +997,83 @@
       ${filas}`;
   }
 
+  // ── Agregar producto manual ───────────────────────────────────
+
+  let nodosConocidos = [];
+
+  function abrirModalAgregar() {
+    if (!cruceId) { showToast('Seleccioná un cruce primero', 'warning'); return; }
+    // Poblar datalist con nodos del cruce actual
+    const dl = document.getElementById('ag-nodo-list');
+    dl.innerHTML = nodosConocidos.map(n => `<option value="${n}">`).join('');
+    // Limpiar campos
+    ['ag-gtin','ag-sku','ag-producto','ag-nodo','ag-pedido','ag-notas'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('ag-unidades').value = '1';
+    document.getElementById('modal-agregar').style.display = 'flex';
+    document.getElementById('ag-gtin').focus();
+  }
+
+  function cerrarModalAgregar() {
+    document.getElementById('modal-agregar').style.display = 'none';
+  }
+
+  document.getElementById('btn-agregar-linea').addEventListener('click', abrirModalAgregar);
+  document.getElementById('agregar-close').addEventListener('click',  cerrarModalAgregar);
+  document.getElementById('agregar-cancel').addEventListener('click', cerrarModalAgregar);
+  document.getElementById('modal-agregar').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-agregar')) cerrarModalAgregar();
+  });
+
+  document.getElementById('agregar-confirm').addEventListener('click', async () => {
+    const gtin  = document.getElementById('ag-gtin').value.trim();
+    const sku   = document.getElementById('ag-sku').value.trim();
+    if (!gtin && !sku) {
+      showToast('Ingresá al menos GTIN o SKU', 'warning'); return;
+    }
+
+    const btn = document.getElementById('agregar-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Agregando...';
+
+    try {
+      const res  = await auth.apiFetch(`/api/cruces/${cruceId}/lineas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gtin:         gtin,
+          sku:          sku,
+          producto:     document.getElementById('ag-producto').value.trim(),
+          nodo_asignado: document.getElementById('ag-nodo').value.trim(),
+          unidades:     parseInt(document.getElementById('ag-unidades').value) || 1,
+          nro_pedido:   document.getElementById('ag-pedido').value.trim(),
+          notas:        document.getElementById('ag-notas').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.motivo);
+
+      cerrarModalAgregar();
+      showToast('Producto agregado — el cadete lo verá al refrescar su lista', 'success');
+      await cargarDatos();
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'danger');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Agregar al cruce';
+    }
+  });
+
   // ── Arranque ─────────────────────────────────────────────────
 
   await cargarSelector();
   await cargarDatos();
+
+  // Cargar nodos conocidos del cruce para el datalist
+  auth.apiFetch(`/api/cruces/${cruceId}/nodos`).then(r => r.json())
+    .then(d => { if (d.ok) nodosConocidos = d.nodos; })
+    .catch(() => {});
 
   // Arrancar el poll de notificaciones (15s) después de la carga inicial
   notifDesde = new Date().toISOString();
