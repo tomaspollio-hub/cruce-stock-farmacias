@@ -215,18 +215,26 @@
     }
 
     // Polling del estado del job
-    const resultado = await new Promise((resolve, reject) => {
-      const poll = setInterval(async () => {
-        try {
-          const r    = await auth.apiFetch(`/api/jobs/${jobId}`);
-          const job  = await r.json();
-          if (!job.ok) { clearInterval(poll); reject(new Error('Job no encontrado')); return; }
-          msgEl.textContent = job.step || 'Procesando...';
-          if (job.status === 'done')  { clearInterval(poll); resolve(job); }
-          if (job.status === 'error') { clearInterval(poll); reject(new Error(job.error)); }
-        } catch (e) { clearInterval(poll); reject(e); }
-      }, 2000);
-    });
+    let resultado;
+    try {
+      resultado = await new Promise((resolve, reject) => {
+        const poll = setInterval(async () => {
+          try {
+            const r    = await auth.apiFetch(`/api/jobs/${jobId}`);
+            const job  = await r.json();
+            if (!job.ok) { clearInterval(poll); reject(new Error(job.motivo || 'Job no encontrado')); return; }
+            msgEl.textContent = job.step || 'Procesando...';
+            if (job.status === 'done')  { clearInterval(poll); resolve(job); }
+            if (job.status === 'error') { clearInterval(poll); reject(new Error(job.error || 'Error en procesamiento')); }
+          } catch (e) { clearInterval(poll); reject(e); }
+        }, 2000);
+      });
+    } catch (err) {
+      document.getElementById('progress-section').style.display = 'none';
+      btn.disabled = false;
+      showToast(`Error al procesar: ${err.message}`, 'danger');
+      return;
+    }
 
     document.getElementById('progress-section').style.display = 'none';
 
