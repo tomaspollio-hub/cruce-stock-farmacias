@@ -211,6 +211,23 @@ def require_admin(f):
 
 # ── Rutas auth ──────────────────────────────────────────────────────────────────
 
+@app.get('/api/debug/headers')
+def debug_headers():
+    auth = request.headers.get('Authorization', 'MISSING')
+    import jwt as _jwt
+    result = {'auth_header': auth}
+    if auth.startswith('Bearer '):
+        token = auth[7:]
+        try:
+            SECRET_KEY_local = os.environ.get('CRUCE_SECRET', 'dev-secret-change-in-prod')
+            payload = _jwt.decode(token, SECRET_KEY_local, algorithms=['HS256'])
+            result['decode'] = 'ok'
+            result['payload'] = payload
+        except Exception as e:
+            result['decode'] = f'{type(e).__name__}: {e}'
+            result['secret_used'] = SECRET_KEY_local
+    return jsonify(result)
+
 @app.post('/api/auth/login')
 def auth_login():
     data   = request.get_json(silent=True) or {}
