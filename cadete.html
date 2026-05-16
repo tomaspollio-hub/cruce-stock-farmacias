@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Vista cadete</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    body { padding-bottom: 80px; }
+
+    [data-rol="cadete"] .admin-only { display: none !important; }
+
+    /* ── Modo toggle ──────────────────────────────────────────── */
+    .modo-toggle {
+      display: flex;
+      gap: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      margin-bottom: var(--space-5);
+      width: fit-content;
+    }
+    .modo-btn {
+      padding: var(--space-3) var(--space-6);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      border: none;
+      background: var(--surface);
+      color: var(--text-secondary);
+      transition: background var(--transition-fast), color var(--transition-fast);
+    }
+    .modo-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    /* ── Filtros ──────────────────────────────────────────────── */
+    .filtros-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+      margin-bottom: var(--space-6);
+    }
+    .filtro-sucursal {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+    .filtro-sucursal label {
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      white-space: nowrap;
+    }
+    .filtros-bar {
+      display: flex;
+      gap: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .filtro-btn {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-full);
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      transition: all var(--transition-fast);
+    }
+    .filtro-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* ── Línea card ───────────────────────────────────────────── */
+    .linea-info { flex: 1; min-width: 0; }
+    .linea-header-wrap {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex: 1;
+      min-width: 0;
+    }
+    .linea-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: var(--radius-md);
+      object-fit: contain;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .linea-producto {
+      font-weight: var(--font-semibold);
+      font-size: var(--text-sm);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .linea-gtin {
+      font-family: monospace;
+      font-size: var(--text-xs);
+      font-weight: var(--font-bold);
+      color: var(--accent);
+      letter-spacing: .04em;
+      margin-top: 2px;
+    }
+    .linea-meta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .linea-alt-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: var(--text-xs);
+      color: var(--warning);
+      font-weight: var(--font-semibold);
+      margin-top: 2px;
+    }
+    .alternativas-list {
+      margin-top: var(--space-3);
+      padding: var(--space-3);
+      background: var(--surface);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    .alternativa-item {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) 0;
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+    }
+    .alternativa-item:last-child { border-bottom: none; }
+
+    /* ── Entrega card ─────────────────────────────────────────── */
+    .entrega-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      margin-bottom: var(--space-4);
+      overflow: hidden;
+    }
+    .entrega-card.confirmada {
+      border-color: var(--success);
+    }
+    .entrega-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-subtle);
+    }
+    .entrega-header.confirmada { background: var(--success-light); }
+    .entrega-body {
+      padding: var(--space-4) var(--space-5);
+    }
+    .pedido-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+    .pedido-chip {
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      padding: 2px var(--space-3);
+      background: var(--accent-light);
+      color: var(--accent);
+      border-radius: var(--radius-full);
+    }
+
+    /* ── Canvas firma ─────────────────────────────────────────── */
+    .firma-canvas-wrap {
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius-md);
+      background: #fff;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .firma-canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo">
+    <a href="index.html" style="display:flex;align-items:center;gap:var(--space-3);text-decoration:none">
+      <img src="/img/logo-global.png" alt="Farmacias Global" style="height:28px;width:auto">
+      <span id="header-subtitle" style="font-size:var(--text-xs);font-weight:var(--font-semibold);color:var(--text-muted);padding-left:var(--space-2);border-left:1px solid var(--border)">Ruta del día</span>
+    </a>
+  </div>
+  <nav class="header-nav admin-only">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="historial.html">Historial</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)">
+    <div>
+      <h1 class="page-title">Ruta del día</h1>
+      <p class="page-subtitle" id="cruce-subtitle">Cargando...</p>
+    </div>
+    <div style="display:flex;gap:var(--space-2)">
+      <a id="btn-excel" href="#" class="btn btn-ghost admin-only">⬇ Excel</a>
+      <a href="operador.html" id="btn-operador" class="btn btn-ghost admin-only" style="display:none">← Operador</a>
+      <a href="index.html" class="btn btn-ghost admin-only">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Modo toggle: Búsqueda / Entregas -->
+  <div class="modo-toggle">
+    <button class="modo-btn active" id="modo-busqueda">🔍 Búsqueda</button>
+    <button class="modo-btn" id="modo-entregas">📦 Entregas del día</button>
+  </div>
+
+  <!-- ── MODO BÚSQUEDA ─────────────────────────────────────── -->
+  <div id="seccion-busqueda">
+
+    <div class="filtros-wrap">
+      <!-- Filtro por sucursal -->
+      <div class="filtro-sucursal">
+        <label for="select-sucursal">Sucursal</label>
+        <select class="form-select" id="select-sucursal" style="min-width:220px;max-width:340px">
+          <option value="">Todas las sucursales</option>
+        </select>
+      </div>
+      <!-- Filtro por estado -->
+      <div class="filtros-bar" id="filtros-bar">
+        <button class="filtro-btn active" data-filtro="todos">Todos</button>
+        <button class="filtro-btn" data-filtro="PENDIENTE">Pendientes</button>
+        <button class="filtro-btn" data-filtro="ENCONTRADO">Encontrados</button>
+        <button class="filtro-btn" data-filtro="NO_ENCONTRADO">No encontrados</button>
+        <button class="filtro-btn" data-filtro="MAL_STOCK">Mal stock</button>
+        <button class="filtro-btn" data-filtro="SIN_COBERTURA">Sin cobertura</button>
+      </div>
+    </div>
+
+    <div id="cadete-content">
+      <div class="empty-state">
+        <div class="spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto var(--space-4)"></div>
+        <div>Cargando líneas...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── MODO ENTREGAS ─────────────────────────────────────── -->
+  <div id="seccion-entregas" style="display:none">
+    <div id="entregas-content">
+      <div class="empty-state">
+        <div class="spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto var(--space-4)"></div>
+        <div>Cargando entregas...</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- Barra de progreso fija (solo en modo búsqueda) -->
+<div class="progress-bar-fixed" id="progress-fixed" style="display:none">
+  <div style="font-size:var(--text-sm);color:var(--text-muted);white-space:nowrap">Progreso</div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+  </div>
+  <div class="progress-label" id="progress-label">0%</div>
+  <div style="font-size:var(--text-xs);color:var(--text-muted)" id="progress-detalle"></div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- Modal: nota libre -->
+<div id="modal-notas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:420px;margin:var(--space-4)">
+    <div class="card-header">
+      <h2 class="card-title">Agregar nota</h2>
+      <button id="modal-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body">
+      <textarea class="form-textarea" id="modal-nota-input" rows="3"
+        placeholder="Observación sobre este producto..."></textarea>
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="modal-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="modal-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: mal stock con sucursal alternativa -->
+<div id="modal-malstock" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:440px;margin:var(--space-4)">
+    <div class="card-header">
+      <h2 class="card-title">⚠ Confirmar mal stock</h2>
+      <button id="ms-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body">
+      <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-4)">
+        ¿En qué otra sucursal viste el producto o creés que puede haber stock?
+      </p>
+      <input class="form-input" id="ms-alternativa"
+             placeholder="Ej: CABELLERA 1460  (opcional)">
+      <p class="form-hint">Dejalo vacío si no tenés referencia.</p>
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="ms-cancel">Cancelar</button>
+      <button class="btn btn-warning" id="ms-confirm">Confirmar mal stock</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: confirmar entrega + firma digital -->
+<div id="modal-entrega" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
+  <div class="card" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+    <div class="card-header">
+      <h2 class="card-title">📦 Confirmar entrega</h2>
+      <button id="ent-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-5)">
+
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-2)">
+          Farmacia
+        </div>
+        <div id="ent-farmacia" style="font-weight:var(--font-semibold)">–</div>
+      </div>
+
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-2)">
+          Pedidos entregados
+        </div>
+        <div id="ent-pedidos" class="pedido-chips"></div>
+      </div>
+
+      <div>
+        <label class="form-label" for="ent-receptor">Nombre de quien recibe *</label>
+        <input class="form-input" id="ent-receptor" placeholder="Nombre completo" required>
+      </div>
+
+      <div>
+        <label class="form-label">Firma *</label>
+        <div class="firma-canvas-wrap">
+          <canvas id="firma-canvas" height="180"></canvas>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="ent-limpiar-firma" style="margin-top:var(--space-2)">
+          Limpiar firma
+        </button>
+      </div>
+
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="ent-cancel">Cancelar</button>
+      <button class="btn btn-success btn-lg" id="ent-confirm">✓ Confirmar entrega</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+
+  document.body.dataset.rol = session.rol;
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+  const params  = new URLSearchParams(location.search);
+  const cruceId = params.get('cruce');
+  if (!cruceId) { location.href = 'index.html'; }
+
+  document.getElementById('btn-excel').href = `/api/cruces/${cruceId}/download`;
+
+  if (params.get('desde') === 'operador' || session.rol !== 'cadete') {
+    const btnOp = document.getElementById('btn-operador');
+    btnOp.href  = `operador.html?cruce=${cruceId}`;
+    btnOp.style.display = 'inline-flex';
+  }
+
+  let lineas       = [];
+  let entregas     = [];
+  let filtroActual = 'todos';
+  let sucursalFiltro = '';
+  let modalLineaId = null;
+  let msLineaId    = null;
+  let entPuntoRetiro = null;
+  let firmaVacia   = true;
+
+  const ZONA_LABEL = {
+    0: 'Depósito', 1: 'NQN Capital',
+    2: 'Centenario/Plottier', 3: 'Cercanas', 4: 'Remotas',
+  };
+  const ESTADO_LABEL = {
+    PENDIENTE:     'Pendiente',
+    ENCONTRADO:    'Encontrado',
+    NO_ENCONTRADO: 'No encontrado',
+    MAL_STOCK:     'Mal stock',
+    REASIGNADO:    'Reasignado',
+    EN_REVISION:   'En revisión',
+    SIN_COBERTURA: 'Sin cobertura',
+  };
+
+  // ── Modo toggle ──────────────────────────────────────────────
+
+  let modoActual = 'busqueda';
+
+  document.getElementById('modo-busqueda').addEventListener('click', () => setModo('busqueda'));
+  document.getElementById('modo-entregas').addEventListener('click', () => {
+    setModo('entregas');
+    cargarEntregas();
+  });
+
+  function setModo(modo) {
+    modoActual = modo;
+    document.getElementById('modo-busqueda').classList.toggle('active', modo === 'busqueda');
+    document.getElementById('modo-entregas').classList.toggle('active', modo === 'entregas');
+    document.getElementById('seccion-busqueda').style.display = modo === 'busqueda' ? '' : 'none';
+    document.getElementById('seccion-entregas').style.display = modo === 'entregas' ? '' : 'none';
+    document.getElementById('progress-fixed').style.display   = modo === 'busqueda' ? 'flex' : 'none';
+    document.getElementById('header-subtitle').textContent    =
+      modo === 'busqueda' ? 'Ruta del día' : 'Entregas del día';
+  }
+
+  // ── Carga inicial ────────────────────────────────────────────
+
+  async function cargarLineas() {
+    const [rCruce, rLineas] = await Promise.all([
+      auth.apiFetch(`/api/cruces/${cruceId}`),
+      auth.apiFetch(`/api/cruces/${cruceId}/lineas`),
+    ]);
+    const dataCruce  = await rCruce.json();
+    const dataLineas = await rLineas.json();
+
+    if (!dataCruce.ok || !dataLineas.ok) {
+      document.getElementById('cadete-content').innerHTML =
+        `<div class="alert alert-danger">Error al cargar el cruce.</div>`;
+      return;
+    }
+
+    const cruce = dataCruce.cruce;
+    document.getElementById('cruce-subtitle').textContent =
+      `${cruce.archivo_pedidos} · ${cruce.total_lineas} líneas · ${cruce.pct_cobertura.toFixed(1)}% cobertura`;
+
+    lineas = dataLineas.lineas;
+    poblarSelectorSucursal();
+    renderLineas();
+    await actualizarProgreso();
+  }
+
+  function poblarSelectorSucursal() {
+    const nodos = [...new Set(
+      lineas
+        .filter(l => l.nodo_asignado)
+        .map(l => l.nodo_asignado)
+    )].sort();
+
+    const sel = document.getElementById('select-sucursal');
+    sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+      nodos.map(n => `<option value="${n}">${n}</option>`).join('');
+
+    sel.addEventListener('change', () => {
+      sucursalFiltro = sel.value;
+      renderLineas();
+    });
+  }
+
+  // ── Render búsqueda ──────────────────────────────────────────
+
+  function renderLineas() {
+    let filtradas = filtroActual === 'todos'
+      ? lineas
+      : lineas.filter(l => l.estado === filtroActual);
+
+    if (sucursalFiltro) {
+      filtradas = filtradas.filter(l => l.nodo_asignado === sucursalFiltro);
+    }
+
+    if (filtradas.length === 0) {
+      document.getElementById('cadete-content').innerHTML =
+        `<div class="empty-state"><div class="empty-state-icon">✓</div>
+         <div class="empty-state-title">Sin líneas en este filtro</div></div>`;
+      return;
+    }
+
+    const grupos = {};
+    for (const l of filtradas) {
+      const key = l.nodo_asignado || '— SIN COBERTURA —';
+      if (!grupos[key]) grupos[key] = [];
+      grupos[key].push(l);
+    }
+
+    let html = '';
+    for (const [nodo, items] of Object.entries(grupos)) {
+      const zonaLabel  = ZONA_LABEL[items[0]?.zona] ?? '';
+      const pendientes = items.filter(i => i.estado === 'PENDIENTE').length;
+      html += `
+        <div class="sucursal-group">
+          <div class="sucursal-header">
+            <span>📍</span>
+            <span>${nodo}</span>
+            ${zonaLabel ? `<span class="badge badge-gray">${zonaLabel}</span>` : ''}
+            ${pendientes > 0 ? `<span class="badge badge-blue">${pendientes} pendientes</span>` : ''}
+            <span class="sucursal-zona">${items.length} producto${items.length !== 1 ? 's' : ''}</span>
+          </div>
+          ${items.map(l => renderLinea(l)).join('')}
+        </div>`;
+    }
+
+    document.getElementById('cadete-content').innerHTML = html;
+
+    document.querySelectorAll('.linea-card-header').forEach(h => {
+      h.addEventListener('click', () => {
+        const body = h.nextElementSibling;
+        if (body?.classList.contains('linea-card-body')) {
+          const abriendo = body.style.display === 'none';
+          body.style.display = abriendo ? 'block' : 'none';
+          if (abriendo) {
+            const card = h.closest('.linea-card');
+            const linId = card?.id?.replace('linea-', '');
+            const linea = linId ? lineas.find(l => l.id === parseInt(linId)) : null;
+            if (linea?.gtin) cargarImagen(linea.id, linea.gtin);
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-accion]').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        const linea_id = parseInt(btn.dataset.linea);
+        const accion   = btn.dataset.accion;
+        if (accion === 'NOTA')             { abrirModalNota(linea_id);     return; }
+        if (accion === 'MAL_STOCK_PROMPT') { abrirModalMalStock(linea_id); return; }
+        await cambiarEstado(linea_id, accion);
+      });
+    });
+  }
+
+  const imgCache = {};   // gtin → url | null
+
+  function gtinToOffUrl(gtin) {
+    // Strip leading zeros, quedarse con EAN-13 o EAN-8
+    const code = String(gtin).replace(/^0+/, '') || '0';
+    if (code.length < 8) return null;
+    // OFF split para códigos de 9+ dígitos: 3/3/3/resto
+    if (code.length >= 9) {
+      const a = code.slice(0, 3), b = code.slice(3, 6),
+            c = code.slice(6, 9), d = code.slice(9) || '';
+      const path = d ? `${a}/${b}/${c}/${d}` : `${a}/${b}/${c}`;
+      return `https://images.openfoodfacts.org/images/products/${path}/front_fr.400.jpg`;
+    }
+    return `https://images.openfoodfacts.org/images/products/${code}/front_fr.400.jpg`;
+  }
+
+  async function cargarImagen(lineaId, gtin) {
+    if (!gtin) return;
+    const img = document.querySelector(`#linea-${lineaId} .linea-thumb`);
+    if (!img || img.dataset.cargada) return;
+    img.dataset.cargada = '1';
+
+    if (gtin in imgCache) {
+      if (imgCache[gtin]) { img.src = imgCache[gtin]; img.style.display = ''; }
+      return;
+    }
+
+    // 1) Intentar URL directa de OFF (sin fetch, más rápido)
+    const directUrl = gtinToOffUrl(gtin);
+    if (directUrl) {
+      await new Promise(resolve => {
+        const probe = new Image();
+        probe.onload  = () => { imgCache[gtin] = directUrl; resolve(); };
+        probe.onerror = () => { resolve(); };  // seguir con API
+        probe.src = directUrl;
+      });
+      if (imgCache[gtin] && img.isConnected) {
+        img.src = imgCache[gtin]; img.style.display = '';
+        return;
+      }
+    }
+
+    // 2) Fallback: API de OFF (cubre más variantes de URL)
+    try {
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 5000);
+      const r = await fetch(
+        `https://world.openfoodfacts.org/api/v2/product/${gtin}?fields=image_front_small_url`,
+        { signal: controller.signal }
+      );
+      clearTimeout(t);
+      if (!r.ok) { imgCache[gtin] = null; return; }
+      const d   = await r.json();
+      const url = d.product?.image_front_small_url ?? null;
+      imgCache[gtin] = url;
+      if (url && img.isConnected) { img.src = url; img.style.display = ''; }
+    } catch {
+      imgCache[gtin] = null;
+    }
+  }
+
+  function renderLinea(l) {
+    const alts     = Array.isArray(l.alternativas) ? l.alternativas : [];
+    const isSinCob = !l.nodo_asignado;
+    // Imagen: placeholder oculto, se carga cuando el cadete abre la tarjeta
+    const imgHtml  = l.gtin
+      ? `<img class="linea-thumb" alt="" style="display:none">`
+      : '';
+
+    return `
+      <div class="linea-card" id="linea-${l.id}">
+        <div class="linea-card-header">
+          <div class="linea-header-wrap">
+            ${imgHtml}
+            <div class="linea-info">
+              <div class="linea-producto">${l.producto || '—'}</div>
+              ${l.gtin ? `<div class="linea-gtin">🏷 ${l.gtin}</div>` : ''}
+              <div class="linea-meta">
+                Pedido ${l.nro_pedido || '–'} · ${l.unidades || 1} un.
+                ${l.stock_disponible ? `· Stock: ${l.stock_disponible}` : ''}
+              </div>
+              ${l.alternativa_nodo ? `<div class="linea-alt-tag">→ Alt: ${l.alternativa_nodo}</div>` : ''}
+            </div>
+          </div>
+          <span class="badge estado-${l.estado}">${ESTADO_LABEL[l.estado] || l.estado}</span>
+          <span style="color:var(--text-muted);font-size:var(--text-lg)">⌄</span>
+        </div>
+        <div class="linea-card-body" style="display:none">
+          ${l.notas ? `<div class="alert alert-info" style="margin-bottom:var(--space-3);font-size:var(--text-xs)">📝 ${l.notas}</div>` : ''}
+          ${isSinCob
+            ? `<div class="alert alert-warning">Sin cobertura en ninguna sucursal.</div>`
+            : `<div class="linea-acciones">
+                <button class="btn btn-success btn-sm" data-accion="ENCONTRADO"       data-linea="${l.id}">✓ Encontrado</button>
+                <button class="btn btn-danger btn-sm"  data-accion="NO_ENCONTRADO"    data-linea="${l.id}">✕ No encontrado</button>
+                <button class="btn btn-warning btn-sm" data-accion="MAL_STOCK_PROMPT" data-linea="${l.id}">⚠ Mal stock</button>
+                <button class="btn btn-ghost btn-sm"   data-accion="EN_REVISION"      data-linea="${l.id}">⏸ Revisar</button>
+                <button class="btn btn-ghost btn-sm"   data-accion="NOTA"             data-linea="${l.id}">📝</button>
+              </div>`
+          }
+          ${alts.length > 0 ? `
+            <div class="alternativas-list">
+              <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2)">ALTERNATIVAS (${alts.length})</div>
+              ${alts.map(a => `
+                <div class="alternativa-item">
+                  <span>📍</span><span style="flex:1">${a.nodo || a}</span>
+                  ${a.stock ? `<span class="badge badge-gray">${a.stock} un.</span>` : ''}
+                </div>`).join('')}
+            </div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // ── Render entregas ──────────────────────────────────────────
+
+  async function cargarEntregas() {
+    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/entregas`);
+    const data = await res.json();
+
+    if (!data.ok) {
+      document.getElementById('entregas-content').innerHTML =
+        `<div class="alert alert-danger">Error al cargar entregas.</div>`;
+      return;
+    }
+
+    entregas = data.entregas;
+    renderEntregas();
+  }
+
+  function renderEntregas() {
+    // Solo mostrar las que el operador activó para hoy
+    const activas = entregas.filter(e => e.activa || e.confirmada);
+
+    if (entregas.length === 0) {
+      document.getElementById('entregas-content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">Sin entregas del día</div>
+          <div class="empty-state-desc">Generá un cruce para ver las entregas asignadas</div>
+        </div>`;
+      return;
+    }
+
+    if (activas.length === 0) {
+      document.getElementById('entregas-content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">⏳</div>
+          <div class="empty-state-title">El operador aún no activó las entregas</div>
+          <div class="empty-state-desc">Esperá a que el operador confirme qué farmacias van hoy</div>
+        </div>`;
+      return;
+    }
+
+    const total      = activas.length;
+    const confirmadas = activas.filter(e => e.confirmada).length;
+
+    let html = `
+      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-5);
+                  padding:var(--space-4) var(--space-5);background:var(--bg-subtle);
+                  border:1px solid var(--border);border-radius:var(--radius-lg)">
+        <span style="font-size:var(--text-2xl);font-weight:700;color:${confirmadas===total ? 'var(--success)' : 'var(--accent)'}">
+          ${confirmadas}/${total}
+        </span>
+        <div>
+          <div style="font-weight:600">Farmacias confirmadas</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted)">
+            ${total - confirmadas} pendiente${total - confirmadas !== 1 ? 's' : ''}
+          </div>
+        </div>
+      </div>`;
+
+    for (const e of activas) {
+      // Mostrar solo los pedidos seleccionados por el operador (o todos si no hay selección)
+      const pedidosMostrar = (e.pedidos_activos && e.pedidos_activos.length > 0)
+        ? e.pedidos_activos
+        : e.nro_pedidos;
+      const chips = pedidosMostrar.map(p =>
+        `<span class="pedido-chip">#${p}</span>`).join('');
+
+      if (e.confirmada) {
+        const hora = new Date(e.entregado_at).toLocaleTimeString('es-AR',
+          { hour: '2-digit', minute: '2-digit' });
+        html += `
+          <div class="entrega-card confirmada">
+            <div class="entrega-header confirmada">
+              <span style="color:var(--success);font-size:1.2rem">✓</span>
+              <div style="flex:1">
+                <div style="font-weight:600">${e.punto_retiro}</div>
+                <div style="font-size:var(--text-xs);color:var(--success)">
+                  Entregado a las ${hora} · Recibió: ${e.receptor}
+                </div>
+              </div>
+              <span class="badge badge-green">${pedidosMostrar.length} pedido${pedidosMostrar.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="entrega-body">
+              <div class="pedido-chips">${chips}</div>
+            </div>
+          </div>`;
+      } else {
+        html += `
+          <div class="entrega-card">
+            <div class="entrega-header">
+              <span style="font-size:1.1rem">📍</span>
+              <div style="flex:1">
+                <div style="font-weight:600">${e.punto_retiro}</div>
+                <div style="font-size:var(--text-xs);color:var(--text-muted)">
+                  ${pedidosMostrar.length} pedido${pedidosMostrar.length !== 1 ? 's' : ''} · Pendiente de entrega
+                </div>
+              </div>
+              <button class="btn btn-success btn-sm" data-punto="${encodeURIComponent(e.punto_retiro)}">
+                ✓ Confirmar entrega
+              </button>
+            </div>
+            <div class="entrega-body">
+              <div class="pedido-chips">${chips}</div>
+            </div>
+          </div>`;
+      }
+    }
+
+    document.getElementById('entregas-content').innerHTML = html;
+
+    document.querySelectorAll('[data-punto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pt      = decodeURIComponent(btn.dataset.punto);
+        const entrega = entregas.find(e => e.punto_retiro === pt);
+        abrirModalEntrega(entrega);
+      });
+    });
+  }
+
+  // ── Acciones ─────────────────────────────────────────────────
+
+  async function cambiarEstado(linea_id, nuevo_estado, extra = {}) {
+    const res  = await auth.apiFetch(
+      `/api/cruces/${cruceId}/lineas/${linea_id}`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: nuevo_estado, ...extra }) }
+    );
+    const data = await res.json();
+    if (!data.ok) { showToast('Error al actualizar estado', 'danger'); return; }
+
+    const linea = lineas.find(l => l.id === linea_id);
+    if (linea) {
+      linea.estado = nuevo_estado;
+      if (extra.alternativa_nodo !== undefined) linea.alternativa_nodo = extra.alternativa_nodo;
+    }
+
+    renderLineas();
+    await actualizarProgreso();
+    showToast(`Estado: ${ESTADO_LABEL[nuevo_estado]}`, 'success');
+  }
+
+  async function actualizarProgreso() {
+    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/progreso`);
+    const data = await res.json();
+    if (!data.ok) return;
+    const p = data.progreso;
+    document.getElementById('progress-fixed').style.display = 'flex';
+    document.getElementById('progress-fill').style.width    = `${p.pct_completado}%`;
+    document.getElementById('progress-label').textContent   = `${p.pct_completado}%`;
+    document.getElementById('progress-detalle').textContent =
+      `✓ ${p.encontrado ?? 0}  ✕ ${p.no_encontrado ?? 0}  ⚠ ${p.mal_stock ?? 0}  ⏳ ${p.pendiente ?? 0}`;
+  }
+
+  // ── Filtros búsqueda ─────────────────────────────────────────
+
+  document.getElementById('filtros-bar').addEventListener('click', e => {
+    const btn = e.target.closest('[data-filtro]');
+    if (!btn) return;
+    document.querySelectorAll('.filtro-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filtroActual = btn.dataset.filtro;
+    renderLineas();
+  });
+
+  // ── Modal nota ───────────────────────────────────────────────
+
+  function abrirModalNota(linea_id) {
+    modalLineaId = linea_id;
+    const linea = lineas.find(l => l.id === linea_id);
+    document.getElementById('modal-nota-input').value = linea?.notas || '';
+    document.getElementById('modal-notas').style.display = 'flex';
+  }
+  document.getElementById('modal-close').addEventListener('click', () => {
+    document.getElementById('modal-notas').style.display = 'none';
+  });
+  document.getElementById('modal-cancel').addEventListener('click', () => {
+    document.getElementById('modal-notas').style.display = 'none';
+  });
+  document.getElementById('modal-save').addEventListener('click', async () => {
+    const notas = document.getElementById('modal-nota-input').value.trim();
+    const res   = await auth.apiFetch(
+      `/api/cruces/${cruceId}/lineas/${modalLineaId}`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notas }) }
+    );
+    const data = await res.json();
+    document.getElementById('modal-notas').style.display = 'none';
+    if (data.ok) {
+      const linea = lineas.find(l => l.id === modalLineaId);
+      if (linea) linea.notas = notas;
+      renderLineas();
+      showToast('Nota guardada', 'success');
+    } else {
+      showToast('Error al guardar nota', 'danger');
+    }
+  });
+
+  // ── Modal mal stock ──────────────────────────────────────────
+
+  function abrirModalMalStock(linea_id) {
+    msLineaId = linea_id;
+    document.getElementById('ms-alternativa').value = '';
+    document.getElementById('modal-malstock').style.display = 'flex';
+    setTimeout(() => document.getElementById('ms-alternativa').focus(), 80);
+  }
+  document.getElementById('ms-close').addEventListener('click', () => {
+    document.getElementById('modal-malstock').style.display = 'none';
+  });
+  document.getElementById('ms-cancel').addEventListener('click', () => {
+    document.getElementById('modal-malstock').style.display = 'none';
+  });
+  document.getElementById('ms-confirm').addEventListener('click', async () => {
+    const alternativa = document.getElementById('ms-alternativa').value.trim();
+    document.getElementById('modal-malstock').style.display = 'none';
+    await cambiarEstado(msLineaId, 'MAL_STOCK', { alternativa_nodo: alternativa });
+  });
+  document.getElementById('ms-alternativa').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('ms-confirm').click();
+  });
+
+  // ── Modal entrega + firma digital ────────────────────────────
+
+  const firmaCanvas  = document.getElementById('firma-canvas');
+  const firmaCtx     = firmaCanvas.getContext('2d');
+  let firmaDrawing   = false;
+  let firmaLastX     = 0;
+  let firmaLastY     = 0;
+
+  function firmaGetPos(e) {
+    const rect   = firmaCanvas.getBoundingClientRect();
+    const scaleX = firmaCanvas.width  / rect.width;
+    const scaleY = firmaCanvas.height / rect.height;
+    const src    = e.touches ? e.touches[0] : e;
+    return {
+      x: (src.clientX - rect.left) * scaleX,
+      y: (src.clientY - rect.top)  * scaleY,
+    };
+  }
+  function firmaTrace(e) {
+    const pos = firmaGetPos(e);
+    firmaCtx.beginPath();
+    firmaCtx.moveTo(firmaLastX, firmaLastY);
+    firmaCtx.lineTo(pos.x, pos.y);
+    firmaCtx.strokeStyle = '#1e293b';
+    firmaCtx.lineWidth   = 2.5;
+    firmaCtx.lineCap     = 'round';
+    firmaCtx.lineJoin    = 'round';
+    firmaCtx.stroke();
+    firmaLastX = pos.x;
+    firmaLastY = pos.y;
+    firmaVacia = false;
+  }
+
+  firmaCanvas.addEventListener('mousedown',  e => { firmaDrawing = true;  const p = firmaGetPos(e); firmaLastX = p.x; firmaLastY = p.y; });
+  firmaCanvas.addEventListener('mousemove',  e => { if (firmaDrawing) firmaTrace(e); });
+  firmaCanvas.addEventListener('mouseup',    () => firmaDrawing = false);
+  firmaCanvas.addEventListener('mouseleave', () => firmaDrawing = false);
+  firmaCanvas.addEventListener('touchstart', e => { e.preventDefault(); firmaDrawing = true; const p = firmaGetPos(e); firmaLastX = p.x; firmaLastY = p.y; }, { passive: false });
+  firmaCanvas.addEventListener('touchmove',  e => { e.preventDefault(); if (firmaDrawing) firmaTrace(e); }, { passive: false });
+  firmaCanvas.addEventListener('touchend',   e => { e.preventDefault(); firmaDrawing = false; }, { passive: false });
+
+  document.getElementById('ent-limpiar-firma').addEventListener('click', () => {
+    firmaCtx.clearRect(0, 0, firmaCanvas.width, firmaCanvas.height);
+    firmaVacia = true;
+  });
+
+  function abrirModalEntrega(entrega) {
+    entPuntoRetiro = entrega.punto_retiro;
+    document.getElementById('ent-farmacia').textContent = entrega.punto_retiro;
+    document.getElementById('ent-pedidos').innerHTML =
+      entrega.nro_pedidos.map(p => `<span class="pedido-chip">#${p}</span>`).join('');
+    document.getElementById('ent-receptor').value = '';
+
+    // Resetear canvas y ajustar tamaño real
+    firmaCtx.clearRect(0, 0, firmaCanvas.width, firmaCanvas.height);
+    firmaVacia = true;
+    firmaCanvas.width = firmaCanvas.offsetWidth || 460;
+
+    document.getElementById('modal-entrega').style.display = 'flex';
+    setTimeout(() => document.getElementById('ent-receptor').focus(), 80);
+  }
+
+  document.getElementById('ent-close').addEventListener('click', () => {
+    document.getElementById('modal-entrega').style.display = 'none';
+  });
+  document.getElementById('ent-cancel').addEventListener('click', () => {
+    document.getElementById('modal-entrega').style.display = 'none';
+  });
+
+  document.getElementById('ent-confirm').addEventListener('click', async () => {
+    const receptor = document.getElementById('ent-receptor').value.trim();
+    if (!receptor) {
+      showToast('Ingresá el nombre de quien recibe', 'warning');
+      document.getElementById('ent-receptor').focus();
+      return;
+    }
+    if (firmaVacia) {
+      showToast('Se requiere la firma del receptor', 'warning');
+      return;
+    }
+
+    const firma_base64 = firmaCanvas.toDataURL('image/png');
+    const btn = document.getElementById('ent-confirm');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Guardando...';
+
+    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/entregas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ punto_retiro: entPuntoRetiro, receptor, firma_base64 }),
+    });
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.innerHTML = '✓ Confirmar entrega';
+    document.getElementById('modal-entrega').style.display = 'none';
+
+    if (data.ok) {
+      showToast(`Entrega confirmada en ${entPuntoRetiro}`, 'success');
+      await cargarEntregas();
+    } else {
+      showToast('Error al guardar la entrega', 'danger');
+    }
+  });
+
+  // ── Arranque ─────────────────────────────────────────────────
+
+  cargarLineas().catch(err => {
+    console.error(err);
+    showToast('Error al cargar la vista cadete', 'danger');
+  });
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

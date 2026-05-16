@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:32px;width:auto"></a>
+  </div>
+  <nav class="header-nav">
+    <a href="index.html" class="active">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="historial.html">Historial</a>
+    <a href="usuarios.html">Usuarios</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <p class="page-subtitle">Resumen de operaciones de cobertura</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid-4" style="margin-bottom:var(--space-8)">
+    <div class="stat-card">
+      <div class="stat-icon blue">📋</div>
+      <div class="stat-content">
+        <div class="stat-value" id="stat-total-cruces">–</div>
+        <div class="stat-label">Cruces realizados</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">✓</div>
+      <div class="stat-content">
+        <div class="stat-value" id="stat-cobertura">–</div>
+        <div class="stat-label">Cobertura promedio</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon blue">📦</div>
+      <div class="stat-content">
+        <div class="stat-value" id="stat-lineas">–</div>
+        <div class="stat-label">Líneas procesadas</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon yellow">⏱</div>
+      <div class="stat-content">
+        <div class="stat-value" id="stat-ultimo">–</div>
+        <div class="stat-label">Último cruce</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- Cruces recientes -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Cruces recientes</h2>
+        <a href="nuevo-cruce.html" class="btn btn-primary btn-sm">+ Nuevo cruce</a>
+      </div>
+      <div id="cruces-list">
+        <div class="empty-state">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Accesos rápidos -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Accesos rápidos</h2>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <a href="nuevo-cruce.html" class="btn btn-primary btn-lg btn-block">
+            ⚡ Iniciar nuevo cruce
+          </a>
+          <div id="cadete-link-wrap" style="display:none">
+            <a href="#" class="btn btn-ghost btn-block" id="cadete-link">
+              👁 Ver vista cadete del último cruce
+            </a>
+            <a href="#" class="btn btn-ghost btn-block" id="operador-link" style="display:none">
+              📡 Vista operador (seguimiento en vivo)
+            </a>
+          </div>
+          <a href="historial.html" class="btn btn-ghost btn-block">
+            📂 Ver historial completo
+          </a>
+        </div>
+      </div>
+
+      <div class="card" id="ultimo-cruce-card" style="display:none">
+        <div class="card-header">
+          <h2 class="card-title">Último cruce</h2>
+        </div>
+        <div class="card-body" id="ultimo-cruce-body"></div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import auth    from './js/auth.js';
+  import { showToast } from './js/toast.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+
+  // Cadete no tiene dashboard — redirigir directo a su vista de trabajo
+  if (session.rol === 'cadete') {
+    const rCruces = await auth.apiFetch('/api/cruces');
+    const dCruces = await rCruces.json();
+    if (dCruces.ok && dCruces.cruces.length > 0) {
+      window.location.href = `cadete.html?cruce=${dCruces.cruces[0].id}`;
+    } else {
+      window.location.href = 'cadete.html';
+    }
+  }
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+  async function cargarDashboard() {
+    const [rAnalytics, rCruces] = await Promise.all([
+      auth.apiFetch('/api/analytics'),
+      auth.apiFetch('/api/cruces'),
+    ]);
+
+    const analytics = await rAnalytics.json();
+    const cruces    = await rCruces.json();
+
+    if (analytics.ok) {
+      const t = analytics.totales;
+      document.getElementById('stat-total-cruces').textContent = t.total_cruces ?? 0;
+      document.getElementById('stat-cobertura').textContent =
+        t.total_cruces > 0 ? `${t.cobertura_promedio.toFixed(1)}%` : '–';
+      document.getElementById('stat-lineas').textContent = t.total_lineas ?? 0;
+    }
+
+    if (cruces.ok && cruces.cruces.length > 0) {
+      const ultimo = cruces.cruces[0];
+      const fecha  = new Date(ultimo.created_at).toLocaleDateString('es-AR', {
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+      document.getElementById('stat-ultimo').textContent = fecha;
+
+      // Cadete link
+      document.getElementById('cadete-link-wrap').style.display = 'block';
+      document.getElementById('cadete-link').href    = `cadete.html?cruce=${ultimo.id}`;
+      document.getElementById('operador-link').href  = `operador.html?cruce=${ultimo.id}`;
+      document.getElementById('operador-link').style.display = 'flex';
+
+      // Último cruce card
+      document.getElementById('ultimo-cruce-card').style.display = 'block';
+      document.getElementById('ultimo-cruce-body').innerHTML = `
+        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+          <div>
+            <div style="font-size:var(--text-2xl);font-weight:700;color:var(--success)">
+              ${ultimo.pct_cobertura.toFixed(1)}%
+            </div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">
+              Cobertura
+            </div>
+          </div>
+          <div>
+            <div style="font-size:var(--text-2xl);font-weight:700">${ultimo.con_cobertura}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Con stock</div>
+          </div>
+          <div>
+            <div style="font-size:var(--text-2xl);font-weight:700;color:var(--danger)">${ultimo.sin_cobertura}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Sin stock</div>
+          </div>
+        </div>
+        <div style="margin-top:var(--space-4);display:flex;gap:var(--space-2)">
+          <a href="cadete.html?cruce=${ultimo.id}" class="btn btn-primary btn-sm">Vista cadete</a>
+          <a href="/api/cruces/${ultimo.id}/download" class="btn btn-ghost btn-sm">Descargar Excel</a>
+        </div>`;
+
+      // Lista cruces
+      const listEl = document.getElementById('cruces-list');
+      const recientes = cruces.cruces.slice(0, 8);
+      if (recientes.length === 0) {
+        listEl.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin cruces aún</div></div>`;
+      } else {
+        listEl.innerHTML = `<div style="overflow:hidden;border-radius:0 0 var(--radius-lg) var(--radius-lg)">` +
+          recientes.map(c => {
+            const d = new Date(c.created_at).toLocaleDateString('es-AR', {
+              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+            });
+            const pct = c.pct_cobertura.toFixed(1);
+            const color = pct >= 80 ? 'green' : pct >= 50 ? 'yellow' : 'red';
+            return `
+              <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--border)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:var(--text-sm);font-weight:500">${c.archivo_pedidos || 'Cruce #' + c.id}</div>
+                  <div style="font-size:var(--text-xs);color:var(--text-muted)">${d} · ${c.total_lineas} líneas</div>
+                </div>
+                <span class="badge badge-${color}">${pct}%</span>
+                <a href="cadete.html?cruce=${c.id}" class="btn btn-ghost btn-sm">Ver</a>
+              </div>`;
+          }).join('') + `</div>`;
+      }
+    } else {
+      document.getElementById('stat-ultimo').textContent = '–';
+      document.getElementById('cruces-list').innerHTML =
+        `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin cruces aún</div><div class="empty-state-desc">Creá tu primer cruce para empezar.</div></div>`;
+    }
+  }
+
+  cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'));
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

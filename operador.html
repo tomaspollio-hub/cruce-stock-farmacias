@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Centro de control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .progress-big {
+      height: 14px;
+      background: var(--bg-subtle);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin: var(--space-4) 0;
+    }
+    .progress-big-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: var(--radius-full);
+      transition: width 0.5s ease;
+    }
+    .progress-big-fill.completo { background: var(--success); }
+
+    .stats-row {
+      display: flex;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-full);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      border: 1px solid transparent;
+    }
+    .stat-pill .num { font-size: var(--text-lg); font-weight: var(--font-bold); }
+    .pill-green  { background: var(--success-light); color: var(--success); border-color: #86efac; }
+    .pill-red    { background: var(--danger-light);  color: var(--danger);  border-color: #fca5a5; }
+    .pill-yellow { background: var(--warning-light); color: var(--warning); border-color: #fcd34d; }
+    .pill-blue   { background: var(--accent-light);  color: var(--accent);  border-color: var(--accent-muted); }
+    .pill-purple { background: #faf5ff;              color: #7c3aed;        border-color: #ddd6fe; }
+    .pill-gray   { background: var(--bg-subtle);     color: var(--text-muted); border-color: var(--border); }
+
+    .inc-row {
+      display: grid;
+      grid-template-columns: 80px 1fr 160px 130px 1fr 100px;
+      gap: var(--space-3);
+      align-items: start;
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+    }
+    .inc-row:last-child { border-bottom: none; }
+    .inc-row:hover { background: var(--bg-subtle); }
+
+    .inc-header {
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      padding: var(--space-3) var(--space-5);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .refresh-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      padding: var(--space-1) var(--space-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-full);
+    }
+
+    .alt-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--warning-light);
+      color: var(--warning);
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      padding: 2px var(--space-2);
+      border-radius: var(--radius-full);
+    }
+
+    /* ── Entregas del día ── */
+    .entregas-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-4);
+      padding: var(--space-5);
+    }
+    .entrega-tile {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      background: var(--bg-card);
+      transition: box-shadow .15s;
+      cursor: default;
+    }
+    .entrega-tile:hover { box-shadow: var(--shadow-md); }
+    .entrega-tile.confirmada { border-color: #86efac; background: #f0fdf4; }
+    .entrega-tile .et-farmacia {
+      font-weight: var(--font-semibold);
+      font-size: var(--text-sm);
+      margin-bottom: var(--space-2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .entrega-tile .et-pedidos {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-bottom: var(--space-3);
+    }
+    .entrega-tile .et-receptor {
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: var(--success);
+    }
+    .entrega-tile .et-hora {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+    .entrega-tile .et-firma-btn {
+      margin-top: var(--space-2);
+      font-size: var(--text-xs);
+      color: var(--accent);
+      text-decoration: underline;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 0;
+    }
+    .entrega-tile.activa { border-color: #93c5fd; background: #eff6ff; }
+    .et-activar-btn {
+      margin-top: var(--space-3);
+      width: 100%;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-md);
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: all .15s;
+    }
+    .et-activar-btn.activar  { background: var(--accent); color: white; border-color: var(--accent); }
+    .et-activar-btn.desactivar { background: var(--surface); color: var(--text-secondary); }
+    .entrega-summary {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+    }
+    .entrega-summary .es-num {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-bold);
+    }
+    .entrega-summary .es-label { color: var(--text-muted); }
+
+    /* Modal firma (sólo lectura) */
+    #firma-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    #firma-modal-overlay.open { display: flex; }
+    #firma-modal {
+      background: var(--bg-card);
+      border-radius: var(--radius-xl);
+      padding: var(--space-6);
+      max-width: 420px;
+      width: 94%;
+      box-shadow: var(--shadow-xl);
+    }
+
+    @media (max-width: 768px) {
+      .inc-row { grid-template-columns: 1fr 1fr; }
+      .inc-header { display: none; }
+      .entregas-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:32px;width:auto"></a>
+  </div>
+  <nav class="header-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html" class="active">Operador</a>
+    <a href="historial.html">Historial</a>
+    <a href="usuarios.html">Usuarios</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- Encabezado con selector de cruce -->
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)">
+    <div>
+      <h1 class="page-title">Centro de control</h1>
+      <p class="page-subtitle">Seguimiento en tiempo real de la ruta del día</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:var(--space-3);flex-wrap:wrap">
+      <select class="form-select" id="cruce-select" style="width:auto;min-width:280px">
+        <option value="">Cargando cruces...</option>
+      </select>
+      <span class="refresh-badge" id="refresh-badge">
+        <span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
+        <span id="refresh-txt">Actualizando...</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Progreso del cadete -->
+  <div class="card" style="margin-bottom:var(--space-6)" id="progress-card">
+    <div class="card-header">
+      <h2 class="card-title">Progreso del cadete</h2>
+      <span id="pct-label" style="font-size:var(--text-2xl);font-weight:var(--font-bold);color:var(--accent)">–</span>
+    </div>
+    <div class="card-body">
+      <div class="progress-big">
+        <div class="progress-big-fill" id="prog-fill" style="width:0%"></div>
+      </div>
+      <div class="stats-row" id="stats-row">
+        <div class="stat-pill pill-green">  <span class="num" id="s-enc">–</span> Encontrados</div>
+        <div class="stat-pill pill-red">    <span class="num" id="s-noenc">–</span> No encontrados</div>
+        <div class="stat-pill pill-yellow"> <span class="num" id="s-mal">–</span> Mal stock</div>
+        <div class="stat-pill pill-purple"> <span class="num" id="s-rev">–</span> En revisión</div>
+        <div class="stat-pill pill-blue">   <span class="num" id="s-pend">–</span> Pendientes</div>
+        <div class="stat-pill pill-gray">   <span class="num" id="s-sincob">–</span> Sin cobertura</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entregas del día -->
+  <div class="card" id="entregas-card" style="margin-bottom:var(--space-6)">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <h2 class="card-title">Entregas del día</h2>
+        <span class="badge badge-green" id="ent-confirmed-badge" style="display:none">0 confirmadas</span>
+        <span class="badge badge-yellow" id="ent-pending-badge"  style="display:none">0 pendientes</span>
+      </div>
+    </div>
+    <div id="entregas-summary" class="entrega-summary" style="display:none">
+      <div>
+        <div class="es-num" id="ent-conf-count" style="color:var(--success)">0</div>
+        <div class="es-label">Confirmadas</div>
+      </div>
+      <div style="width:1px;height:36px;background:var(--border)"></div>
+      <div>
+        <div class="es-num" id="ent-pend-count" style="color:var(--warning)">0</div>
+        <div class="es-label">Pendientes</div>
+      </div>
+      <div style="width:1px;height:36px;background:var(--border)"></div>
+      <div>
+        <div class="es-num" id="ent-total-count">0</div>
+        <div class="es-label">Farmacias totales</div>
+      </div>
+      <div style="flex:1"></div>
+      <div id="ent-progress-wrap" style="flex:1;min-width:120px;max-width:200px">
+        <div class="progress-big" style="height:8px">
+          <div class="progress-big-fill" id="ent-prog-fill" style="width:0%"></div>
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px;text-align:right" id="ent-pct-label">0%</div>
+      </div>
+    </div>
+    <div id="entregas-content">
+      <div class="empty-state" style="padding:var(--space-10)">
+        <div class="spinner" style="margin:0 auto var(--space-4)"></div>
+        <div>Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Incidencias -->
+  <div class="card" id="incidencias-card">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:var(--space-3)">
+        <h2 class="card-title">Incidencias</h2>
+        <span class="badge badge-red" id="inc-count" style="display:none">0</span>
+      </div>
+      <div style="display:flex;gap:var(--space-2)">
+        <a id="btn-cadete" href="#" class="btn btn-ghost btn-sm">Ver vista cadete →</a>
+      </div>
+    </div>
+    <div id="incidencias-content">
+      <div class="empty-state" style="padding:var(--space-10)">
+        <div class="spinner" style="margin:0 auto var(--space-4)"></div>
+        <div>Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<!-- Modal: seleccionar pedidos para activar farmacia -->
+<div id="activar-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg-card);border-radius:var(--radius-xl);padding:var(--space-6);max-width:480px;width:94%;box-shadow:var(--shadow-xl);max-height:90vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-2)">
+      <h3 style="font-size:var(--text-lg);font-weight:var(--font-semibold)" id="activar-modal-title">Activar farmacia</h3>
+      <button class="btn btn-ghost btn-sm" id="activar-modal-close">✕</button>
+    </div>
+    <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-4)" id="activar-modal-subtitle"></p>
+
+    <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+      <button class="btn btn-ghost btn-sm" id="activar-sel-todos">Seleccionar todos</button>
+      <button class="btn btn-ghost btn-sm" id="activar-sel-ninguno">Ninguno</button>
+      <span id="activar-enc-hint" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;align-items:center;margin-left:auto"></span>
+    </div>
+
+    <div id="activar-checklist" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3);margin-bottom:var(--space-5);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+
+    <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="activar-modal-cancel">Cancelar</button>
+      <button class="btn btn-danger btn-sm" id="activar-desactivar-btn" style="display:none">Desactivar farmacia</button>
+      <button class="btn btn-primary" id="activar-modal-confirm">Activar seleccionados</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: ver firma -->
+<div id="firma-modal-overlay">
+  <div id="firma-modal">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+      <h3 style="font-size:var(--text-lg);font-weight:var(--font-semibold)" id="firma-modal-title">Firma de recepción</h3>
+      <button class="btn btn-ghost btn-sm" id="firma-modal-close">✕</button>
+    </div>
+    <div id="firma-modal-body" style="text-align:center"></div>
+  </div>
+</div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+
+  // Solo admin y operador acceden a esta página
+  if (session.rol === 'cadete') {
+    window.location.href = 'index.html';
+  }
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+  const params = new URLSearchParams(location.search);
+  let cruceId  = params.get('cruce') ? parseInt(params.get('cruce')) : null;
+
+  const ESTADO_LABEL = {
+    MAL_STOCK:     'Mal stock',
+    NO_ENCONTRADO: 'No encontrado',
+    EN_REVISION:   'En revisión',
+    REASIGNADO:    'Reasignado',
+  };
+  const ESTADO_BADGE = {
+    MAL_STOCK:     'badge-yellow',
+    NO_ENCONTRADO: 'badge-red',
+    EN_REVISION:   'badge-cyan',
+    REASIGNADO:    'badge-blue',
+  };
+
+  // ── Cargar lista de cruces para el selector ───────────────────
+
+  async function cargarSelector() {
+    const res  = await auth.apiFetch('/api/cruces');
+    const data = await res.json();
+    if (!data.ok || data.cruces.length === 0) {
+      document.getElementById('cruce-select').innerHTML =
+        '<option value="">Sin cruces disponibles</option>';
+      return;
+    }
+
+    const sel = document.getElementById('cruce-select');
+    sel.innerHTML = data.cruces.map(c => {
+      const fecha = new Date(c.created_at).toLocaleDateString('es-AR', {
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+      return `<option value="${c.id}" ${c.id === cruceId ? 'selected' : ''}>
+        #${c.id} — ${c.archivo_pedidos || 'Cruce'} · ${fecha} · ${c.total_lineas} líneas
+      </option>`;
+    }).join('');
+
+    if (!cruceId) {
+      cruceId = data.cruces[0].id;
+      sel.value = cruceId;
+    }
+
+    sel.addEventListener('change', () => {
+      cruceId = parseInt(sel.value);
+      history.replaceState(null, '', `?cruce=${cruceId}`);
+      actualizarBtnCadete();
+      cargarDatos();
+    });
+
+    actualizarBtnCadete();
+  }
+
+  function actualizarBtnCadete() {
+    document.getElementById('btn-cadete').href =
+      `cadete.html?cruce=${cruceId}&desde=operador`;
+  }
+
+  // ── Cargar progreso e incidencias ────────────────────────────
+
+  let refreshTimer    = null;
+  let lastRefreshTime = null;
+
+  async function cargarDatos() {
+    if (!cruceId) return;
+    setRefreshBadge('actualizando');
+
+    try {
+      const [rProg, rInc, rEnt] = await Promise.all([
+        auth.apiFetch(`/api/cruces/${cruceId}/progreso`),
+        auth.apiFetch(`/api/cruces/${cruceId}/incidencias`),
+        auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
+      ]);
+
+      // Parsear cada respuesta de forma independiente para que un error no bloquee los demás
+      const [dProg, dInc, dEnt] = await Promise.all([
+        rProg.json().catch(() => null),
+        rInc.json().catch(() => null),
+        rEnt.json().catch(() => null),
+      ]);
+
+      if (dProg?.ok) renderProgreso(dProg.progreso);
+      if (dInc?.ok)  renderIncidencias(dInc.incidencias);
+      if (dEnt?.ok)  { entregasData = dEnt.entregas; renderEntregas(dEnt.entregas); }
+
+      lastRefreshTime = Date.now();
+      setRefreshBadge('ok');
+    } catch {
+      setRefreshBadge('error');
+    }
+
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(cargarDatos, 30000);
+  }
+
+  function setRefreshBadge(estado) {
+    const badge = document.getElementById('refresh-badge');
+    const txt   = document.getElementById('refresh-txt');
+    if (estado === 'actualizando') {
+      badge.innerHTML = `<span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
+                         <span>Actualizando...</span>`;
+    } else if (estado === 'ok') {
+      const hora = new Date().toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      badge.innerHTML = `<span style="color:var(--success)">↻</span>
+                         <span>Actualizado ${hora} · próximo en 30s</span>`;
+    } else {
+      badge.innerHTML = `<span style="color:var(--danger)">⚠</span>
+                         <span>Error al actualizar</span>`;
+    }
+  }
+
+  function renderProgreso(p) {
+    const pct = p.pct_completado ?? 0;
+    document.getElementById('pct-label').textContent = `${pct}%`;
+
+    const fill = document.getElementById('prog-fill');
+    fill.style.width = `${pct}%`;
+    fill.classList.toggle('completo', pct >= 100);
+
+    document.getElementById('s-enc').textContent    = p.encontrado    ?? 0;
+    document.getElementById('s-noenc').textContent  = p.no_encontrado ?? 0;
+    document.getElementById('s-mal').textContent    = p.mal_stock     ?? 0;
+    document.getElementById('s-rev').textContent    = p.en_revision   ?? 0;
+    document.getElementById('s-pend').textContent   = p.pendiente     ?? 0;
+    document.getElementById('s-sincob').textContent = p.sin_cobertura ?? 0;
+  }
+
+  // ── Firmas (modal lectura) ─────────────────────────────────
+  const firmasCache = {};  // punto_retiro → firma_base64
+
+  document.getElementById('firma-modal-close').addEventListener('click', () => {
+    document.getElementById('firma-modal-overlay').classList.remove('open');
+  });
+  document.getElementById('firma-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('firma-modal-overlay'))
+      document.getElementById('firma-modal-overlay').classList.remove('open');
+  });
+
+  function verFirma(puntoRetiro) {
+    const b64 = firmasCache[puntoRetiro];
+    document.getElementById('firma-modal-title').textContent = `Firma — ${puntoRetiro}`;
+    const body = document.getElementById('firma-modal-body');
+    if (b64) {
+      body.innerHTML = `<img src="${b64}" style="max-width:100%;border:1px solid var(--border);border-radius:var(--radius-md)">`;
+    } else {
+      body.innerHTML = `<p style="color:var(--text-muted);font-size:var(--text-sm)">Sin firma capturada</p>`;
+    }
+    document.getElementById('firma-modal-overlay').classList.add('open');
+  }
+
+  function renderEntregas(entregas) {
+    const cont = document.getElementById('entregas-content');
+    const summ = document.getElementById('entregas-summary');
+
+    if (entregas.length === 0) {
+      summ.style.display = 'none';
+      document.getElementById('ent-confirmed-badge').style.display = 'none';
+      document.getElementById('ent-pending-badge').style.display   = 'none';
+      cont.innerHTML = `
+        <div class="empty-state" style="padding:var(--space-8)">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">Sin puntos de retiro en este cruce</div>
+          <div class="empty-state-desc">Los pedidos no tienen sucursal de retiro asignada</div>
+        </div>`;
+      return;
+    }
+
+    const total     = entregas.length;
+    const confirmadas = entregas.filter(e => e.confirmada).length;
+    const pendientes  = total - confirmadas;
+    const pct = total > 0 ? Math.round(confirmadas / total * 100) : 0;
+
+    // Actualizar resumen
+    summ.style.display = 'flex';
+    document.getElementById('ent-conf-count').textContent  = confirmadas;
+    document.getElementById('ent-pend-count').textContent  = pendientes;
+    document.getElementById('ent-total-count').textContent = total;
+    document.getElementById('ent-prog-fill').style.width   = `${pct}%`;
+    document.getElementById('ent-pct-label').textContent   = `${pct}%`;
+
+    const bConf = document.getElementById('ent-confirmed-badge');
+    const bPend = document.getElementById('ent-pending-badge');
+    bConf.style.display = confirmadas > 0 ? 'inline-flex' : 'none';
+    bConf.textContent   = `${confirmadas} confirmada${confirmadas !== 1 ? 's' : ''}`;
+    bPend.style.display = pendientes > 0 ? 'inline-flex' : 'none';
+    bPend.textContent   = `${pendientes} pendiente${pendientes !== 1 ? 's' : ''}`;
+
+    // Guardar firmas para el modal
+    entregas.forEach(e => {
+      if (e.confirmada) firmasCache[e.punto_retiro] = e.firma_base64 ?? null;
+    });
+
+    const tiles = entregas.map(e => {
+      const ptEnc = encodeURIComponent(e.punto_retiro);
+      if (e.confirmada) {
+        const hora = new Date(e.entregado_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        const firma = e.firma_base64
+          ? `<button class="et-firma-btn" data-pt="${ptEnc}">Ver firma →</button>`
+          : `<span style="font-size:var(--text-xs);color:var(--text-muted)">Sin firma</span>`;
+        return `
+          <div class="entrega-tile confirmada">
+            <div class="et-farmacia" title="${e.punto_retiro}">✓ ${e.punto_retiro}</div>
+            <div class="et-pedidos">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
+            <div class="et-receptor">👤 ${e.receptor}</div>
+            <div class="et-hora">🕐 ${hora}</div>
+            ${firma}
+          </div>`;
+      } else {
+        const pedStr = e.nro_pedidos.slice(0, 3).join(', ') + (e.nro_pedidos.length > 3 ? '…' : '');
+        const esActiva   = e.activa;
+        const tileClass  = esActiva ? 'entrega-tile activa' : 'entrega-tile';
+        const iconoPre   = esActiva ? '📍' : '⏳';
+        const actLabel   = esActiva
+          ? `${e.pedidos_activos.length}/${e.total_pedidos} pedido${e.pedidos_activos.length !== 1 ? 's' : ''} hoy`
+          : `${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}`;
+        const badgeHtml  = esActiva
+          ? `<span class="badge badge-blue" style="margin-top:var(--space-2)">Activa hoy</span>`
+          : `<span class="badge badge-gray" style="margin-top:var(--space-2)">Sin activar</span>`;
+        const btnLabel   = esActiva ? 'Editar selección' : 'Activar para hoy';
+        const btnClass   = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
+        return `
+          <div class="${tileClass}">
+            <div class="et-farmacia" title="${e.punto_retiro}">${iconoPre} ${e.punto_retiro}</div>
+            <div class="et-pedidos">${actLabel}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${pedStr}</div>
+            ${badgeHtml}
+            <button class="${btnClass}" data-pt="${ptEnc}" data-activa="${esActiva ? '1' : '0'}">${btnLabel}</button>
+          </div>`;
+      }
+    }).join('');
+
+    cont.innerHTML = `<div class="entregas-grid">${tiles}</div>`;
+
+    // Eventos de firma
+    cont.querySelectorAll('.et-firma-btn').forEach(btn => {
+      btn.addEventListener('click', () => verFirma(decodeURIComponent(btn.dataset.pt)));
+    });
+
+    // Eventos de activación → abrir modal
+    cont.querySelectorAll('.et-activar-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const pt      = decodeURIComponent(btn.dataset.pt);
+        const entrega = entregasData.find(e => e.punto_retiro === pt);
+        if (entrega) abrirModalActivar(entrega);
+      });
+    });
+  }
+
+  // ── Modal de selección de pedidos ────────────────────────────
+  let entregasData = [];   // cache de la última respuesta
+
+  function abrirModalActivar(e) {
+    const yaActiva = e.activa;
+
+    document.getElementById('activar-modal-title').textContent    = e.punto_retiro;
+    document.getElementById('activar-modal-subtitle').textContent =
+      `${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''} en este cruce · seleccioná los que van hoy`;
+
+    // Pre-selección: si ya está activa usamos los activos, sino sugerimos los encontrados
+    const presel = new Set(yaActiva && e.pedidos_activos.length
+      ? e.pedidos_activos
+      : e.pedidos_encontrados);
+
+    const hint = document.getElementById('activar-enc-hint');
+    hint.textContent = e.pedidos_encontrados.length > 0
+      ? `✓ ${e.pedidos_encontrados.length} con productos encontrados (pre-tildados)`
+      : '';
+
+    const lista = document.getElementById('activar-checklist');
+    lista.innerHTML = e.nro_pedidos.map(p => {
+      const enc     = e.pedidos_encontrados.includes(p);
+      const checked = presel.has(p) ? 'checked' : '';
+      return `
+        <label style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);
+                       border-radius:var(--radius);cursor:pointer;
+                       background:${enc ? 'var(--success-light)' : 'var(--surface)'}">
+          <input type="checkbox" value="${p}" ${checked}
+                 style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
+          <span style="font-size:var(--text-sm);font-weight:var(--font-medium)">Pedido #${p}</span>
+          ${enc ? `<span class="badge badge-green" style="margin-left:auto">✓ encontrado</span>` : ''}
+        </label>`;
+    }).join('');
+
+    const desBtnEl = document.getElementById('activar-desactivar-btn');
+    const confBtn  = document.getElementById('activar-modal-confirm');
+    desBtnEl.style.display  = yaActiva ? 'inline-flex' : 'none';
+    confBtn.textContent     = yaActiva ? 'Actualizar selección' : 'Activar seleccionados';
+
+    // Guardar referencia para confirmar
+    confBtn.dataset.pt = e.punto_retiro;
+    desBtnEl.dataset.pt = e.punto_retiro;
+
+    document.getElementById('activar-modal-overlay').style.display = 'flex';
+  }
+
+  function cerrarModalActivar() {
+    document.getElementById('activar-modal-overlay').style.display = 'none';
+  }
+
+  document.getElementById('activar-modal-close').addEventListener('click',  cerrarModalActivar);
+  document.getElementById('activar-modal-cancel').addEventListener('click', cerrarModalActivar);
+  document.getElementById('activar-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('activar-modal-overlay')) cerrarModalActivar();
+  });
+
+  document.getElementById('activar-sel-todos').addEventListener('click', () => {
+    document.querySelectorAll('#activar-checklist input[type=checkbox]')
+      .forEach(cb => cb.checked = true);
+  });
+  document.getElementById('activar-sel-ninguno').addEventListener('click', () => {
+    document.querySelectorAll('#activar-checklist input[type=checkbox]')
+      .forEach(cb => cb.checked = false);
+  });
+
+  async function llamarActivar(pt, activa, nro_pedidos = []) {
+    const r = await auth.apiFetch(`/api/cruces/${cruceId}/entregas/activar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ punto_retiro: pt, activa, nro_pedidos }),
+    });
+    return r.json();
+  }
+
+  document.getElementById('activar-modal-confirm').addEventListener('click', async btn => {
+    const pt = document.getElementById('activar-modal-confirm').dataset.pt;
+    const seleccionados = [...document.querySelectorAll('#activar-checklist input[type=checkbox]:checked')]
+      .map(cb => cb.value);
+
+    if (seleccionados.length === 0) {
+      showToast('Seleccioná al menos un pedido', 'warning');
+      return;
+    }
+
+    document.getElementById('activar-modal-confirm').disabled = true;
+    const d = await llamarActivar(pt, true, seleccionados);
+    document.getElementById('activar-modal-confirm').disabled = false;
+
+    if (d.ok) {
+      showToast(`${pt} activada · ${seleccionados.length} pedido${seleccionados.length !== 1 ? 's' : ''}`, 'success');
+      cerrarModalActivar();
+      await cargarDatos();
+    } else {
+      showToast('Error al activar', 'error');
+    }
+  });
+
+  document.getElementById('activar-desactivar-btn').addEventListener('click', async () => {
+    const pt = document.getElementById('activar-desactivar-btn').dataset.pt;
+    document.getElementById('activar-desactivar-btn').disabled = true;
+    const d = await llamarActivar(pt, false);
+    document.getElementById('activar-desactivar-btn').disabled = false;
+    if (d.ok) {
+      showToast(`${pt} desactivada`, 'info');
+      cerrarModalActivar();
+      await cargarDatos();
+    } else {
+      showToast('Error', 'error');
+    }
+  });
+
+  function renderIncidencias(incidencias) {
+    const count = document.getElementById('inc-count');
+    const cont  = document.getElementById('incidencias-content');
+
+    if (incidencias.length === 0) {
+      count.style.display = 'none';
+      cont.innerHTML = `
+        <div class="empty-state" style="padding:var(--space-10)">
+          <div class="empty-state-icon">✓</div>
+          <div class="empty-state-title">Sin incidencias</div>
+          <div class="empty-state-desc">El cadete trabaja sin problemas reportados</div>
+        </div>`;
+      return;
+    }
+
+    count.style.display = 'inline-flex';
+    count.textContent   = incidencias.length;
+
+    const filas = incidencias.map(l => {
+      const badgeClass = ESTADO_BADGE[l.estado] ?? 'badge-gray';
+      const label      = ESTADO_LABEL[l.estado]  ?? l.estado;
+      const hora = l.updated_at
+        ? new Date(l.updated_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+        : '—';
+      const alt = l.alternativa_nodo
+        ? `<span class="alt-chip">→ ${l.alternativa_nodo}</span>`
+        : '<span style="color:var(--text-muted)">—</span>';
+
+      return `
+        <div class="inc-row">
+          <div style="font-weight:var(--font-semibold);color:var(--accent)">${l.nro_pedido || '—'}</div>
+          <div>
+            <div style="font-weight:var(--font-medium)">${l.producto || l.gtin || '—'}</div>
+            ${l.notas ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">📝 ${l.notas}</div>` : ''}
+          </div>
+          <div style="color:var(--text-secondary)">${l.nodo_asignado || '—'}</div>
+          <div><span class="badge ${badgeClass}">${label}</span></div>
+          <div>${alt}</div>
+          <div style="color:var(--text-muted);font-size:var(--text-xs)">${hora}</div>
+        </div>`;
+    }).join('');
+
+    cont.innerHTML = `
+      <div class="inc-header" style="display:grid;grid-template-columns:80px 1fr 160px 130px 1fr 100px;gap:var(--space-3)">
+        <span>N° Pedido</span><span>Producto</span><span>Sucursal</span>
+        <span>Estado</span><span>Alternativa</span><span>Hora</span>
+      </div>
+      ${filas}`;
+  }
+
+  // ── Arranque ─────────────────────────────────────────────────
+
+  await cargarSelector();
+  await cargarDatos();
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

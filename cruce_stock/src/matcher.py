@@ -68,8 +68,9 @@ def mapear_columnas_pedidos(df: pd.DataFrame, cfg: dict) -> dict:
         "sku":        detectar_columna(df, c["col_sku"]),
         "gtin":       detectar_columna(df, c["col_gtin"]),
         "unidades":   detectar_columna(df, c["col_unidades"]),
-        "fecha":      detectar_columna(df, c.get("col_fecha", []), obligatoria=False),
-        "hora":       detectar_columna(df, c.get("col_hora",  []), obligatoria=False),
+        "fecha":         detectar_columna(df, c.get("col_fecha",        []), obligatoria=False),
+        "hora":          detectar_columna(df, c.get("col_hora",         []), obligatoria=False),
+        "punto_retiro":  detectar_columna(df, c.get("col_punto_retiro", []), obligatoria=False),
     }
 
 

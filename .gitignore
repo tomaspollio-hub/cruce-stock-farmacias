@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.pyc
+server/cruce.db
+server/uploads/
+*.egg-info/
+.env

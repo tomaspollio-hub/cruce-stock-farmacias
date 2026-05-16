@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Historial</title>
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .ent-row {
+      display: grid;
+      grid-template-columns: 1fr 130px 130px 80px;
+      gap: var(--space-3);
+      align-items: center;
+      padding: var(--space-3) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+    }
+    .ent-row:last-child { border-bottom: none; }
+    .ent-row.conf { background: #f0fdf4; }
+    .ent-header {
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      padding: var(--space-2) var(--space-5);
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 130px 130px 80px;
+      gap: var(--space-3);
+    }
+    .firma-thumb {
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-top: var(--space-3);
+    }
+    @media (max-width:600px) {
+      .ent-row, .ent-header { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:32px;width:auto"></a>
+  </div>
+  <nav class="header-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="historial.html" class="active">Historial</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)">
+    <div>
+      <h1 class="page-title">Historial de cruces</h1>
+      <p class="page-subtitle">Todos los cruces realizados, ordenados por fecha</p>
+    </div>
+    <a href="nuevo-cruce.html" class="btn btn-primary">+ Nuevo cruce</a>
+  </div>
+
+  <div class="card">
+    <div id="historial-content">
+      <div class="empty-state">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto var(--space-4)"></div>
+        <div>Cargando historial...</div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<!-- Modal entregas de un cruce -->
+<div id="ent-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding:var(--space-8) var(--space-4);overflow-y:auto">
+  <div style="background:var(--bg-card);border-radius:var(--radius-xl);width:100%;max-width:640px;box-shadow:var(--shadow-xl)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--border)">
+      <div>
+        <h3 style="font-size:var(--text-lg);font-weight:var(--font-semibold)" id="ent-modal-title">Entregas del cruce</h3>
+        <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px" id="ent-modal-sub"></p>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="ent-modal-close">✕</button>
+    </div>
+    <div id="ent-modal-body">
+      <div class="empty-state" style="padding:var(--space-8)">
+        <div class="spinner" style="margin:0 auto var(--space-3)"></div>
+        <div>Cargando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ver firma -->
+<div id="firma-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center">
+  <div style="background:var(--bg-card);border-radius:var(--radius-xl);padding:var(--space-6);max-width:400px;width:94%;box-shadow:var(--shadow-xl)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+      <h3 style="font-size:var(--text-base);font-weight:var(--font-semibold)" id="firma-modal-title">Firma de recepción</h3>
+      <button class="btn btn-ghost btn-sm" id="firma-modal-close">✕</button>
+    </div>
+    <div id="firma-modal-body" style="text-align:center"></div>
+  </div>
+</div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+  // ── Firma modal ───────────────────────────────────────────────
+  document.getElementById('firma-modal-close').addEventListener('click', () => {
+    document.getElementById('firma-modal-overlay').style.display = 'none';
+  });
+  document.getElementById('firma-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('firma-modal-overlay'))
+      document.getElementById('firma-modal-overlay').style.display = 'none';
+  });
+
+  function verFirma(farmacia, b64) {
+    document.getElementById('firma-modal-title').textContent = `Firma — ${farmacia}`;
+    const body = document.getElementById('firma-modal-body');
+    body.innerHTML = b64
+      ? `<img src="${b64}" class="firma-thumb">`
+      : `<p style="color:var(--text-muted);font-size:var(--text-sm)">Sin firma capturada</p>`;
+    document.getElementById('firma-modal-overlay').style.display = 'flex';
+  }
+
+  // ── Entregas modal ────────────────────────────────────────────
+  document.getElementById('ent-modal-close').addEventListener('click', () => {
+    document.getElementById('ent-modal-overlay').style.display = 'none';
+  });
+  document.getElementById('ent-modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('ent-modal-overlay'))
+      document.getElementById('ent-modal-overlay').style.display = 'none';
+  });
+
+  async function abrirEntregas(cruceId, cruceLabel) {
+    document.getElementById('ent-modal-title').textContent = `Entregas — ${cruceLabel}`;
+    document.getElementById('ent-modal-sub').textContent   = '';
+    document.getElementById('ent-modal-body').innerHTML    = `
+      <div class="empty-state" style="padding:var(--space-8)">
+        <div class="spinner" style="margin:0 auto var(--space-3)"></div><div>Cargando...</div>
+      </div>`;
+    document.getElementById('ent-modal-overlay').style.display = 'flex';
+
+    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/entregas`);
+    const data = await res.json();
+
+    if (!data.ok) {
+      document.getElementById('ent-modal-body').innerHTML =
+        `<div class="alert alert-danger" style="margin:var(--space-5)">Error al cargar entregas.</div>`;
+      return;
+    }
+
+    const entregas   = data.entregas;
+    const confirmadas = entregas.filter(e => e.confirmada).length;
+    document.getElementById('ent-modal-sub').textContent =
+      `${confirmadas} de ${entregas.length} farmacias confirmaron recepción`;
+
+    if (entregas.length === 0) {
+      document.getElementById('ent-modal-body').innerHTML = `
+        <div class="empty-state" style="padding:var(--space-8)">
+          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-title">Sin puntos de retiro en este cruce</div>
+        </div>`;
+      return;
+    }
+
+    const filas = entregas.map(e => {
+      if (e.confirmada) {
+        const hora = new Date(e.entregado_at).toLocaleString('es-AR', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+        const firmaBtn = e.firma_base64
+          ? `<button class="btn btn-ghost btn-sm" data-firma="${encodeURIComponent(e.firma_base64)}" data-pt="${encodeURIComponent(e.punto_retiro)}">Ver firma</button>`
+          : `<span style="font-size:var(--text-xs);color:var(--text-muted)">Sin firma</span>`;
+        return `
+          <div class="ent-row conf">
+            <div>
+              <div style="font-weight:var(--font-medium)">✓ ${e.punto_retiro}</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted)">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
+            </div>
+            <div style="font-size:var(--text-sm)">👤 ${e.receptor}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">🕐 ${hora}</div>
+            <div>${firmaBtn}</div>
+          </div>`;
+      } else {
+        return `
+          <div class="ent-row">
+            <div>
+              <div style="color:var(--text-secondary)">⏳ ${e.punto_retiro}</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted)">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
+            </div>
+            <div>—</div>
+            <div>—</div>
+            <div><span class="badge badge-gray">Sin confirmar</span></div>
+          </div>`;
+      }
+    }).join('');
+
+    document.getElementById('ent-modal-body').innerHTML = `
+      <div class="ent-header">
+        <span>Farmacia</span><span>Receptor</span><span>Hora</span><span>Firma</span>
+      </div>
+      ${filas}`;
+
+    document.getElementById('ent-modal-body').querySelectorAll('[data-firma]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        verFirma(
+          decodeURIComponent(btn.dataset.pt),
+          decodeURIComponent(btn.dataset.firma)
+        );
+      });
+    });
+  }
+
+  // ── Historial ─────────────────────────────────────────────────
+  async function cargarHistorial() {
+    const res  = await auth.apiFetch('/api/cruces');
+    const data = await res.json();
+
+    if (!data.ok) {
+      document.getElementById('historial-content').innerHTML =
+        `<div class="alert alert-danger" style="margin:var(--space-5)">Error al cargar el historial.</div>`;
+      return;
+    }
+
+    if (data.cruces.length === 0) {
+      document.getElementById('historial-content').innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-title">Sin cruces aún</div>
+          <div class="empty-state-desc">Creá tu primer cruce para verlo acá.</div>
+          <a href="nuevo-cruce.html" class="btn btn-primary" style="margin-top:var(--space-4)">+ Nuevo cruce</a>
+        </div>`;
+      return;
+    }
+
+    const rows = data.cruces.map(c => {
+      const fecha = new Date(c.created_at).toLocaleDateString('es-AR', {
+        day: '2-digit', month: '2-digit', year: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+      });
+      const pct   = c.pct_cobertura.toFixed(1);
+      const color = pct >= 80 ? 'green' : pct >= 50 ? 'yellow' : 'red';
+      const label = c.archivo_pedidos || `Cruce #${c.id}`;
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:var(--font-medium)">${label}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">${c.archivo_stock || ''}</div>
+          </td>
+          <td>${fecha}</td>
+          <td>${c.total_lineas}</td>
+          <td><span class="badge badge-${color}">${pct}%</span></td>
+          <td>${c.con_cobertura}</td>
+          <td>${c.sin_cobertura}</td>
+          <td>
+            <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+              <a href="cadete.html?cruce=${c.id}" class="btn btn-primary btn-sm">Cadete</a>
+              <button class="btn btn-ghost btn-sm" data-cruce="${c.id}" data-label="${label}">📦 Entregas</button>
+              <a href="/api/cruces/${c.id}/download" class="btn btn-ghost btn-sm">Excel</a>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('historial-content').innerHTML = `
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Archivos</th><th>Fecha</th><th>Líneas</th>
+              <th>Cobertura</th><th>Con stock</th><th>Sin stock</th><th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+
+    document.querySelectorAll('[data-cruce]').forEach(btn => {
+      btn.addEventListener('click', () =>
+        abrirEntregas(parseInt(btn.dataset.cruce), btn.dataset.label)
+      );
+    });
+  }
+
+  cargarHistorial().catch(() => showToast('Error al cargar historial', 'danger'));
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

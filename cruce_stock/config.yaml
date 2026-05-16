@@ -23,6 +23,7 @@ pedidos:
                   "fecha_creacion", "created_at", "date", "fecha orden", "fecha_orden"]
   col_hora:      ["hora", "hora pedido", "hora_pedido", "time", "hora_creacion",
                   "created_time", "hora creacion"]
+  col_punto_retiro: ["sucursal"]   # farmacia elegida por el cliente al comprar
 
   # Valor del estado que indica pedido activo
   estado_activo: "abierta"

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Ingresar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<div class="login-page">
+  <div class="login-card">
+
+    <div class="login-logo">
+      <div class="login-logo-icon">CS</div>
+      <div class="login-logo-text">
+        <h1>Cruce Stock</h1>
+        <p>Sistema de cobertura farmacias</p>
+      </div>
+    </div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label class="form-label" for="usuario">Usuario</label>
+        <input class="form-input" type="text" id="usuario" autocomplete="username"
+               placeholder="tu usuario" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="password">Contraseña</label>
+        <input class="form-input" type="password" id="password" autocomplete="current-password"
+               placeholder="••••••••" required>
+      </div>
+
+      <div id="login-error" class="alert alert-danger" style="display:none; margin-bottom:var(--space-4);">
+        <span>⚠</span>
+        <span id="login-error-msg">Usuario o contraseña incorrectos.</span>
+      </div>
+
+      <button class="btn btn-primary btn-block btn-lg" type="submit" id="login-btn">
+        Ingresar
+      </button>
+    </form>
+
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import auth from './js/auth.js';
+
+  // Si ya tiene sesión válida, redirigir
+  auth.getSession().then(session => {
+    if (session) window.location.href = './index.html';
+  });
+
+  const form     = document.getElementById('login-form');
+  const errorBox = document.getElementById('login-error');
+  const errorMsg = document.getElementById('login-error-msg');
+  const btn      = document.getElementById('login-btn');
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    errorBox.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Ingresando...';
+
+    const usuario  = document.getElementById('usuario').value.trim();
+    const password = document.getElementById('password').value;
+
+    const result = await auth.login(usuario, password);
+
+    if (result.ok) {
+      window.location.href = './index.html';
+    } else {
+      const mensajes = {
+        credenciales_invalidas: 'Usuario o contraseña incorrectos.',
+        campos_requeridos:      'Completá usuario y contraseña.',
+        error_servidor:         'No se pudo conectar al servidor.',
+      };
+      errorMsg.textContent = mensajes[result.motivo] ?? 'Error al ingresar.';
+      errorBox.style.display = 'flex';
+      btn.disabled = false;
+      btn.textContent = 'Ingresar';
+    }
+  });
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

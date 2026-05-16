@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Nuevo cruce</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:32px;width:auto"></a>
+  </div>
+  <nav class="header-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html" class="active">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="historial.html">Historial</a>
+    <a href="usuarios.html">Usuarios</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header">
+    <h1 class="page-title">Nuevo cruce de stock</h1>
+    <p class="page-subtitle">Subí los archivos de pedidos y stock para generar la planilla cadete</p>
+  </div>
+
+  <div class="grid-2" style="max-width:900px">
+
+    <!-- Panel izquierdo: upload -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <!-- Archivo pedidos -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">📋 Archivo de pedidos</h2>
+        </div>
+        <div class="card-body">
+          <label class="upload-zone" id="zone-pedidos" for="file-pedidos">
+            <div class="upload-zone-icon">📄</div>
+            <div class="upload-zone-label">Arrastrá o hacé click para seleccionar</div>
+            <div class="upload-zone-hint" id="hint-pedidos">.xlsx · .csv</div>
+            <input type="file" id="file-pedidos" accept=".xlsx,.csv">
+          </label>
+        </div>
+      </div>
+
+      <!-- Archivo stock -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">🏪 Archivo de stock</h2>
+        </div>
+        <div class="card-body">
+          <label class="upload-zone" id="zone-stock" for="file-stock">
+            <div class="upload-zone-icon">📊</div>
+            <div class="upload-zone-label">Arrastrá o hacé click para seleccionar</div>
+            <div class="upload-zone-hint" id="hint-stock">.xlsx · .csv</div>
+            <input type="file" id="file-stock" accept=".xlsx,.csv">
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Panel derecho: resultado / acciones -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <!-- Acciones -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Procesar</h2>
+        </div>
+        <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin:0">
+            El sistema detectará automáticamente las columnas de cada archivo,
+            cruzará los pedidos con el stock por GTIN/SKU y generará la planilla
+            con rutas óptimas por zona.
+          </p>
+          <button class="btn btn-primary btn-lg btn-block" id="btn-procesar" disabled>
+            ⚡ Generar planilla
+          </button>
+        </div>
+      </div>
+
+      <!-- Resultado -->
+      <div class="card" id="result-card" style="display:none">
+        <div class="card-header">
+          <h2 class="card-title">Resultado</h2>
+        </div>
+        <div class="card-body" id="result-body"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Progreso (visible mientras procesa) -->
+  <div id="progress-section" style="display:none;margin-top:var(--space-8);max-width:900px">
+    <div class="card">
+      <div class="card-body" style="text-align:center;padding:var(--space-10)">
+        <div class="spinner" style="width:32px;height:32px;border-width:3px;margin:0 auto var(--space-4)"></div>
+        <div style="font-weight:var(--font-semibold);margin-bottom:var(--space-2)" id="progress-msg">
+          Procesando archivos...
+        </div>
+        <div style="font-size:var(--text-sm);color:var(--text-muted)">
+          Esto puede tardar unos segundos dependiendo del tamaño de los archivos.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+  let filePedidos = null;
+  let fileStock   = null;
+
+  function setupUpload(zoneId, inputId, hintId, onFile) {
+    const zone  = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+    const hint  = document.getElementById(hintId);
+
+    input.addEventListener('change', () => {
+      const f = input.files[0];
+      if (!f) return;
+      onFile(f);
+      hint.textContent = `✓ ${f.name}`;
+      zone.classList.add('has-file');
+    });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const f = e.dataTransfer.files[0];
+      if (!f) return;
+      onFile(f);
+      hint.textContent = `✓ ${f.name}`;
+      zone.classList.add('has-file');
+    });
+  }
+
+  setupUpload('zone-pedidos', 'file-pedidos', 'hint-pedidos', f => {
+    filePedidos = f;
+    checkReady();
+  });
+
+  setupUpload('zone-stock', 'file-stock', 'hint-stock', f => {
+    fileStock = f;
+    checkReady();
+  });
+
+  function checkReady() {
+    document.getElementById('btn-procesar').disabled = !(filePedidos && fileStock);
+  }
+
+  document.getElementById('btn-procesar').addEventListener('click', async () => {
+    if (!filePedidos || !fileStock) return;
+
+    const btn = document.getElementById('btn-procesar');
+    btn.disabled = true;
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('result-card').style.display = 'none';
+
+    const msgs = [
+      'Cargando archivos...',
+      'Detectando columnas...',
+      'Cruzando pedidos con stock...',
+      'Asignando sucursales...',
+      'Generando planilla Excel...',
+    ];
+    let mi = 0;
+    const msgEl = document.getElementById('progress-msg');
+    const msgInterval = setInterval(() => {
+      if (mi < msgs.length - 1) msgEl.textContent = msgs[++mi];
+    }, 1200);
+
+    const form = new FormData();
+    form.append('pedidos', filePedidos);
+    form.append('stock',   fileStock);
+
+    try {
+      const res  = await auth.apiFetch('/api/cruces', { method: 'POST', body: form });
+      const data = await res.json();
+      clearInterval(msgInterval);
+      document.getElementById('progress-section').style.display = 'none';
+
+      if (!data.ok) throw new Error(data.motivo);
+
+      const r = data.resumen;
+      const pct = r.pct_cobertura.toFixed(1);
+      const colorPct = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+
+      document.getElementById('result-card').style.display = 'block';
+      document.getElementById('result-body').innerHTML = `
+        <div style="display:flex;gap:var(--space-6);margin-bottom:var(--space-5);flex-wrap:wrap">
+          <div>
+            <div style="font-size:2rem;font-weight:700;color:${colorPct}">${pct}%</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Cobertura</div>
+          </div>
+          <div>
+            <div style="font-size:2rem;font-weight:700">${r.total}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Líneas totales</div>
+          </div>
+          <div>
+            <div style="font-size:2rem;font-weight:700;color:var(--success)">${r.con_cobertura}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Con stock</div>
+          </div>
+          <div>
+            <div style="font-size:2rem;font-weight:700;color:var(--danger)">${r.sin_cobertura}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Sin cobertura</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+          <a href="cadete.html?cruce=${data.cruce_id}" class="btn btn-primary">
+            👁 Ver vista cadete
+          </a>
+          <a href="/api/cruces/${data.cruce_id}/download" class="btn btn-ghost">
+            ⬇ Descargar Excel
+          </a>
+          <a href="index.html" class="btn btn-ghost">
+            Dashboard
+          </a>
+        </div>`;
+
+      showToast('Planilla generada correctamente', 'success');
+    } catch (err) {
+      clearInterval(msgInterval);
+      document.getElementById('progress-section').style.display = 'none';
+      btn.disabled = false;
+      showToast(`Error al procesar: ${err.message}`, 'danger');
+    }
+  });
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

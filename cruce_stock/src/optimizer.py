@@ -282,8 +282,9 @@ def construir_planilla(
     col_gtin_ped    = mapa_pedidos["gtin"]
     col_unidades    = mapa_pedidos["unidades"]
     col_producto    = mapa_pedidos["producto"]
-    col_fecha_ped   = mapa_pedidos.get("fecha")        # puede ser None
-    col_hora_ped    = mapa_pedidos.get("hora")         # puede ser None
+    col_fecha_ped   = mapa_pedidos.get("fecha")         # puede ser None
+    col_hora_ped    = mapa_pedidos.get("hora")          # puede ser None
+    col_pto_retiro  = mapa_pedidos.get("punto_retiro")  # puede ser None
 
     col_id_stock    = mapa_stock["id"]
     col_sku_stock   = mapa_stock["sku"]
@@ -321,12 +322,15 @@ def construir_planilla(
         sku_pedido  = str(pedido[col_sku_ped]).strip()  if pd.notna(pedido[col_sku_ped])  else ""
         gtin_pedido = str(pedido[col_gtin_ped]).strip() if pd.notna(pedido[col_gtin_ped]) else ""
 
-        fecha_pedido = ""
-        hora_pedido  = ""
+        fecha_pedido  = ""
+        hora_pedido   = ""
+        punto_retiro  = ""
         if col_fecha_ped and col_fecha_ped in pedido.index and pd.notna(pedido[col_fecha_ped]):
             fecha_pedido = str(pedido[col_fecha_ped]).strip()
         if col_hora_ped and col_hora_ped in pedido.index and pd.notna(pedido[col_hora_ped]):
             hora_pedido = str(pedido[col_hora_ped]).strip()
+        if col_pto_retiro and col_pto_retiro in pedido.index and pd.notna(pedido[col_pto_retiro]):
+            punto_retiro = str(pedido[col_pto_retiro]).strip()
 
         # Usar la columna pre-normalizada si existe (normalizar_pedidos la agrega)
         if "_unidades_int" in pedido.index:
@@ -376,13 +380,14 @@ def construir_planilla(
                 f"Sin match: '{nombre_producto}' (SKU={sku_pedido}, GTIN={gtin_pedido})"
             )
             filas_sin_stock.append({
-                "N° Pedido": nro_pedido,
-                "Producto":  nombre_producto,
-                "Variante":  variante,
-                "SKU":       sku_pedido,
-                "GTIN":      gtin_pedido,
-                "Unidades":  unidades,
-                "Motivo":    "Sin match en archivo de stock",
+                "N° Pedido":       nro_pedido,
+                "Producto":        nombre_producto,
+                "Variante":        variante,
+                "SKU":             sku_pedido,
+                "GTIN":            gtin_pedido,
+                "Unidades":        unidades,
+                "Motivo":          "Sin match en archivo de stock",
+                "Punto de Retiro": punto_retiro,
             })
             continue
 
@@ -411,13 +416,14 @@ def construir_planilla(
 
         if not asignaciones:
             filas_sin_stock.append({
-                "N° Pedido": nro_pedido,
-                "Producto":  nombre_producto,
-                "Variante":  variante,
-                "SKU":       sku_pedido,
-                "GTIN":      gtin_pedido,
-                "Unidades":  unidades,
-                "Motivo":    "Stock 0 en todas las sucursales",
+                "N° Pedido":       nro_pedido,
+                "Producto":        nombre_producto,
+                "Variante":        variante,
+                "SKU":             sku_pedido,
+                "GTIN":            gtin_pedido,
+                "Unidades":        unidades,
+                "Motivo":          "Stock 0 en todas las sucursales",
+                "Punto de Retiro": punto_retiro,
             })
             continue
 
@@ -449,6 +455,7 @@ def construir_planilla(
                 "_criterio":          asig.get("criterio_asignacion", ""),
                 "_tier":              asig.get("tier", 2),
                 "_consolida_pedido":  asig.get("consolida_pedido", False),
+                "Punto de Retiro":    punto_retiro,
             })
 
     df_ruta      = pd.DataFrame(filas_ruta)
