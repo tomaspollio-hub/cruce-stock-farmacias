@@ -202,13 +202,6 @@
   <!-- KPIs -->
   <div class="grid-4" style="margin-bottom:var(--space-8)">
     <div class="stat-card">
-      <div class="stat-icon blue">📋</div>
-      <div class="stat-content">
-        <div class="stat-value" id="kpi-cruces">–</div>
-        <div class="stat-label">Cruces realizados</div>
-      </div>
-    </div>
-    <div class="stat-card">
       <div class="stat-icon green">✓</div>
       <div class="stat-content">
         <div class="stat-value" id="kpi-cobertura">–</div>
@@ -218,21 +211,28 @@
     <div class="stat-card">
       <div class="stat-icon blue">📦</div>
       <div class="stat-content">
-        <div class="stat-value" id="kpi-lineas">–</div>
-        <div class="stat-label">Líneas procesadas</div>
+        <div class="stat-value" id="kpi-pedidos">–</div>
+        <div class="stat-label">Pedidos procesados</div>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon yellow">🛒</div>
+      <div class="stat-icon red">⚠</div>
       <div class="stat-content">
-        <div class="stat-value" id="kpi-pedidos">–</div>
-        <div class="stat-label">Pedidos únicos</div>
+        <div class="stat-value" id="kpi-incidencias">–</div>
+        <div class="stat-label">Incidencias</div>
+      </div>
+    </div>
+    <div class="stat-card" style="opacity:.75">
+      <div class="stat-icon" style="background:var(--bg-subtle);color:var(--text-muted)">📋</div>
+      <div class="stat-content">
+        <div class="stat-value" id="kpi-cruces" style="font-size:var(--text-xl)">–</div>
+        <div class="stat-label">Cruces realizados</div>
       </div>
     </div>
   </div>
 
   <!-- Evolución + accesos rápidos -->
-  <div class="grid-2" style="margin-bottom:var(--space-6)">
+  <div class="grid-2 grid-2-evo" style="margin-bottom:var(--space-6)">
 
     <div class="card">
       <div class="card-header">
@@ -464,11 +464,12 @@
 
     if (analytics?.ok) {
       const t = analytics.totales;
-      document.getElementById('kpi-cruces').textContent    = t.total_cruces ?? '–';
+      const fmt = n => (n ?? 0).toLocaleString('es-AR');
       document.getElementById('kpi-cobertura').textContent =
         t.total_cruces > 0 ? `${parseFloat(t.cobertura_promedio).toFixed(1)}%` : '–';
-      document.getElementById('kpi-lineas').textContent    = t.total_lineas ?? '–';
-      document.getElementById('kpi-pedidos').textContent   = t.total_pedidos ?? '–';
+      document.getElementById('kpi-pedidos').textContent     = fmt(t.total_pedidos);
+      document.getElementById('kpi-incidencias').textContent = fmt(t.total_incidencias);
+      document.getElementById('kpi-cruces').textContent      = fmt(t.total_cruces);
 
       buildEvoChart(analytics.evolucion);
 

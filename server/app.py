@@ -691,7 +691,8 @@ def _analytics_query(db, desde=None, hasta=None):
                    COALESCE(SUM(c.total_lineas), 0)  as total_lineas,
                    COALESCE(SUM(c.con_cobertura), 0)  as total_con_cobertura,
                    COALESCE(SUM(c.sin_cobertura), 0)  as total_sin_cobertura,
-                   COUNT(DISTINCT l.nro_pedido) as total_pedidos
+                   COUNT(DISTINCT l.nro_pedido) as total_pedidos,
+                   COALESCE(SUM(CASE WHEN l.estado IN ('MAL_STOCK','NO_ENCONTRADO') THEN 1 ELSE 0 END), 0) as total_incidencias
             FROM cruces c
             LEFT JOIN lineas l ON l.cruce_id = c.id
             WHERE 1=1 {where_c}''',

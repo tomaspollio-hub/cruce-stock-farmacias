@@ -134,9 +134,9 @@ body {
 }
 
 /* ── Grid ─────────────────────────────────────────────────────── */
-.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); }
-.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
-.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-6); align-items: start; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); align-items: start; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-4); align-items: start; }
 
 @media (max-width: 900px) {
   .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
@@ -151,11 +151,19 @@ body {
 
   /* Espacio inferior para no quedar tapado por la barra de nav */
   .main { padding-bottom: calc(60px + var(--space-6)); }
+
+  /* Las grids de tablas analíticas colapsan a 1 columna en tablet */
+  .grid-2:not(.grid-2-evo) { grid-template-columns: 1fr; }
+
+  /* Barra de progreso más corta en pantallas medianas */
+  .top-bar-bg { flex-basis: 70px; }
 }
 
 @media (max-width: 600px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .main { padding: var(--space-4); padding-bottom: calc(60px + var(--space-4)); }
+  .top-bar-bg { flex-basis: 50px; }
+  .stat-value { font-size: var(--text-xl); }
 }
 
 /* ── Barra de navegación inferior (mobile/tablet) ─────────────── */
