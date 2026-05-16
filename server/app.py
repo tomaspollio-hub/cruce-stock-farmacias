@@ -1307,9 +1307,10 @@ def static_files(path):
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
+with app.app_context():
+    init_db()
+
 if __name__ == '__main__':
-    with app.app_context():
-        init_db()
     print('\n  Cruce Stock Farmacias')
     print('  http://localhost:5050\n')
     app.run(host='0.0.0.0', port=5050, debug=True)
