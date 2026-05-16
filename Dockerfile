@@ -20,4 +20,4 @@ RUN mkdir -p /data/uploads
 EXPOSE 8080
 
 # Railway inyecta $PORT dinámicamente; localmente usa 8080 como fallback
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --timeout 120 --access-logfile - server.app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 4 --timeout 120 --access-logfile - server.app:app"]
