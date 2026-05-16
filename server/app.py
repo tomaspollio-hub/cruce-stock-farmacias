@@ -159,11 +159,11 @@ def init_db():
     existing = db.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
     if existing == 0:
         db.execute(
-            'INSERT INTO usuarios (usuario, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO usuarios (usuario, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
             ('admin', generate_password_hash('admin123'), 'Administrador', 'admin')
         )
         db.execute(
-            'INSERT INTO usuarios (usuario, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
+            'INSERT OR IGNORE INTO usuarios (usuario, password_hash, nombre, rol) VALUES (?, ?, ?, ?)',
             ('cadete', generate_password_hash('cadete123'), 'Cadete', 'cadete')
         )
     db.commit()
