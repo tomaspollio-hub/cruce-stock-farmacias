@@ -12,6 +12,147 @@
   <link rel="stylesheet" href="css/reset.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
+  <style>
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-6);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+    }
+    .filter-bar label {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .filter-bar input[type="date"] {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 6px 10px;
+      font-size: var(--text-sm);
+      font-family: inherit;
+      color: var(--text-primary);
+      background: var(--bg-subtle);
+    }
+    .filter-spacer { flex: 1; }
+    @media (max-width: 600px) {
+      .filter-bar { gap: var(--space-2); }
+      .filter-bar input[type="date"] { flex: 1; min-width: 0; }
+      .filter-spacer { display: none; }
+      #btn-export { width: 100%; justify-content: center; }
+    }
+
+    /* Evolution chart */
+    .evo-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 80px;
+      padding: 0 2px;
+    }
+    .evo-bar-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      position: relative;
+      cursor: default;
+    }
+    .evo-bar {
+      width: 100%;
+      border-radius: 3px 3px 0 0;
+      background: var(--primary);
+      opacity: .75;
+      transition: opacity .15s;
+      min-height: 4px;
+    }
+    .evo-bar-wrap:hover .evo-bar { opacity: 1; }
+    .evo-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text-primary);
+      color: #fff;
+      border-radius: var(--radius-md);
+      padding: 4px 8px;
+      font-size: 11px;
+      white-space: nowrap;
+      z-index: 10;
+    }
+    .evo-bar-wrap:hover .evo-tooltip { display: block; }
+    .evo-labels {
+      display: flex;
+      gap: 4px;
+      padding: 0 2px;
+      margin-top: 4px;
+    }
+    .evo-label {
+      flex: 1;
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Top lists */
+    .top-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      padding: var(--space-2) 0;
+      border-bottom: 1px solid var(--border);
+      font-size: var(--text-sm);
+    }
+    .top-row:last-child { border-bottom: none; }
+    .top-rank {
+      width: 20px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      color: var(--text-muted);
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .top-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: var(--font-medium);
+    }
+    .top-bar-bg {
+      flex: 0 0 100px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .top-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: var(--primary);
+    }
+    .top-bar-fill.red   { background: var(--danger); }
+    .top-bar-fill.green { background: var(--success); }
+    .top-val {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      width: 40px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+  </style>
 </head>
 <body>
 
@@ -35,61 +176,81 @@
 
 <main class="main">
 
-  <div class="page-header">
-    <h1 class="page-title">Dashboard</h1>
-    <p class="page-subtitle">Resumen de operaciones de cobertura</p>
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4)">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle">Métricas de operación y cobertura de stock</p>
+    </div>
+    <div style="display:flex;gap:var(--space-2)">
+      <a href="nuevo-cruce.html" class="btn btn-primary">+ Nuevo cruce</a>
+    </div>
   </div>
 
-  <!-- Stats -->
+  <!-- Filtro de período -->
+  <div class="filter-bar">
+    <label>Período:</label>
+    <input type="date" id="f-desde" title="Desde">
+    <span style="font-size:var(--text-sm);color:var(--text-muted)">–</span>
+    <input type="date" id="f-hasta" title="Hasta">
+    <button class="btn btn-ghost btn-sm" id="btn-filtrar">Filtrar</button>
+    <button class="btn btn-ghost btn-sm" id="btn-limpiar" style="color:var(--text-muted)">Limpiar</button>
+    <div class="filter-spacer"></div>
+    <a id="btn-export" href="#" class="btn btn-ghost btn-sm">⬇ Exportar Excel</a>
+  </div>
+
+  <!-- KPIs -->
   <div class="grid-4" style="margin-bottom:var(--space-8)">
     <div class="stat-card">
       <div class="stat-icon blue">📋</div>
       <div class="stat-content">
-        <div class="stat-value" id="stat-total-cruces">–</div>
+        <div class="stat-value" id="kpi-cruces">–</div>
         <div class="stat-label">Cruces realizados</div>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-icon green">✓</div>
       <div class="stat-content">
-        <div class="stat-value" id="stat-cobertura">–</div>
+        <div class="stat-value" id="kpi-cobertura">–</div>
         <div class="stat-label">Cobertura promedio</div>
       </div>
     </div>
     <div class="stat-card">
       <div class="stat-icon blue">📦</div>
       <div class="stat-content">
-        <div class="stat-value" id="stat-lineas">–</div>
+        <div class="stat-value" id="kpi-lineas">–</div>
         <div class="stat-label">Líneas procesadas</div>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon yellow">⏱</div>
+      <div class="stat-icon yellow">🛒</div>
       <div class="stat-content">
-        <div class="stat-value" id="stat-ultimo">–</div>
-        <div class="stat-label">Último cruce</div>
+        <div class="stat-value" id="kpi-pedidos">–</div>
+        <div class="stat-label">Pedidos únicos</div>
       </div>
     </div>
   </div>
 
-  <div class="grid-2">
+  <!-- Evolución + accesos rápidos -->
+  <div class="grid-2" style="margin-bottom:var(--space-6)">
 
-    <!-- Cruces recientes -->
     <div class="card">
       <div class="card-header">
-        <h2 class="card-title">Cruces recientes</h2>
-        <a href="nuevo-cruce.html" class="btn btn-primary btn-sm">+ Nuevo cruce</a>
+        <h2 class="card-title">Evolución de cobertura</h2>
+        <span id="evo-range" style="font-size:var(--text-xs);color:var(--text-muted)"></span>
       </div>
-      <div id="cruces-list">
-        <div class="empty-state">
-          <div class="spinner"></div>
+      <div class="card-body">
+        <div id="evo-chart-wrap">
+          <div class="evo-chart" id="evo-chart"></div>
+          <div class="evo-labels" id="evo-labels"></div>
+        </div>
+        <div id="evo-empty" class="empty-state" style="display:none;padding:var(--space-6) 0">
+          <div class="empty-state-icon">📈</div>
+          <div class="empty-state-title">Sin datos en el período</div>
         </div>
       </div>
     </div>
 
-    <!-- Accesos rápidos -->
     <div style="display:flex;flex-direction:column;gap:var(--space-6)">
-
       <div class="card">
         <div class="card-header">
           <h2 class="card-title">Accesos rápidos</h2>
@@ -100,10 +261,10 @@
           </a>
           <div id="cadete-link-wrap" style="display:none">
             <a href="#" class="btn btn-ghost btn-block" id="cadete-link">
-              👁 Ver vista cadete del último cruce
+              📍 Ruta del día (cadete)
             </a>
-            <a href="#" class="btn btn-ghost btn-block" id="operador-link" style="display:none">
-              📡 Vista operador (seguimiento en vivo)
+            <a href="#" class="btn btn-ghost btn-block" id="operador-link" style="display:none;margin-top:var(--space-2)">
+              📡 Centro de control (operador)
             </a>
           </div>
           <a href="historial.html" class="btn btn-ghost btn-block">
@@ -118,7 +279,65 @@
         </div>
         <div class="card-body" id="ultimo-cruce-body"></div>
       </div>
+    </div>
+  </div>
 
+  <!-- Tablas analíticas -->
+  <div class="grid-2" style="margin-bottom:var(--space-6)">
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Top productos pedidos</h2>
+        <span style="font-size:var(--text-xs);color:var(--text-muted)">por frecuencia</span>
+      </div>
+      <div class="card-body" id="tbl-top-productos">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Productos sin cobertura</h2>
+        <span style="font-size:var(--text-xs);color:var(--danger)">sin stock frecuente</span>
+      </div>
+      <div class="card-body" id="tbl-sin-stock">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="grid-2" style="margin-bottom:var(--space-6)">
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Farmacias más utilizadas</h2>
+        <span style="font-size:var(--text-xs);color:var(--text-muted)">por líneas asignadas</span>
+      </div>
+      <div class="card-body" id="tbl-top-farmacias">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Farmacias con incidencias</h2>
+        <span style="font-size:var(--text-xs);color:var(--danger)">mal stock / no encontrado</span>
+      </div>
+      <div class="card-body" id="tbl-farmacias-problema">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-bottom:var(--space-6)">
+    <div class="card-header">
+      <h2 class="card-title">Puntos de retiro más activos</h2>
+      <span style="font-size:var(--text-xs);color:var(--text-muted)">farmacias destino de los clientes</span>
+    </div>
+    <div class="card-body" id="tbl-puntos-retiro">
+      <div class="spinner" style="margin:var(--space-6) auto"></div>
     </div>
   </div>
 
@@ -129,11 +348,11 @@
 <script type="module">
   import auth    from './js/auth.js';
   import { showToast } from './js/toast.js';
+  import { initMobileNav } from './js/mobile-nav.js';
 
   const session = await auth.requireAuth();
   if (!session) throw new Error('sin sesion');
 
-  // Cadete no tiene dashboard — redirigir directo a su vista de trabajo
   if (session.rol === 'cadete') {
     const rCruces = await auth.apiFetch('/api/cruces');
     const dCruces = await rCruces.json();
@@ -149,48 +368,140 @@
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
 
+  initMobileNav('dashboard');
+
+  // ── Helpers ────────────────────────────────────────────────
+  function topList(rows, nameKey, valKey, colorClass = '') {
+    if (!rows || rows.length === 0)
+      return `<div class="empty-state" style="padding:var(--space-4) 0">
+                <div class="empty-state-icon">🔍</div>
+                <div class="empty-state-title">Sin datos</div>
+              </div>`;
+    const max = rows[0][valKey] || 1;
+    return rows.map((r, i) => `
+      <div class="top-row">
+        <div class="top-rank">${i + 1}</div>
+        <div class="top-name" title="${r[nameKey]}">${r[nameKey] || '—'}</div>
+        <div class="top-bar-bg">
+          <div class="top-bar-fill ${colorClass}" style="width:${Math.round(r[valKey] / max * 100)}%"></div>
+        </div>
+        <div class="top-val">${r[valKey]}</div>
+      </div>`).join('');
+  }
+
+  function buildEvoChart(evolucion) {
+    const chart  = document.getElementById('evo-chart');
+    const labels = document.getElementById('evo-labels');
+    const wrap   = document.getElementById('evo-chart-wrap');
+    const empty  = document.getElementById('evo-empty');
+
+    if (!evolucion || evolucion.length === 0) {
+      wrap.style.display  = 'none';
+      empty.style.display = '';
+      document.getElementById('evo-range').textContent = '';
+      return;
+    }
+    wrap.style.display  = '';
+    empty.style.display = 'none';
+
+    const reversed = [...evolucion].reverse();
+    const maxCob   = Math.max(...reversed.map(r => r.cobertura), 1);
+
+    chart.innerHTML  = reversed.map(r => {
+      const h = Math.round((r.cobertura / 100) * 100);
+      const color = r.cobertura >= 80 ? '#16a34a' : r.cobertura >= 50 ? '#ca8a04' : '#dc2626';
+      return `<div class="evo-bar-wrap">
+        <div class="evo-tooltip">${r.dia}<br>${r.cobertura}% · ${r.lineas} líneas</div>
+        <div class="evo-bar" style="height:${Math.max(h, 4)}%;background:${color}"></div>
+      </div>`;
+    }).join('');
+
+    labels.innerHTML = reversed.map(r => {
+      const parts = r.dia.split('-');
+      return `<div class="evo-label">${parts[2]}/${parts[1]}</div>`;
+    }).join('');
+
+    if (reversed.length >= 2) {
+      document.getElementById('evo-range').textContent =
+        `${reversed[0].dia} → ${reversed[reversed.length - 1].dia}`;
+    }
+  }
+
+  // ── URL de export ──────────────────────────────────────────
+  function actualizarExportLink() {
+    const desde = document.getElementById('f-desde').value;
+    const hasta = document.getElementById('f-hasta').value;
+    let url = '/api/analytics/export';
+    const p = [];
+    if (desde) p.push(`desde=${desde}`);
+    if (hasta) p.push(`hasta=${hasta}`);
+    if (p.length) url += '?' + p.join('&');
+    document.getElementById('btn-export').href = url;
+  }
+
+  // ── Carga de datos ─────────────────────────────────────────
   async function cargarDashboard() {
+    const desde = document.getElementById('f-desde').value;
+    const hasta = document.getElementById('f-hasta').value;
+
+    actualizarExportLink();
+
+    const params = [];
+    if (desde) params.push(`desde=${desde}`);
+    if (hasta) params.push(`hasta=${hasta}`);
+    const qs = params.length ? '?' + params.join('&') : '';
+
     const [rAnalytics, rCruces] = await Promise.all([
-      auth.apiFetch('/api/analytics'),
+      auth.apiFetch('/api/analytics' + qs),
       auth.apiFetch('/api/cruces'),
     ]);
 
-    const analytics = await rAnalytics.json();
-    const cruces    = await rCruces.json();
+    const [analytics, cruces] = await Promise.all([
+      rAnalytics.json().catch(() => null),
+      rCruces.json().catch(() => null),
+    ]);
 
-    if (analytics.ok) {
+    if (analytics?.ok) {
       const t = analytics.totales;
-      document.getElementById('stat-total-cruces').textContent = t.total_cruces ?? 0;
-      document.getElementById('stat-cobertura').textContent =
-        t.total_cruces > 0 ? `${t.cobertura_promedio.toFixed(1)}%` : '–';
-      document.getElementById('stat-lineas').textContent = t.total_lineas ?? 0;
+      document.getElementById('kpi-cruces').textContent    = t.total_cruces ?? '–';
+      document.getElementById('kpi-cobertura').textContent =
+        t.total_cruces > 0 ? `${parseFloat(t.cobertura_promedio).toFixed(1)}%` : '–';
+      document.getElementById('kpi-lineas').textContent    = t.total_lineas ?? '–';
+      document.getElementById('kpi-pedidos').textContent   = t.total_pedidos ?? '–';
+
+      buildEvoChart(analytics.evolucion);
+
+      document.getElementById('tbl-top-productos').innerHTML =
+        topList(analytics.top_productos, 'producto', 'veces');
+      document.getElementById('tbl-sin-stock').innerHTML =
+        topList(analytics.top_sin_stock, 'producto', 'veces', 'red');
+      document.getElementById('tbl-top-farmacias').innerHTML =
+        topList(analytics.top_farmacias, 'farmacia', 'lineas', 'green');
+      document.getElementById('tbl-farmacias-problema').innerHTML =
+        topList(analytics.farmacias_problema, 'farmacia', 'incidencias', 'red');
+      document.getElementById('tbl-puntos-retiro').innerHTML =
+        topList(analytics.top_puntos_retiro, 'punto_retiro', 'pedidos');
     }
 
-    if (cruces.ok && cruces.cruces.length > 0) {
+    if (cruces?.ok && cruces.cruces.length > 0) {
       const ultimo = cruces.cruces[0];
       const fecha  = new Date(ultimo.created_at).toLocaleDateString('es-AR', {
         day: '2-digit', month: '2-digit', year: '2-digit',
         hour: '2-digit', minute: '2-digit',
       });
-      document.getElementById('stat-ultimo').textContent = fecha;
-
-      // Cadete link
       document.getElementById('cadete-link-wrap').style.display = 'block';
-      document.getElementById('cadete-link').href    = `cadete.html?cruce=${ultimo.id}`;
-      document.getElementById('operador-link').href  = `operador.html?cruce=${ultimo.id}`;
+      document.getElementById('cadete-link').href   = `cadete.html?cruce=${ultimo.id}`;
+      document.getElementById('operador-link').href = `operador.html?cruce=${ultimo.id}`;
       document.getElementById('operador-link').style.display = 'flex';
 
-      // Último cruce card
       document.getElementById('ultimo-cruce-card').style.display = 'block';
       document.getElementById('ultimo-cruce-body').innerHTML = `
-        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap">
+        <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
           <div>
             <div style="font-size:var(--text-2xl);font-weight:700;color:var(--success)">
               ${ultimo.pct_cobertura.toFixed(1)}%
             </div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">
-              Cobertura
-            </div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Cobertura</div>
           </div>
           <div>
             <div style="font-size:var(--text-2xl);font-weight:700">${ultimo.con_cobertura}</div>
@@ -201,41 +512,23 @@
             <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Sin stock</div>
           </div>
         </div>
-        <div style="margin-top:var(--space-4);display:flex;gap:var(--space-2)">
-          <a href="cadete.html?cruce=${ultimo.id}" class="btn btn-primary btn-sm">Vista cadete</a>
-          <a href="/api/cruces/${ultimo.id}/download" class="btn btn-ghost btn-sm">Descargar Excel</a>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">${fecha} · ${ultimo.archivo_pedidos || ''}</div>
+        <div style="display:flex;gap:var(--space-2)">
+          <a href="cadete.html?cruce=${ultimo.id}" class="btn btn-primary btn-sm">Ruta del día</a>
+          <a href="operador.html?cruce=${ultimo.id}" class="btn btn-ghost btn-sm">Centro de control</a>
+          <a href="/api/cruces/${ultimo.id}/download" class="btn btn-ghost btn-sm">Excel</a>
         </div>`;
-
-      // Lista cruces
-      const listEl = document.getElementById('cruces-list');
-      const recientes = cruces.cruces.slice(0, 8);
-      if (recientes.length === 0) {
-        listEl.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin cruces aún</div></div>`;
-      } else {
-        listEl.innerHTML = `<div style="overflow:hidden;border-radius:0 0 var(--radius-lg) var(--radius-lg)">` +
-          recientes.map(c => {
-            const d = new Date(c.created_at).toLocaleDateString('es-AR', {
-              day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
-            });
-            const pct = c.pct_cobertura.toFixed(1);
-            const color = pct >= 80 ? 'green' : pct >= 50 ? 'yellow' : 'red';
-            return `
-              <div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-5);border-bottom:1px solid var(--border)">
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:var(--text-sm);font-weight:500">${c.archivo_pedidos || 'Cruce #' + c.id}</div>
-                  <div style="font-size:var(--text-xs);color:var(--text-muted)">${d} · ${c.total_lineas} líneas</div>
-                </div>
-                <span class="badge badge-${color}">${pct}%</span>
-                <a href="cadete.html?cruce=${c.id}" class="btn btn-ghost btn-sm">Ver</a>
-              </div>`;
-          }).join('') + `</div>`;
-      }
-    } else {
-      document.getElementById('stat-ultimo').textContent = '–';
-      document.getElementById('cruces-list').innerHTML =
-        `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin cruces aún</div><div class="empty-state-desc">Creá tu primer cruce para empezar.</div></div>`;
     }
   }
+
+  document.getElementById('btn-filtrar').addEventListener('click', () =>
+    cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'))
+  );
+  document.getElementById('btn-limpiar').addEventListener('click', () => {
+    document.getElementById('f-desde').value = '';
+    document.getElementById('f-hasta').value = '';
+    cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'));
+  });
 
   cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'));
 </script>

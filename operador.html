@@ -363,6 +363,7 @@
 <script type="module">
   import auth from './js/auth.js';
   import { showToast } from './js/toast.js';
+  import { initMobileNav } from './js/mobile-nav.js';
 
   const session = await auth.requireAuth();
   if (!session) throw new Error('sin sesion');
@@ -376,6 +377,7 @@
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+  initMobileNav('operador');
 
   const params = new URLSearchParams(location.search);
   let cruceId  = params.get('cruce') ? parseInt(params.get('cruce')) : null;

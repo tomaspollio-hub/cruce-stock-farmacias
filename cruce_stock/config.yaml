@@ -135,6 +135,12 @@ optimizacion:
   # de un producto, se marca como ⚠️ Stock a verificar (probable error de carga)
   stock_sospechoso_umbral: 200
 
+  # Stock de seguridad: mínimo de unidades extra que debe tener una sucursal
+  # para ser elegible. Evita asignar farmacias con stock ajustado que puede
+  # no estar disponible físicamente (datos desactualizados, errores de carga).
+  # Ej: stock_seguridad=3 → solo se asigna si la sucursal tiene > 3 unidades.
+  stock_seguridad: 3
+
 # ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
 estados_busqueda:
   - "Búsqueda"          # estado inicial asignado por el sistema

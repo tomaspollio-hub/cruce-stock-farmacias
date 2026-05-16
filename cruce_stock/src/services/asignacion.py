@@ -152,8 +152,9 @@ def asignar_producto_inteligente(
         lambda n: _norm(n) in nodos_norm
     )
 
-    # Solo nodos con stock > 0
-    tabla = tabla[tabla["stock_total"] > 0].copy()
+    # Solo nodos con stock > stock_seguridad (evita farmacias con stock ajustado)
+    stock_seg = cfg.get("optimizacion", {}).get("stock_seguridad", 0)
+    tabla = tabla[tabla["stock_total"] > stock_seg].copy()
 
     if tabla.empty:
         logger.warning(f"Sin stock disponible en ningún nodo para '{gtin_key}'")

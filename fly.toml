@@ -1,0 +1,32 @@
+# fly.toml — ECommerce Farmacias Global
+app = "ecommerce-farmacias"
+primary_region = "gru"   # São Paulo — más cercano a Argentina
+
+[build]
+
+[env]
+  PORT              = "8080"
+  CRUCE_DB_PATH     = "/data/cruce.db"
+  CRUCE_UPLOADS_DIR = "/data/uploads"
+
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = "stop"
+  auto_start_machines = true
+  min_machines_running = 1     # siempre encendido (entra en el free tier)
+
+  [http_service.concurrency]
+    type       = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[vm]]
+  memory   = "256mb"
+  cpu_kind = "shared"
+  cpus     = 1
+
+[[mounts]]
+  source      = "cruce_data"
+  destination = "/data"
+  initial_size = "1gb"

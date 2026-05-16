@@ -19,8 +19,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR    = Path(__file__).parent.parent
 SERVER_DIR  = Path(__file__).parent
-DB_PATH     = SERVER_DIR / 'cruce.db'
-UPLOADS_DIR = SERVER_DIR / 'uploads'
+DB_PATH     = Path(os.environ.get('CRUCE_DB_PATH',      str(SERVER_DIR / 'cruce.db')))
+UPLOADS_DIR = Path(os.environ.get('CRUCE_UPLOADS_DIR',  str(SERVER_DIR / 'uploads')))
 CONFIG_PATH = BASE_DIR / 'cruce_stock' / 'config.yaml'
 
 SECRET_KEY = os.environ.get('CRUCE_SECRET', 'dev-secret-change-in-prod')
@@ -599,41 +599,225 @@ def cruce_incidencias(cruce_id):
 
 # ── Analytics ───────────────────────────────────────────────────────────────────
 
-@app.get('/api/analytics')
-@require_auth
-def analytics():
-    db = get_db()
+def _analytics_query(db, desde=None, hasta=None):
+    """Ejecuta todas las queries de analytics con filtro de rango de fechas."""
+    params_c  = []
+    params_l  = []
+    where_c   = ''
+    where_l   = ''
+
+    if desde:
+        where_c += ' AND c.created_at >= ?'
+        where_l += ' AND cr.created_at >= ?'
+        params_c.append(desde)
+        params_l.append(desde)
+    if hasta:
+        # incluir todo el día "hasta"
+        hasta_fin = hasta + 'T23:59:59'
+        where_c  += ' AND c.created_at <= ?'
+        where_l  += ' AND cr.created_at <= ?'
+        params_c.append(hasta_fin)
+        params_l.append(hasta_fin)
 
     totales = db.execute(
-        '''SELECT COUNT(*) as total_cruces,
-                  COALESCE(AVG(pct_cobertura), 0) as cobertura_promedio,
-                  COALESCE(SUM(total_lineas), 0)  as total_lineas
-           FROM cruces'''
+        f'''SELECT COUNT(*) as total_cruces,
+                   COALESCE(AVG(c.pct_cobertura), 0) as cobertura_promedio,
+                   COALESCE(SUM(c.total_lineas), 0)  as total_lineas,
+                   COALESCE(SUM(c.con_cobertura), 0)  as total_con_cobertura,
+                   COALESCE(SUM(c.sin_cobertura), 0)  as total_sin_cobertura,
+                   COUNT(DISTINCT l.nro_pedido) as total_pedidos
+            FROM cruces c
+            LEFT JOIN lineas l ON l.cruce_id = c.id
+            WHERE 1=1 {where_c}''',
+        params_c
     ).fetchone()
 
-    ultimos = db.execute(
-        'SELECT fecha, pct_cobertura FROM cruces ORDER BY created_at DESC LIMIT 10'
+    evolucion = db.execute(
+        f'''SELECT DATE(c.created_at) as dia,
+                   ROUND(AVG(c.pct_cobertura), 1) as cobertura,
+                   SUM(c.total_lineas) as lineas,
+                   COUNT(*) as cruces
+            FROM cruces c WHERE 1=1 {where_c}
+            GROUP BY dia ORDER BY dia DESC LIMIT 30''',
+        params_c
+    ).fetchall()
+
+    top_productos = db.execute(
+        f'''SELECT l.producto, COUNT(*) as veces,
+                   SUM(l.unidades) as unidades
+            FROM lineas l
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE l.producto IS NOT NULL AND l.producto != '' {where_l}
+            GROUP BY l.producto ORDER BY veces DESC LIMIT 10''',
+        params_l
     ).fetchall()
 
     top_sin_stock = db.execute(
-        '''SELECT producto, COUNT(*) as veces
-           FROM lineas WHERE nodo_asignado IS NULL
-           GROUP BY producto ORDER BY veces DESC LIMIT 10'''
+        f'''SELECT l.producto, COUNT(*) as veces,
+                   SUM(l.unidades) as unidades
+            FROM lineas l
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE l.nodo_asignado IS NULL AND l.producto IS NOT NULL {where_l}
+            GROUP BY l.producto ORDER BY veces DESC LIMIT 10''',
+        params_l
     ).fetchall()
 
-    top_nodos = db.execute(
-        '''SELECT nodo_asignado, COUNT(*) as lineas
-           FROM lineas WHERE nodo_asignado IS NOT NULL
-           GROUP BY nodo_asignado ORDER BY lineas DESC LIMIT 10'''
+    top_farmacias = db.execute(
+        f'''SELECT l.nodo_asignado as farmacia, COUNT(*) as lineas,
+                   COUNT(DISTINCT l.nro_pedido) as pedidos
+            FROM lineas l
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE l.nodo_asignado IS NOT NULL AND l.nodo_asignado != ''
+              AND l.nodo_asignado != '— SIN COBERTURA —' {where_l}
+            GROUP BY l.nodo_asignado ORDER BY lineas DESC LIMIT 10''',
+        params_l
     ).fetchall()
 
-    return jsonify({
-        'ok':             True,
-        'totales':        dict(totales),
-        'tendencia':      [dict(r) for r in ultimos],
-        'top_sin_stock':  [dict(r) for r in top_sin_stock],
-        'top_nodos':      [dict(r) for r in top_nodos],
-    })
+    farmacias_problema = db.execute(
+        f'''SELECT l.nodo_asignado as farmacia,
+                   SUM(CASE WHEN l.estado IN ('MAL_STOCK','NO_ENCONTRADO') THEN 1 ELSE 0 END) as incidencias,
+                   COUNT(*) as total_asignadas
+            FROM lineas l
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE l.nodo_asignado IS NOT NULL AND l.nodo_asignado != ''
+              AND l.nodo_asignado != '— SIN COBERTURA —' {where_l}
+            GROUP BY l.nodo_asignado
+            HAVING incidencias > 0
+            ORDER BY incidencias DESC LIMIT 10''',
+        params_l
+    ).fetchall()
+
+    top_puntos_retiro = db.execute(
+        f'''SELECT l.punto_retiro, COUNT(DISTINCT l.nro_pedido) as pedidos
+            FROM lineas l
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE l.punto_retiro IS NOT NULL AND l.punto_retiro != '' {where_l}
+            GROUP BY l.punto_retiro ORDER BY pedidos DESC LIMIT 10''',
+        params_l
+    ).fetchall()
+
+    return {
+        'totales':           dict(totales),
+        'evolucion':         [dict(r) for r in evolucion],
+        'top_productos':     [dict(r) for r in top_productos],
+        'top_sin_stock':     [dict(r) for r in top_sin_stock],
+        'top_farmacias':     [dict(r) for r in top_farmacias],
+        'farmacias_problema':[dict(r) for r in farmacias_problema],
+        'top_puntos_retiro': [dict(r) for r in top_puntos_retiro],
+    }
+
+
+@app.get('/api/analytics')
+@require_auth
+def analytics():
+    db    = get_db()
+    desde = request.args.get('desde', '')
+    hasta = request.args.get('hasta', '')
+    data  = _analytics_query(db, desde or None, hasta or None)
+    return jsonify({'ok': True, **data})
+
+
+@app.get('/api/analytics/export')
+@require_auth
+def analytics_export():
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils  import get_column_letter
+
+    db    = get_db()
+    desde = request.args.get('desde', '')
+    hasta = request.args.get('hasta', '')
+    data  = _analytics_query(db, desde or None, hasta or None)
+
+    wb = openpyxl.Workbook()
+
+    hdr_font  = Font(bold=True, color='FFFFFF')
+    hdr_fill  = PatternFill('solid', fgColor='1D4ED8')
+    thin      = Side(style='thin', color='D1D5DB')
+    border    = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    def make_sheet(title, headers, rows):
+        ws = wb.create_sheet(title)
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font      = hdr_font
+            cell.fill      = hdr_fill
+            cell.alignment = Alignment(horizontal='center')
+        for row in rows:
+            ws.append(row)
+        for col_idx in range(1, len(headers) + 1):
+            col_letter = get_column_letter(col_idx)
+            max_len    = max(
+                (len(str(ws.cell(row=r, column=col_idx).value or ''))
+                 for r in range(1, ws.max_row + 1)),
+                default=8
+            )
+            ws.column_dimensions[col_letter].width = min(max_len + 4, 40)
+        return ws
+
+    del wb['Sheet']  # quitar hoja default
+
+    # Resumen
+    t   = data['totales']
+    ws0 = wb.create_sheet('Resumen')
+    periodo_str = f"{desde or 'inicio'} → {hasta or 'hoy'}"
+    ws0['A1'] = 'Período'
+    ws0['B1'] = periodo_str
+    ws0['A1'].font = Font(bold=True)
+    ws0.append(['Cruces realizados',        t['total_cruces']])
+    ws0.append(['Cobertura promedio (%)',    round(t['cobertura_promedio'], 1)])
+    ws0.append(['Líneas procesadas',         t['total_lineas']])
+    ws0.append(['Pedidos únicos',            t['total_pedidos']])
+    ws0.append(['Líneas con cobertura',      t['total_con_cobertura']])
+    ws0.append(['Líneas sin cobertura',      t['total_sin_cobertura']])
+    ws0.column_dimensions['A'].width = 28
+    ws0.column_dimensions['B'].width = 20
+
+    make_sheet(
+        'Evolución',
+        ['Día', 'Cobertura (%)', 'Líneas', 'Cruces'],
+        [[r['dia'], r['cobertura'], r['lineas'], r['cruces']]
+         for r in reversed(data['evolucion'])]
+    )
+    make_sheet(
+        'Top Productos',
+        ['Producto', 'Veces pedido', 'Unidades totales'],
+        [[r['producto'], r['veces'], r['unidades']] for r in data['top_productos']]
+    )
+    make_sheet(
+        'Sin Stock',
+        ['Producto sin cobertura', 'Veces', 'Unidades afectadas'],
+        [[r['producto'], r['veces'], r['unidades']] for r in data['top_sin_stock']]
+    )
+    make_sheet(
+        'Top Farmacias',
+        ['Farmacia', 'Líneas asignadas', 'Pedidos'],
+        [[r['farmacia'], r['lineas'], r['pedidos']] for r in data['top_farmacias']]
+    )
+    make_sheet(
+        'Farmacias Problema',
+        ['Farmacia', 'Incidencias', 'Total asignadas'],
+        [[r['farmacia'], r['incidencias'], r['total_asignadas']]
+         for r in data['farmacias_problema']]
+    )
+    make_sheet(
+        'Puntos de Retiro',
+        ['Punto de retiro', 'Pedidos'],
+        [[r['punto_retiro'], r['pedidos']] for r in data['top_puntos_retiro']]
+    )
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    fecha_str = datetime.now().strftime('%Y%m%d')
+    nombre    = f'analytics_{fecha_str}.xlsx'
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=nombre,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
 
 # ── Procesamiento ───────────────────────────────────────────────────────────────
 

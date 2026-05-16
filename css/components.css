@@ -43,6 +43,14 @@
 .btn-ghost:hover { background: var(--bg-subtle); color: var(--text-primary); }
 
 .btn-sm { padding: var(--space-1) var(--space-3); font-size: var(--text-xs); }
+
+@media (max-width: 768px) {
+  /* Touch targets más grandes en mobile */
+  .btn-sm { min-height: 38px; padding: var(--space-2) var(--space-3); }
+  .btn    { min-height: 44px; }
+  /* Salir sigue siendo chico, no necesita altura de touch completa */
+  #logout-btn { min-height: 32px; }
+}
 .btn-lg { padding: var(--space-3) var(--space-6); font-size: var(--text-base); }
 .btn-block { width: 100%; }
 

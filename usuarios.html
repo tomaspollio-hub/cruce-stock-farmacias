@@ -100,6 +100,7 @@
 <script type="module">
   import auth from './js/auth.js';
   import { showToast } from './js/toast.js';
+  import { initMobileNav } from './js/mobile-nav.js';
 
   const session = await auth.requireAuth();
   if (!session) throw new Error('sin sesion');
@@ -109,6 +110,7 @@
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+  initMobileNav('usuarios');
 
   const ROL_BADGE = { admin: 'badge-red', operador: 'badge-blue', cadete: 'badge-green' };
   const ROL_LABEL = { admin: 'Admin', operador: 'Operador', cadete: 'Cadete' };
