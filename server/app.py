@@ -22,7 +22,7 @@ BASE_DIR    = Path(__file__).parent.parent
 SERVER_DIR  = Path(__file__).parent
 DB_PATH     = Path(os.environ.get('CRUCE_DB_PATH',      str(SERVER_DIR / 'cruce.db')))
 UPLOADS_DIR = Path(os.environ.get('CRUCE_UPLOADS_DIR',  str(SERVER_DIR / 'uploads')))
-CONFIG_PATH = BASE_DIR / 'cruce_stock' / 'config.yaml'
+CONFIG_PATH = Path(os.environ.get('CRUCE_CONFIG_PATH',  str(BASE_DIR / 'cruce_stock' / 'config.yaml')))
 
 SECRET_KEY = os.environ.get('CRUCE_SECRET', 'dev-secret-change-in-prod')
 TOKEN_TTL  = int(os.environ.get('CRUCE_TOKEN_TTL', 86400))
@@ -33,6 +33,14 @@ sys.path.insert(0, str(BASE_DIR / 'cruce_stock'))
 app = Flask(__name__, static_folder=str(BASE_DIR), static_url_path='')
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Si CONFIG_PATH apunta a un volumen externo y todavía no existe,
+# copiamos el default del repositorio para no arrancar sin configuración
+_config_default = BASE_DIR / 'cruce_stock' / 'config.yaml'
+if not CONFIG_PATH.exists() and CONFIG_PATH != _config_default and _config_default.exists():
+    import shutil
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(_config_default, CONFIG_PATH)
 
 # ── DB ─────────────────────────────────────────────────────────────────────────
 
@@ -1379,6 +1387,13 @@ def cruce_jornadas(cid):
         }
         for r in rows
     ]})
+
+
+# ── Health check ────────────────────────────────────────────────────────────────
+
+@app.get('/api/health')
+def health():
+    return jsonify({'ok': True, 'status': 'up'})
 
 
 # ── Servir frontend ─────────────────────────────────────────────────────────────
