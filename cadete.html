@@ -277,6 +277,7 @@
 
   <!-- ── MODO ENTREGAS ─────────────────────────────────────── -->
   <div id="seccion-entregas" style="display:none">
+    <div id="jornada-banner" style="margin-bottom:var(--space-4)"></div>
     <div id="entregas-content">
       <div class="empty-state">
         <div class="spinner" style="width:36px;height:36px;border-width:3px;margin:0 auto var(--space-4)"></div>
@@ -385,6 +386,26 @@
   </div>
 </div>
 
+<!-- Modal: planificar jornada -->
+<div id="modal-jornada" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
+  <div class="card" style="width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column">
+    <div class="card-header">
+      <h2 class="card-title">🗺 Planificar jornada</h2>
+      <button id="jornada-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body" style="overflow-y:auto;flex:1">
+      <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-4)">
+        Seleccioná las farmacias que vas a visitar hoy.
+      </p>
+      <div id="jornada-modal-items"></div>
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="jornada-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="jornada-save">Guardar jornada</button>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import auth from './js/auth.js';
   import { showToast } from './js/toast.js';
@@ -412,6 +433,7 @@
 
   let lineas       = [];
   let entregas     = [];
+  let jornada      = null;
   let filtroActual = 'todos';
   let sucursalFiltro = '';
   let modalLineaId = null;
@@ -684,18 +706,114 @@
   // ── Render entregas ──────────────────────────────────────────
 
   async function cargarEntregas() {
-    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/entregas`);
-    const data = await res.json();
+    const [resEnt, resJor] = await Promise.all([
+      auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
+      auth.apiFetch(`/api/jornada/hoy?cruce_id=${cruceId}`),
+    ]);
+    const dataEnt = await resEnt.json();
+    const dataJor = await resJor.json().catch(() => null);
 
-    if (!data.ok) {
+    if (!dataEnt.ok) {
       document.getElementById('entregas-content').innerHTML =
         `<div class="alert alert-danger">Error al cargar entregas.</div>`;
       return;
     }
 
-    entregas = data.entregas;
+    entregas = dataEnt.entregas;
+    jornada  = dataJor?.jornada ?? null;
+    renderJornadaBanner();
     renderEntregas();
   }
+
+  function renderJornadaBanner() {
+    const container = document.getElementById('jornada-banner');
+    if (!container) return;
+
+    const activas = entregas.filter(e => e.activa || e.confirmada);
+    if (activas.length === 0) { container.innerHTML = ''; return; }
+
+    if (!jornada || jornada.puntos.length === 0) {
+      container.innerHTML = `
+        <div style="padding:var(--space-4) var(--space-5);background:#fffbeb;
+                    border:1px solid var(--warning);border-radius:var(--radius-lg);
+                    display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap">
+          <span style="font-size:1.4rem">📋</span>
+          <div style="flex:1;min-width:160px">
+            <div style="font-weight:600">No planificaste tu jornada de hoy</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">
+              Registrá qué farmacias vas a visitar para que el operador pueda seguirte.
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btn-planificar">Planificar</button>
+        </div>`;
+    } else {
+      const total     = jornada.puntos.length;
+      const entregadas = activas.filter(e => e.confirmada && jornada.puntos.includes(e.punto_retiro)).length;
+      container.innerHTML = `
+        <div style="padding:var(--space-4) var(--space-5);background:var(--bg-subtle);
+                    border:1px solid var(--border);border-radius:var(--radius-lg);
+                    display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap">
+          <span style="font-size:1.4rem">🗺</span>
+          <div style="flex:1;min-width:160px">
+            <div style="font-weight:600">Jornada: ${total} farmacia${total !== 1 ? 's' : ''} planificadas</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)">
+              ${entregadas} entregada${entregadas !== 1 ? 's' : ''} · ${total - entregadas} pendiente${total - entregadas !== 1 ? 's' : ''}
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-planificar">Editar</button>
+        </div>`;
+    }
+
+    document.getElementById('btn-planificar')?.addEventListener('click', abrirModalJornada);
+  }
+
+  function abrirModalJornada() {
+    const activas = entregas.filter(e => e.activa || e.confirmada);
+    const sel = new Set(jornada?.puntos ?? []);
+
+    document.getElementById('jornada-modal-items').innerHTML = activas.length === 0
+      ? '<p style="color:var(--text-muted)">No hay farmacias activas.</p>'
+      : activas.map(e => `
+          <label style="display:flex;align-items:center;gap:var(--space-3);
+                         padding:var(--space-3) 0;border-bottom:1px solid var(--border);cursor:pointer">
+            <input type="checkbox" class="jornada-check"
+                   value="${e.punto_retiro.replace(/"/g,'&quot;')}"
+                   ${sel.has(e.punto_retiro) ? 'checked' : ''}
+                   style="width:18px;height:18px;flex-shrink:0;cursor:pointer">
+            <div>
+              <div style="font-weight:600">${e.punto_retiro}</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted)">
+                ${e.nro_pedidos.length} pedido${e.nro_pedidos.length !== 1 ? 's' : ''}
+                ${e.confirmada ? ' · ✓ entregado' : ''}
+              </div>
+            </div>
+          </label>`).join('');
+
+    document.getElementById('modal-jornada').style.display = 'flex';
+  }
+
+  document.getElementById('jornada-close').addEventListener('click',  () => document.getElementById('modal-jornada').style.display = 'none');
+  document.getElementById('jornada-cancel').addEventListener('click', () => document.getElementById('modal-jornada').style.display = 'none');
+
+  document.getElementById('jornada-save').addEventListener('click', async () => {
+    const checks = [...document.querySelectorAll('.jornada-check:checked')];
+    const puntos = checks.map(c => c.value);
+    try {
+      const res  = await auth.apiFetch('/api/jornada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cruce_id: parseInt(cruceId), puntos }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.motivo);
+      jornada = { puntos, cruce_id: parseInt(cruceId) };
+      document.getElementById('modal-jornada').style.display = 'none';
+      renderJornadaBanner();
+      showToast(`Jornada guardada: ${puntos.length} farmacia${puntos.length !== 1 ? 's' : ''}`, 'success');
+    } catch (err) {
+      showToast(`Error al guardar jornada: ${err.message}`, 'danger');
+    }
+  });
 
   function renderEntregas() {
     // Solo mostrar las que el operador activó para hoy

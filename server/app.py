@@ -7,6 +7,7 @@ import io
 import json
 import os
 import sys
+import threading
 import uuid
 from datetime import datetime, timezone, timedelta
 from functools import wraps
@@ -142,6 +143,16 @@ def init_db():
             nro_pedidos  TEXT    DEFAULT '[]',
             PRIMARY KEY (cruce_id, punto_retiro)
         );
+
+        CREATE TABLE IF NOT EXISTS jornadas (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha      TEXT    NOT NULL,
+            cadete_id  INTEGER NOT NULL REFERENCES usuarios(id),
+            cruce_id   INTEGER NOT NULL REFERENCES cruces(id),
+            puntos     TEXT    NOT NULL DEFAULT '[]',
+            created_at TEXT    DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(fecha, cadete_id)
+        );
     """)
 
     # Usuario admin por defecto si no existe ninguno
@@ -270,6 +281,62 @@ def cruce_detail(cruce_id):
         'lineas': [dict(l) for l in lineas],
     })
 
+# ── Jobs (procesamiento asíncrono) ──────────────────────────────────────────────
+
+_jobs: dict = {}   # job_id → {status, step, cruce_id, resumen, error}
+
+def _run_job(job_id, path_pedidos, path_stock, run_dir, nombre_pedidos, nombre_stock, usuario_id):
+    """Corre en un hilo separado. Procesa el cruce y guarda en la DB."""
+    def upd(step):
+        _jobs[job_id]['step'] = step
+
+    try:
+        _jobs[job_id]['status'] = 'running'
+        upd('Cargando y validando archivos...')
+        resultado = _procesar_cruce(path_pedidos, path_stock, run_dir)
+
+        upd('Guardando resultados en la base de datos...')
+        with app.app_context():
+            db = get_db()
+            cur = db.execute(
+                '''INSERT INTO cruces
+                   (fecha, archivo_pedidos, archivo_stock, total_lineas, con_cobertura,
+                    sin_cobertura, pct_cobertura, excel_path, usuario_id)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (
+                    datetime.now(timezone.utc).isoformat(),
+                    nombre_pedidos, nombre_stock,
+                    resultado['total'], resultado['con_cobertura'],
+                    resultado['sin_cobertura'], resultado['pct_cobertura'],
+                    resultado.get('excel_path'), usuario_id,
+                )
+            )
+            cruce_id = cur.lastrowid
+            for linea in resultado['lineas']:
+                db.execute(
+                    '''INSERT INTO lineas
+                       (cruce_id, nro_pedido, gtin, sku, producto, marca, unidades,
+                        nodo_asignado, zona, tier, stock_disponible, alternativas, estado, punto_retiro)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                    (
+                        cruce_id,
+                        linea.get('nro_pedido'), linea.get('gtin'), linea.get('sku'),
+                        linea.get('producto'), linea.get('marca'), linea.get('unidades', 1),
+                        linea.get('nodo_asignado'), linea.get('zona'), linea.get('tier', 2),
+                        linea.get('stock_disponible', 0),
+                        json.dumps(linea.get('alternativas', []), ensure_ascii=False),
+                        'SIN_COBERTURA' if not linea.get('nodo_asignado') else 'PENDIENTE',
+                        linea.get('punto_retiro', ''),
+                    )
+                )
+            db.commit()
+
+        _jobs[job_id].update({'status': 'done', 'cruce_id': cruce_id, 'resumen': resultado})
+
+    except Exception as e:
+        _jobs[job_id].update({'status': 'error', 'error': str(e)})
+
+
 @app.post('/api/cruces')
 @require_auth
 def cruce_nuevo():
@@ -279,7 +346,7 @@ def cruce_nuevo():
     f_pedidos = request.files['pedidos']
     f_stock   = request.files['stock']
 
-    run_id = uuid.uuid4().hex
+    run_id  = uuid.uuid4().hex
     run_dir = UPLOADS_DIR / run_id
     run_dir.mkdir()
 
@@ -288,57 +355,30 @@ def cruce_nuevo():
     f_pedidos.save(str(path_pedidos))
     f_stock.save(str(path_stock))
 
-    try:
-        resultado = _procesar_cruce(str(path_pedidos), str(path_stock), str(run_dir))
-    except Exception as e:
-        return jsonify({'ok': False, 'motivo': str(e)}), 500
+    job_id = uuid.uuid4().hex
+    _jobs[job_id] = {
+        'status': 'pending', 'step': 'En cola...',
+        'cruce_id': None, 'resumen': None, 'error': None,
+    }
 
-    db = get_db()
-    cur = db.execute(
-        '''INSERT INTO cruces
-           (fecha, archivo_pedidos, archivo_stock, total_lineas, con_cobertura,
-            sin_cobertura, pct_cobertura, excel_path, usuario_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (
-            datetime.now(timezone.utc).isoformat(),
-            f_pedidos.filename,
-            f_stock.filename,
-            resultado['total'],
-            resultado['con_cobertura'],
-            resultado['sin_cobertura'],
-            resultado['pct_cobertura'],
-            resultado.get('excel_path'),
-            g.user_id,
-        )
+    t = threading.Thread(
+        target=_run_job,
+        args=(job_id, str(path_pedidos), str(path_stock), str(run_dir),
+              f_pedidos.filename, f_stock.filename, g.user_id),
+        daemon=True,
     )
-    cruce_id = cur.lastrowid
+    t.start()
 
-    for linea in resultado['lineas']:
-        db.execute(
-            '''INSERT INTO lineas
-               (cruce_id, nro_pedido, gtin, sku, producto, marca, unidades,
-                nodo_asignado, zona, tier, stock_disponible, alternativas, estado, punto_retiro)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-            (
-                cruce_id,
-                linea.get('nro_pedido'),
-                linea.get('gtin'),
-                linea.get('sku'),
-                linea.get('producto'),
-                linea.get('marca'),
-                linea.get('unidades', 1),
-                linea.get('nodo_asignado'),
-                linea.get('zona'),
-                linea.get('tier', 2),
-                linea.get('stock_disponible', 0),
-                json.dumps(linea.get('alternativas', []), ensure_ascii=False),
-                'SIN_COBERTURA' if not linea.get('nodo_asignado') else 'PENDIENTE',
-                linea.get('punto_retiro', ''),
-            )
-        )
-    db.commit()
+    return jsonify({'ok': True, 'job_id': job_id})
 
-    return jsonify({'ok': True, 'cruce_id': cruce_id, 'resumen': resultado})
+
+@app.get('/api/jobs/<job_id>')
+@require_auth
+def job_status(job_id):
+    job = _jobs.get(job_id)
+    if not job:
+        return jsonify({'ok': False, 'motivo': 'job_no_encontrado'}), 404
+    return jsonify({'ok': True, **job})
 
 @app.get('/api/cruces/<int:cruce_id>/download')
 @require_auth
@@ -596,6 +636,23 @@ def cruce_incidencias(cruce_id):
         d['alternativas'] = json.loads(d['alternativas'] or '[]')
         result.append(d)
     return jsonify({'ok': True, 'incidencias': result, 'total': len(result)})
+
+@app.get('/api/cruces/<int:cruce_id>/notificaciones')
+@require_auth
+def cruce_notificaciones(cruce_id):
+    """Devuelve MAL_STOCK / NO_ENCONTRADO nuevos desde ?desde=<iso-timestamp>."""
+    desde  = request.args.get('desde', '')
+    db     = get_db()
+    query  = '''SELECT id, nro_pedido, producto, nodo_asignado, estado, updated_at, punto_retiro
+                FROM lineas
+                WHERE cruce_id = ? AND estado IN ('MAL_STOCK','NO_ENCONTRADO')'''
+    params = [cruce_id]
+    if desde:
+        query  += ' AND updated_at > ?'
+        params.append(desde)
+    query += ' ORDER BY updated_at DESC LIMIT 20'
+    rows   = db.execute(query, params).fetchall()
+    return jsonify({'ok': True, 'nuevas': [dict(r) for r in rows]})
 
 # ── Analytics ───────────────────────────────────────────────────────────────────
 
@@ -986,6 +1043,112 @@ def usuarios_eliminar(uid):
     db.execute('DELETE FROM usuarios WHERE id = ?', (uid,))
     db.commit()
     return jsonify({'ok': True})
+
+
+# ── Configuración del sistema ───────────────────────────────────────────────────
+
+@app.get('/api/config')
+@require_admin
+def config_leer():
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+    except Exception as e:
+        return jsonify({'ok': False, 'motivo': str(e)}), 500
+    return jsonify({
+        'ok': True,
+        'asignacion':  cfg.get('asignacion',  {}),
+        'optimizacion': cfg.get('optimizacion', {}),
+    })
+
+
+@app.put('/api/config')
+@require_admin
+def config_guardar():
+    body = request.get_json(force=True)
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+
+        if 'asignacion' in body:
+            a = cfg.setdefault('asignacion', {})
+            for k in ('nodos_tier_0', 'nodos_tier_1', 'palabras_clave_tier_1',
+                      'palabras_clave_tier_3', 'consolidacion_por_pedido',
+                      'max_sucursales_por_producto'):
+                if k in body['asignacion']:
+                    a[k] = body['asignacion'][k]
+
+        if 'optimizacion' in body:
+            o = cfg.setdefault('optimizacion', {})
+            for k in ('stock_seguridad', 'max_sucursales_por_producto',
+                      'stock_sospechoso_umbral', 'max_opciones_override'):
+                if k in body['optimizacion']:
+                    o[k] = body['optimizacion'][k]
+
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+            yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    except Exception as e:
+        return jsonify({'ok': False, 'motivo': str(e)}), 500
+    return jsonify({'ok': True})
+
+
+# ── Jornada del día ─────────────────────────────────────────────────────────────
+
+@app.get('/api/jornada/hoy')
+@require_auth
+def jornada_hoy():
+    fecha = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    db    = get_db()
+    row   = db.execute(
+        'SELECT puntos, cruce_id FROM jornadas WHERE fecha = ? AND cadete_id = ?',
+        (fecha, g.user_id)
+    ).fetchone()
+    if not row:
+        return jsonify({'ok': True, 'jornada': None})
+    return jsonify({'ok': True, 'jornada': {
+        'puntos':   json.loads(row['puntos']),
+        'cruce_id': row['cruce_id'],
+    }})
+
+
+@app.post('/api/jornada')
+@require_auth
+def jornada_guardar():
+    body     = request.get_json(force=True)
+    cruce_id = body.get('cruce_id')
+    puntos   = body.get('puntos', [])
+    fecha    = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    db = get_db()
+    db.execute('''
+        INSERT INTO jornadas (fecha, cadete_id, cruce_id, puntos)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(fecha, cadete_id) DO UPDATE SET
+            puntos   = excluded.puntos,
+            cruce_id = excluded.cruce_id
+    ''', (fecha, g.user_id, cruce_id, json.dumps(puntos, ensure_ascii=False)))
+    db.commit()
+    return jsonify({'ok': True})
+
+
+@app.get('/api/cruces/<int:cid>/jornadas')
+@require_auth
+def cruce_jornadas(cid):
+    fecha = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    db    = get_db()
+    rows  = db.execute('''
+        SELECT j.cadete_id, u.nombre, u.usuario, j.puntos
+        FROM jornadas j
+        JOIN usuarios u ON u.id = j.cadete_id
+        WHERE j.fecha = ? AND j.cruce_id = ?
+    ''', (fecha, cid)).fetchall()
+    return jsonify({'ok': True, 'jornadas': [
+        {
+            'cadete_id': r['cadete_id'],
+            'nombre':    r['nombre'] or r['usuario'],
+            'puntos':    json.loads(r['puntos']),
+        }
+        for r in rows
+    ]})
 
 
 # ── Servir frontend ─────────────────────────────────────────────────────────────

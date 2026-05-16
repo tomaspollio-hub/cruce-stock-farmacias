@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ECommerce — Configuración</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .chip-list {
+      display: flex; flex-wrap: wrap; gap: var(--space-2);
+      min-height: 36px; align-items: flex-start; align-content: flex-start;
+    }
+    .chip {
+      display: inline-flex; align-items: center; gap: var(--space-1);
+      padding: var(--space-1) var(--space-3); font-size: var(--text-sm);
+      background: var(--bg-subtle); border: 1px solid var(--border);
+      border-radius: 999px; white-space: nowrap;
+    }
+    .chip-remove {
+      background: none; border: none; cursor: pointer; padding: 0 2px;
+      color: var(--text-muted); font-size: 15px; line-height: 1;
+      transition: color var(--transition-fast);
+    }
+    .chip-remove:hover { color: var(--danger); }
+    .add-row { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+    .add-row .form-input { flex: 1; }
+    .tier-section { padding-bottom: var(--space-6); border-bottom: 1px solid var(--border); margin-bottom: var(--space-6); }
+    .tier-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .tier-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 999px;
+      font-size: var(--text-xs); font-weight: 700; margin-bottom: var(--space-2);
+    }
+    .tier-0 { background: #dbeafe; color: #1d4ed8; }
+    .tier-1 { background: #dcfce7; color: #15803d; }
+    .tier-3 { background: #fee2e2; color: #b91c1c; }
+    .param-row { display: flex; flex-direction: column; gap: var(--space-1); margin-bottom: var(--space-5); }
+    .param-row:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:44px;width:auto"></a></div>
+  <nav class="header-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="historial.html">Historial</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="config.html" class="active">Config</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header">
+    <h1 class="page-title">Configuración del sistema</h1>
+    <p class="page-subtitle">Ajustá los tiers de asignación y los parámetros del optimizador</p>
+  </div>
+
+  <div class="grid-2" style="max-width:1000px;align-items:start">
+
+    <!-- Columna izquierda: tiers -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">🎯 Tiers de asignación</h2>
+      </div>
+      <div class="card-body">
+
+        <!-- Tier 0 -->
+        <div class="tier-section">
+          <span class="tier-badge tier-0">Tier 0 — Preferidas</span>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">
+            El cadete busca aquí primero. Nombre exacto del nodo (ej: <code>glo-combate 712-nqn</code>).
+          </p>
+          <div class="chip-list" id="chips-t0"></div>
+          <div class="add-row">
+            <input class="form-input" id="add-t0" placeholder="Nombre exacto del nodo">
+            <button class="btn btn-ghost btn-sm" data-add="nodos_tier_0" data-input="add-t0">+ Agregar</button>
+          </div>
+        </div>
+
+        <!-- Tier 1 nodos -->
+        <div class="tier-section">
+          <span class="tier-badge tier-1">Tier 1 — Segunda opción</span>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">
+            Si no hay stock en Tier 0. Nodos exactos y/o palabras clave.
+          </p>
+          <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);margin-bottom:var(--space-2)">Nodos exactos</div>
+          <div class="chip-list" id="chips-t1n"></div>
+          <div class="add-row">
+            <input class="form-input" id="add-t1n" placeholder="Nombre exacto del nodo">
+            <button class="btn btn-ghost btn-sm" data-add="nodos_tier_1" data-input="add-t1n">+ Agregar</button>
+          </div>
+          <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-secondary);margin-top:var(--space-4);margin-bottom:var(--space-2)">Palabras clave</div>
+          <div class="chip-list" id="chips-t1k"></div>
+          <div class="add-row">
+            <input class="form-input" id="add-t1k" placeholder="Ej: centro, oeste">
+            <button class="btn btn-ghost btn-sm" data-add="palabras_clave_tier_1" data-input="add-t1k">+ Agregar</button>
+          </div>
+        </div>
+
+        <!-- Tier 3 -->
+        <div class="tier-section">
+          <span class="tier-badge tier-3">Tier 3 — Último recurso</span>
+          <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">
+            Solo si no hay stock en ningún otro tier. Palabras clave (ej: <code>madryn</code>, <code>zapala</code>).
+          </p>
+          <div class="chip-list" id="chips-t3k"></div>
+          <div class="add-row">
+            <input class="form-input" id="add-t3k" placeholder="Ej: zapala, madryn">
+            <button class="btn btn-ghost btn-sm" data-add="palabras_clave_tier_3" data-input="add-t3k">+ Agregar</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Columna derecha: parámetros + guardar -->
+    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">⚙ Parámetros del optimizador</h2>
+        </div>
+        <div class="card-body">
+
+          <div class="param-row">
+            <label class="form-label" for="opt-stock-seg">Stock de seguridad</label>
+            <input class="form-input" type="number" id="opt-stock-seg" min="0" max="50" style="max-width:120px">
+            <span class="form-hint">Unidades mínimas extra que debe tener una sucursal para ser asignada. Evita stock fantasma.</span>
+          </div>
+
+          <div class="param-row">
+            <label class="form-label" for="opt-max-suc">Máx. sucursales por producto</label>
+            <input class="form-input" type="number" id="opt-max-suc" min="1" max="10" style="max-width:120px">
+            <span class="form-hint">Si hay más opciones que este límite, se muestra "Llamar cliente".</span>
+          </div>
+
+          <div class="param-row">
+            <label class="form-label" for="opt-umbral">Umbral stock sospechoso</label>
+            <input class="form-input" type="number" id="opt-umbral" min="10" style="max-width:120px">
+            <span class="form-hint">Si una sucursal tiene MÁS de este valor, se marca ⚠ para verificar.</span>
+          </div>
+
+          <div class="param-row">
+            <label style="display:flex;align-items:center;gap:var(--space-3);cursor:pointer">
+              <input type="checkbox" id="opt-consolida" style="width:18px;height:18px">
+              <span class="form-label" style="margin:0">Consolidar por pedido</span>
+            </label>
+            <span class="form-hint" style="padding-left:30px">Preferir la sucursal que ya cubre otro producto del mismo pedido.</span>
+          </div>
+
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-lg btn-block" id="btn-guardar">
+        💾 Guardar configuración
+      </button>
+
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+  import { initMobileNav } from './js/mobile-nav.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+  if (session.rol !== 'admin') { location.href = 'index.html'; }
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent =
+    (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+  initMobileNav('config');
+
+  // ── Estado local ──────────────────────────────────────────────────────────────
+
+  let state = {
+    asignacion: {
+      nodos_tier_0:          [],
+      nodos_tier_1:          [],
+      palabras_clave_tier_1: [],
+      palabras_clave_tier_3: [],
+      consolidacion_por_pedido:      true,
+      max_sucursales_por_producto:   3,
+    },
+    optimizacion: {
+      stock_seguridad:             3,
+      max_sucursales_por_producto: 3,
+      stock_sospechoso_umbral:     200,
+    },
+  };
+
+  // key → chip-list element id
+  const LIST_MAP = {
+    nodos_tier_0:          'chips-t0',
+    nodos_tier_1:          'chips-t1n',
+    palabras_clave_tier_1: 'chips-t1k',
+    palabras_clave_tier_3: 'chips-t3k',
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  function renderChips(key) {
+    const items = state.asignacion[key] || [];
+    const container = document.getElementById(LIST_MAP[key]);
+    if (!container) return;
+    container.innerHTML = items.length === 0
+      ? '<span style="color:var(--text-muted);font-size:var(--text-sm)">Sin elementos</span>'
+      : items.map((item, i) => `
+          <span class="chip" data-key="${key}" data-idx="${i}">
+            ${item}
+            <button class="chip-remove" title="Eliminar">×</button>
+          </span>`).join('');
+  }
+
+  function renderAll() {
+    Object.keys(LIST_MAP).forEach(renderChips);
+    document.getElementById('opt-stock-seg').value = state.optimizacion.stock_seguridad ?? 3;
+    document.getElementById('opt-max-suc').value   = state.optimizacion.max_sucursales_por_producto ?? 3;
+    document.getElementById('opt-umbral').value    = state.optimizacion.stock_sospechoso_umbral ?? 200;
+    document.getElementById('opt-consolida').checked = state.asignacion.consolidacion_por_pedido !== false;
+  }
+
+  // ── Eventos — chips ───────────────────────────────────────────────────────────
+
+  document.querySelector('.main').addEventListener('click', e => {
+    const btn = e.target.closest('.chip-remove');
+    if (!btn) return;
+    const chip = btn.closest('.chip');
+    const key  = chip.dataset.key;
+    const idx  = parseInt(chip.dataset.idx);
+    state.asignacion[key].splice(idx, 1);
+    renderChips(key);
+  });
+
+  document.querySelector('.main').addEventListener('click', e => {
+    const btn = e.target.closest('[data-add]');
+    if (!btn) return;
+    const key     = btn.dataset.add;
+    const inputEl = document.getElementById(btn.dataset.input);
+    const val     = inputEl.value.trim().toLowerCase();
+    if (!val) return;
+    if (!state.asignacion[key]) state.asignacion[key] = [];
+    if (!state.asignacion[key].includes(val)) {
+      state.asignacion[key].push(val);
+      renderChips(key);
+    }
+    inputEl.value = '';
+    inputEl.focus();
+  });
+
+  // Enter en inputs de agregar
+  document.querySelectorAll('.add-row .form-input').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        input.closest('.add-row').querySelector('[data-add]')?.click();
+      }
+    });
+  });
+
+  // ── Guardar ───────────────────────────────────────────────────────────────────
+
+  document.getElementById('btn-guardar').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-guardar');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    // Leer valores de los inputs de optimización
+    state.asignacion.consolidacion_por_pedido    = document.getElementById('opt-consolida').checked;
+    state.optimizacion.stock_seguridad           = parseInt(document.getElementById('opt-stock-seg').value) || 0;
+    state.optimizacion.max_sucursales_por_producto = parseInt(document.getElementById('opt-max-suc').value) || 3;
+    state.optimizacion.stock_sospechoso_umbral   = parseInt(document.getElementById('opt-umbral').value) || 200;
+
+    try {
+      const res  = await auth.apiFetch('/api/config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.motivo);
+      showToast('Configuración guardada', 'success');
+    } catch (err) {
+      showToast(`Error al guardar: ${err.message}`, 'danger');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '💾 Guardar configuración';
+    }
+  });
+
+  // ── Carga inicial ─────────────────────────────────────────────────────────────
+
+  try {
+    const res  = await auth.apiFetch('/api/config');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.motivo);
+    if (data.asignacion)  Object.assign(state.asignacion,  data.asignacion);
+    if (data.optimizacion) Object.assign(state.optimizacion, data.optimizacion);
+    renderAll();
+  } catch (err) {
+    showToast(`Error al cargar configuración: ${err.message}`, 'danger');
+  }
+</script>
+
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
+</body>
+</html>

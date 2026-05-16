@@ -212,6 +212,7 @@
     <a href="operador.html" class="active">Operador</a>
     <a href="historial.html">Historial</a>
     <a href="usuarios.html">Usuarios</a>
+    <a href="config.html">Config</a>
   </nav>
   <div class="header-spacer"></div>
   <div class="header-user">
@@ -237,7 +238,20 @@
         <span class="spinner" style="width:10px;height:10px;border-width:1.5px"></span>
         <span id="refresh-txt">Actualizando...</span>
       </span>
+      <button class="btn btn-ghost btn-sm" id="btn-notif" title="Activar alertas de incidencias" style="gap:var(--space-1)">
+        <span id="notif-icon">🔔</span>
+        <span id="notif-label">Alertas</span>
+      </button>
     </div>
+  </div>
+
+  <!-- Jornada del cadete -->
+  <div class="card" id="jornada-card" style="margin-bottom:var(--space-6);display:none">
+    <div class="card-header">
+      <h2 class="card-title">🗺 Jornada del día</h2>
+      <span id="jornada-badge" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+    </div>
+    <div class="card-body" id="jornada-body"></div>
   </div>
 
   <!-- Progreso del cadete -->
@@ -379,6 +393,96 @@
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
   initMobileNav('operador');
 
+  // ── Notificaciones push ───────────────────────────────────────
+  let notifDesde    = new Date().toISOString();
+  let notifTimer    = null;
+  let notifPermiso  = Notification.permission;  // 'default' | 'granted' | 'denied'
+
+  function actualizarBtnNotif() {
+    const icon  = document.getElementById('notif-icon');
+    const label = document.getElementById('notif-label');
+    if (notifPermiso === 'granted') {
+      icon.textContent  = '🔔';
+      label.textContent = 'Alertas ON';
+      document.getElementById('btn-notif').style.color = 'var(--success)';
+    } else if (notifPermiso === 'denied') {
+      icon.textContent  = '🔕';
+      label.textContent = 'Bloqueado';
+      document.getElementById('btn-notif').style.color = 'var(--text-muted)';
+    } else {
+      icon.textContent  = '🔔';
+      label.textContent = 'Alertas';
+      document.getElementById('btn-notif').style.color = '';
+    }
+  }
+  actualizarBtnNotif();
+
+  document.getElementById('btn-notif').addEventListener('click', async () => {
+    if (notifPermiso === 'denied') {
+      showToast('Las notificaciones están bloqueadas en el browser. Habilitálas desde la configuración del sitio.', 'warning');
+      return;
+    }
+    if (notifPermiso !== 'granted') {
+      notifPermiso = await Notification.requestPermission();
+      actualizarBtnNotif();
+    }
+    if (notifPermiso === 'granted') {
+      showToast('Alertas activadas — te avisamos cuando el cadete reporte un problema', 'success');
+    }
+  });
+
+  function playAlertSound() {
+    try {
+      const ctx  = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.18, 0.36].forEach(t => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type            = 'sine';
+        osc.frequency.value = 700;
+        gain.gain.setValueAtTime(0, ctx.currentTime + t);
+        gain.gain.linearRampToValueAtTime(0.35, ctx.currentTime + t + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.18);
+        osc.start(ctx.currentTime + t);
+        osc.stop(ctx.currentTime + t + 0.18);
+      });
+    } catch { /* AudioContext no disponible */ }
+  }
+
+  function dispararNotificacion(inc) {
+    const estadoLabel = inc.estado === 'MAL_STOCK' ? '⚠ Mal stock' : '✗ No encontrado';
+    const titulo      = `${estadoLabel} — ${inc.nodo_asignado || 'Farmacia'}`;
+    const cuerpo      = `${inc.producto || 'Producto'} · Pedido ${inc.nro_pedido || '—'}`;
+
+    playAlertSound();
+    showToast(`${titulo}: ${cuerpo}`, inc.estado === 'MAL_STOCK' ? 'warning' : 'danger');
+
+    if (notifPermiso === 'granted') {
+      try {
+        new Notification(titulo, {
+          body: cuerpo,
+          icon: '/img/logo-global.png',
+          tag:  `inc-${inc.id}`,
+          requireInteraction: false,
+        });
+      } catch { /* Notification falló */ }
+    }
+  }
+
+  async function checkNotificaciones() {
+    if (!cruceId) return;
+    try {
+      const res  = await auth.apiFetch(`/api/cruces/${cruceId}/notificaciones?desde=${encodeURIComponent(notifDesde)}`);
+      const data = await res.json().catch(() => null);
+      if (data?.ok && data.nuevas.length > 0) {
+        data.nuevas.forEach(dispararNotificacion);
+        notifDesde = new Date().toISOString();
+      }
+    } catch { /* silencioso — no interrumpir la operación */ }
+    notifTimer = setTimeout(checkNotificaciones, 15000);
+  }
+
   const params = new URLSearchParams(location.search);
   let cruceId  = params.get('cruce') ? parseInt(params.get('cruce')) : null;
 
@@ -427,6 +531,10 @@
       history.replaceState(null, '', `?cruce=${cruceId}`);
       actualizarBtnCadete();
       cargarDatos();
+      // Reiniciar poll de notificaciones para el nuevo cruce
+      clearTimeout(notifTimer);
+      notifDesde = new Date().toISOString();
+      checkNotificaciones();
     });
 
     actualizarBtnCadete();
@@ -447,22 +555,25 @@
     setRefreshBadge('actualizando');
 
     try {
-      const [rProg, rInc, rEnt] = await Promise.all([
+      const [rProg, rInc, rEnt, rJor] = await Promise.all([
         auth.apiFetch(`/api/cruces/${cruceId}/progreso`),
         auth.apiFetch(`/api/cruces/${cruceId}/incidencias`),
         auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
+        auth.apiFetch(`/api/cruces/${cruceId}/jornadas`),
       ]);
 
       // Parsear cada respuesta de forma independiente para que un error no bloquee los demás
-      const [dProg, dInc, dEnt] = await Promise.all([
+      const [dProg, dInc, dEnt, dJor] = await Promise.all([
         rProg.json().catch(() => null),
         rInc.json().catch(() => null),
         rEnt.json().catch(() => null),
+        rJor.json().catch(() => null),
       ]);
 
       if (dProg?.ok) renderProgreso(dProg.progreso);
       if (dInc?.ok)  renderIncidencias(dInc.incidencias);
       if (dEnt?.ok)  { entregasData = dEnt.entregas; renderEntregas(dEnt.entregas); }
+      if (dJor?.ok)  renderJornada(dJor.jornadas, entregasData);
 
       lastRefreshTime = Date.now();
       setRefreshBadge('ok');
@@ -488,6 +599,45 @@
       badge.innerHTML = `<span style="color:var(--danger)">⚠</span>
                          <span>Error al actualizar</span>`;
     }
+  }
+
+  function renderJornada(jornadas, entregas) {
+    const card = document.getElementById('jornada-card');
+    const body = document.getElementById('jornada-body');
+    const badge = document.getElementById('jornada-badge');
+
+    if (!jornadas || jornadas.length === 0) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = '';
+    const totalPuntos = jornadas.reduce((acc, j) => acc + j.puntos.length, 0);
+    badge.textContent = `${totalPuntos} farmacia${totalPuntos !== 1 ? 's' : ''} planificadas`;
+
+    const confirmadosSet = new Set((entregas || []).filter(e => e.confirmada).map(e => e.punto_retiro));
+
+    body.innerHTML = jornadas.map(j => {
+      const rows = j.puntos.map(p => {
+        const ok = confirmadosSet.has(p);
+        return `<div style="display:flex;align-items:center;gap:var(--space-3);
+                              padding:var(--space-2) 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:1rem;flex-shrink:0">${ok ? '✅' : '📍'}</span>
+          <span style="flex:1;font-size:var(--text-sm);${ok ? 'text-decoration:line-through;color:var(--text-muted)' : ''}">${p}</span>
+          ${ok ? '<span class="badge badge-green" style="font-size:var(--text-xs)">Entregado</span>'
+               : '<span class="badge badge-blue"  style="font-size:var(--text-xs)">Planificado</span>'}
+        </div>`;
+      }).join('');
+
+      return `
+        <div style="margin-bottom:var(--space-4)">
+          <div style="font-size:var(--text-xs);font-weight:600;text-transform:uppercase;
+                      letter-spacing:.05em;color:var(--text-muted);margin-bottom:var(--space-2)">
+            ${j.nombre}
+          </div>
+          ${rows}
+        </div>`;
+    }).join('');
   }
 
   function renderProgreso(p) {
@@ -793,6 +943,10 @@
 
   await cargarSelector();
   await cargarDatos();
+
+  // Arrancar el poll de notificaciones (15s) después de la carga inicial
+  notifDesde = new Date().toISOString();
+  checkNotificaciones();
 </script>
 
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>

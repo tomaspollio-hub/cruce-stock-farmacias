@@ -24,6 +24,7 @@
     <a href="operador.html">Operador</a>
     <a href="historial.html">Historial</a>
     <a href="usuarios.html">Usuarios</a>
+    <a href="config.html">Config</a>
   </nav>
   <div class="header-spacer"></div>
   <div class="header-user">
@@ -192,74 +193,82 @@
     document.getElementById('progress-section').style.display = 'block';
     document.getElementById('result-card').style.display = 'none';
 
-    const msgs = [
-      'Cargando archivos...',
-      'Detectando columnas...',
-      'Cruzando pedidos con stock...',
-      'Asignando sucursales...',
-      'Generando planilla Excel...',
-    ];
-    let mi = 0;
     const msgEl = document.getElementById('progress-msg');
-    const msgInterval = setInterval(() => {
-      if (mi < msgs.length - 1) msgEl.textContent = msgs[++mi];
-    }, 1200);
+    msgEl.textContent = 'Subiendo archivos...';
 
     const form = new FormData();
     form.append('pedidos', filePedidos);
     form.append('stock',   fileStock);
 
+    let jobId = null;
+
     try {
       const res  = await auth.apiFetch('/api/cruces', { method: 'POST', body: form });
       const data = await res.json();
-      clearInterval(msgInterval);
-      document.getElementById('progress-section').style.display = 'none';
-
       if (!data.ok) throw new Error(data.motivo);
-
-      const r = data.resumen;
-      const pct = r.pct_cobertura.toFixed(1);
-      const colorPct = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
-
-      document.getElementById('result-card').style.display = 'block';
-      document.getElementById('result-body').innerHTML = `
-        <div style="display:flex;gap:var(--space-6);margin-bottom:var(--space-5);flex-wrap:wrap">
-          <div>
-            <div style="font-size:2rem;font-weight:700;color:${colorPct}">${pct}%</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Cobertura</div>
-          </div>
-          <div>
-            <div style="font-size:2rem;font-weight:700">${r.total}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Líneas totales</div>
-          </div>
-          <div>
-            <div style="font-size:2rem;font-weight:700;color:var(--success)">${r.con_cobertura}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Con stock</div>
-          </div>
-          <div>
-            <div style="font-size:2rem;font-weight:700;color:var(--danger)">${r.sin_cobertura}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Sin cobertura</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
-          <a href="cadete.html?cruce=${data.cruce_id}" class="btn btn-primary">
-            👁 Ver vista cadete
-          </a>
-          <a href="/api/cruces/${data.cruce_id}/download" class="btn btn-ghost">
-            ⬇ Descargar Excel
-          </a>
-          <a href="index.html" class="btn btn-ghost">
-            Dashboard
-          </a>
-        </div>`;
-
-      showToast('Planilla generada correctamente', 'success');
+      jobId = data.job_id;
     } catch (err) {
-      clearInterval(msgInterval);
       document.getElementById('progress-section').style.display = 'none';
       btn.disabled = false;
-      showToast(`Error al procesar: ${err.message}`, 'danger');
+      showToast(`Error al subir archivos: ${err.message}`, 'danger');
+      return;
     }
+
+    // Polling del estado del job
+    const resultado = await new Promise((resolve, reject) => {
+      const poll = setInterval(async () => {
+        try {
+          const r    = await auth.apiFetch(`/api/jobs/${jobId}`);
+          const job  = await r.json();
+          if (!job.ok) { clearInterval(poll); reject(new Error('Job no encontrado')); return; }
+          msgEl.textContent = job.step || 'Procesando...';
+          if (job.status === 'done')  { clearInterval(poll); resolve(job); }
+          if (job.status === 'error') { clearInterval(poll); reject(new Error(job.error)); }
+        } catch (e) { clearInterval(poll); reject(e); }
+      }, 2000);
+    });
+
+    document.getElementById('progress-section').style.display = 'none';
+
+    const r   = resultado.resumen;
+    const pct = r.pct_cobertura.toFixed(1);
+    const colorPct = pct >= 80 ? 'var(--success)' : pct >= 50 ? 'var(--warning)' : 'var(--danger)';
+
+    document.getElementById('result-card').style.display = 'block';
+    document.getElementById('result-body').innerHTML = `
+      <div style="display:flex;gap:var(--space-6);margin-bottom:var(--space-5);flex-wrap:wrap">
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:${colorPct}">${pct}%</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Cobertura</div>
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:700">${r.total}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Líneas totales</div>
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:var(--success)">${r.con_cobertura}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Con stock</div>
+        </div>
+        <div>
+          <div style="font-size:2rem;font-weight:700;color:var(--danger)">${r.sin_cobertura}</div>
+          <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase">Sin cobertura</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
+        <a href="cadete.html?cruce=${resultado.cruce_id}" class="btn btn-primary">
+          👁 Ruta del día
+        </a>
+        <a href="operador.html?cruce=${resultado.cruce_id}" class="btn btn-ghost">
+          📡 Centro de control
+        </a>
+        <a href="/api/cruces/${resultado.cruce_id}/download" class="btn btn-ghost">
+          ⬇ Descargar Excel
+        </a>
+      </div>`;
+
+    showToast('Planilla generada correctamente', 'success');
+
+    btn.disabled = false;
   });
 </script>
 

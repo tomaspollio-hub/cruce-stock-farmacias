@@ -1,220 +1,208 @@
-# ============================================================
-#  CONFIGURACIÓN — Cruce de Stock por GTIN
-#  Editá este archivo para adaptar columnas y reglas.
-# ============================================================
-
-# ── ARCHIVO DE PEDIDOS ECOMMERCE ────────────────────────────
 pedidos:
-  # Nombres posibles de cada columna (en cualquier capitalización)
-  col_nro_pedido: ["n° pedido", "nro pedido", "numero pedido", "numero de pedido",
-                   "nro_pedido", "order number", "order_number", "order id",
-                   "id pedido", "n pedido", "pedido nro"]
-                   # NOTA: "identificador" y "order"/"pedido" solos fueron eliminados
-                   # porque matcheaban columnas incorrectas. Agregá aquí el nombre
-                   # exacto de tu columna si no se detecta automáticamente.
-  col_estado:    ["estado", "status"]
-  col_producto:  ["producto", "product", "nombre"]
-  col_variante:  ["variante", "variant", "presentacion"]
-  col_marca:     ["marca", "brand"]
-  col_sku:       ["sku", "cod_sku"]          # hace match con ID del stock
-  col_gtin:      ["gtin", "codigo de barra", "ean", "barcode"]  # hace match con SKU del stock
-  col_unidades:  ["unidades", "cantidad", "qty", "units"]
-  col_fecha:     ["fecha", "fecha pedido", "fecha_pedido", "fecha creacion",
-                  "fecha_creacion", "created_at", "date", "fecha orden", "fecha_orden"]
-  col_hora:      ["hora", "hora pedido", "hora_pedido", "time", "hora_creacion",
-                  "created_time", "hora creacion"]
-  col_punto_retiro: ["sucursal"]   # farmacia elegida por el cliente al comprar
-
-  # Valor del estado que indica pedido activo
-  estado_activo: "abierta"
-
-# ── ARCHIVO DE STOCK DE SUCURSALES ──────────────────────────
+  col_nro_pedido:
+  - n° pedido
+  - nro pedido
+  - numero pedido
+  - numero de pedido
+  - nro_pedido
+  - order number
+  - order_number
+  - order id
+  - id pedido
+  - n pedido
+  - pedido nro
+  col_estado:
+  - estado
+  - status
+  col_producto:
+  - producto
+  - product
+  - nombre
+  col_variante:
+  - variante
+  - variant
+  - presentacion
+  col_marca:
+  - marca
+  - brand
+  col_sku:
+  - sku
+  - cod_sku
+  col_gtin:
+  - gtin
+  - codigo de barra
+  - ean
+  - barcode
+  col_unidades:
+  - unidades
+  - cantidad
+  - qty
+  - units
+  col_fecha:
+  - fecha
+  - fecha pedido
+  - fecha_pedido
+  - fecha creacion
+  - fecha_creacion
+  - created_at
+  - date
+  - fecha orden
+  - fecha_orden
+  col_hora:
+  - hora
+  - hora pedido
+  - hora_pedido
+  - time
+  - hora_creacion
+  - created_time
+  - hora creacion
+  col_punto_retiro:
+  - sucursal
+  estado_activo: abierta
 stock:
-  col_id:          ["id", "gtin", "cod_barra", "codigo"]        # GTIN principal
-  col_nombre:      ["nombre zetti", "nombre", "producto", "descripcion"]
-  col_sku:         ["sku", "codigo de barra", "ean", "barcode"] # código de barra alternativo
-  col_marca:       ["marca", "brand"]
-  col_fabricante:  ["fabricante", "laboratorio", "distribuidor"]
-  col_nodo:        ["nodo", "sucursal", "farmacia", "local"]
-  col_stock:       ["stock", "cantidad", "qty", "existencia"]
-
-# ── SUCURSALES Y ZONAS (5 niveles de prioridad) ─────────────
-#
-#  El matching funciona por SUFIJO del nodo (más confiable):
-#  Ej: "APT-RUFINO 1070-NQN" termina en "-NQN" → NQN Capital
-#      "GLO-EXP Y PARAGUAY-CEN" termina en "-CEN" → Centenario
-#      "TER-OLASCOAGA-717-CCO" termina en "-CCO" → Cutral Co (remota)
-#
-#  PRIORIDAD 0 — Depósito ecommerce (primera búsqueda siempre)
-#  PRIORIDAD 1 — Neuquén Capital
-#  PRIORIDAD 2 — Centenario + Plottier
-#  PRIORIDAD 3 — Zonas cercanas (Añelo, El Chañar)
-#  PRIORIDAD 4 — Remotas (Cutral Co, Zapala, Madryn)
-
+  col_id:
+  - id
+  - gtin
+  - cod_barra
+  - codigo
+  col_nombre:
+  - nombre zetti
+  - nombre
+  - producto
+  - descripcion
+  col_sku:
+  - sku
+  - codigo de barra
+  - ean
+  - barcode
+  col_marca:
+  - marca
+  - brand
+  col_fabricante:
+  - fabricante
+  - laboratorio
+  - distribuidor
+  col_nodo:
+  - nodo
+  - sucursal
+  - farmacia
+  - local
+  col_stock:
+  - stock
+  - cantidad
+  - qty
+  - existencia
 zonas:
   prioridad_0_deposito:
-    - "apt-ecommerce-nqn"
-    - "apt-ecommerce"
-    - "ecommerce-nqn"
-    - "ecommerce"
-    - "deposito"
-
+  - apt-ecommerce-nqn
+  - apt-ecommerce
+  - ecommerce-nqn
+  - ecommerce
+  - deposito
   prioridad_1_nqn_capital:
-    - "-nqn"        # sufijo estándar Neuquén Capital
-    - "nqn"         # sin guión
-    - "alderete"
-    - "olascoaga"
-    - "bahia blanca"
-    - "cabellera"
-    - "combate"
-    - "diagonal"
-    - "ramon"
-    - "illia"
-    - "islas malvinas"
-    - "jose rosa"
-    - "la rioja"
-    - "rio senguer"
-    - "rivadavia"
-    - "rufino"
-    - "san martin"
-    - "sarmiento"
-    - "alpina"
-    - "fotheringham"
-
+  - -nqn
+  - nqn
+  - alderete
+  - olascoaga
+  - bahia blanca
+  - cabellera
+  - combate
+  - diagonal
+  - ramon
+  - illia
+  - islas malvinas
+  - jose rosa
+  - la rioja
+  - rio senguer
+  - rivadavia
+  - rufino
+  - san martin
+  - sarmiento
+  - alpina
+  - fotheringham
   prioridad_2_centenario_plottier:
-    - "-cen"        # sufijo Centenario
-    - "-plo"        # sufijo Plottier
-    - "-plt"
-    - "centenario"
-    - "paraguay"
-    - "honduras"
-    - "peru 305"
-    - "plottier"
-    - "belgrano 245"
-    - "buenos aires norte"
-    - "buratovich"
-
+  - -cen
+  - -plo
+  - -plt
+  - centenario
+  - paraguay
+  - honduras
+  - peru 305
+  - plottier
+  - belgrano 245
+  - buenos aires norte
+  - buratovich
   prioridad_3_cercanas:
-    - "-ane"        # sufijo Añelo
-    - "-cha"        # sufijo El Chañar
-    - "anelo"
-    - "añelo"
-    - "chañar"
-    - "chanar"
-    - "villa pehuenia"
-
+  - -ane
+  - -cha
+  - anelo
+  - añelo
+  - chañar
+  - chanar
+  - villa pehuenia
   prioridad_4_remotas:
-    - "-cco"        # sufijo Cutral Co
-    - "-zap"        # sufijo Zapala
-    - "-mad"        # sufijo Puerto Madryn
-    - "-pma"
-    - "cutral-co"
-    - "cutral co"
-    - "cutralco"
-    - "zapala"
-    - "puerto madryn"
-    - "madryn"
-
-# ── ETIQUETAS DE ZONA (para mostrar en la planilla) ──────────
+  - -cco
+  - -zap
+  - -mad
+  - -pma
+  - cutral-co
+  - cutral co
+  - cutralco
+  - zapala
+  - puerto madryn
+  - madryn
 zona_labels:
-  "0": "Deposito"
-  "1": "NQN Capital"
-  "2": "Centenario/Plottier"
-  "3": "Cercana"
-  "4": "Remota"
-
-# ── REGLAS DE OPTIMIZACIÓN ──────────────────────────────────
+  '0': Deposito
+  '1': NQN Capital
+  '2': Centenario/Plottier
+  '3': Cercana
+  '4': Remota
 optimizacion:
-  # Máximo de sucursales a asignar por producto antes de marcar "Llamar cliente"
   max_sucursales_por_producto: 3
-
-  # Máximo de opciones a mostrar en el selector manual de sucursal
   max_opciones_override: 5
-
-  # Stock sospechoso: si una sucursal tiene MÁS de este número de unidades
-  # de un producto, se marca como ⚠️ Stock a verificar (probable error de carga)
   stock_sospechoso_umbral: 200
-
-  # Stock de seguridad: mínimo de unidades extra que debe tener una sucursal
-  # para ser elegible. Evita asignar farmacias con stock ajustado que puede
-  # no estar disponible físicamente (datos desactualizados, errores de carga).
-  # Ej: stock_seguridad=3 → solo se asigna si la sucursal tiene > 3 unidades.
   stock_seguridad: 3
-
-# ── ESTADOS DEL CADETE (dropdown en el Excel de salida) ─────
 estados_busqueda:
-  - "Búsqueda"          # estado inicial asignado por el sistema
-  - "Encontrado"        # cadete lo encontró y retiró
-  - "Mal stock"         # sucursal no tenía lo indicado
-  - "No encontrado"     # no existe en la sucursal
-  - "Requiere revisión" # dudoso, necesita confirmación
-  - "Llamar a suc"      # sucursal remota, llamar antes
-  - "Mal stock - Resuelto"
-  - "Llamar cliente"    # sin stock, avisar al cliente
-
-# ── NORMALIZACIÓN GTIN ──────────────────────────────────────
+- Búsqueda
+- Encontrado
+- Mal stock
+- No encontrado
+- Requiere revisión
+- Llamar a suc
+- Mal stock - Resuelto
+- Llamar cliente
 gtin:
-  longitud_estandar: 14    # rellenar con ceros a la izquierda hasta este largo
-  longitudes_validas: [8, 12, 13, 14]
-
-# ── ASIGNACIÓN INTELIGENTE DE SUCURSAL ──────────────────────
-#
-#  Sistema de tiers (0 = mayor prioridad):
-#  Tier 0 → sucursales preferidas (nombre exacto del nodo)
-#  Tier 1 → segunda opción (nombre exacto + palabras clave)
-#  Tier 2 → todas las demás (valor por defecto)
-#  Tier 3 → último recurso (palabras clave — evitar salvo necesidad)
-#
-#  El matching es case-insensitive y sin tildes.
-#  Los nombres de nodo deben coincidir exactamente con los valores
-#  en el archivo de stock (columna nodo/sucursal).
-#
+  longitud_estandar: 14
+  longitudes_validas:
+  - 8
+  - 12
+  - 13
+  - 14
 asignacion:
-
-  # Tier 0 — Sucursales preferidas operativamente
-  # El cadete prioriza siempre estas primero.
   nodos_tier_0:
-    - "don-alderete 145-nqn"
-    - "glo-combate 712-nqn"
-    - "cra-cabellera 1460-nqn"
-    - "cra-illia 774-nqn"
-    - "apt-olascoaga 1045-nqn"
-    - "don-sarmiento 346-nqn"
-    - "don-sm 4305-nqn"
-
-  # Tier 1 — Segunda opción
-  # Si no hay stock en tier 0, se busca aquí.
+  - don-alderete 145-nqn
+  - glo-combate 712-nqn
+  - cra-cabellera 1460-nqn
+  - cra-illia 774-nqn
+  - apt-olascoaga 1045-nqn
+  - don-sarmiento 346-nqn
+  - don-sm 4305-nqn
   nodos_tier_1:
-    - "apt-ecommerce-nqn"
+  - apt-ecommerce-nqn
   palabras_clave_tier_1:
-    - "centro"
-    - "oeste"
-
-  # Tier 2 — Resto de sucursales (default, no requiere configuración)
-
-  # Tier 3 — Último recurso
-  # Se usan solo si no hay stock en tiers 0-2.
+  - centro
+  - oeste
   palabras_clave_tier_3:
-    - "madryn"
-    - "cutral-co"
-    - "cutral co"
-    - "cutralco"
-    - "añelo"
-    - "anelo"
-    - "zapala"
-    - "plottier"
-    - "chañar"
-    - "chanar"
-
-  # Activar consolidación: preferir sucursal que ya cubre otro producto del mismo pedido
+  - madryn
+  - cutral-co
+  - cutral co
+  - cutralco
+  - añelo
+  - anelo
+  - zapala
+  - plottier
+  - chañar
+  - chanar
   consolidacion_por_pedido: true
-
-  # Máximo de sucursales por producto (heredado de optimizacion.max_sucursales_por_producto
-  # si no se define aquí)
   max_sucursales_por_producto: 3
-
-# ── COORDENADAS DE NODOS (para uso futuro — ruteo geográfico) ─
-#  Fuente: planilla maestra de nodos.
-#  Formato: nombre_nodo: [latitud, longitud]
-#  Pendiente: cargar desde archivo externo en Etapa 4.
-nodos_geo: {}  # reservado para etapa de ruteo geográfico
+nodos_geo: {}
