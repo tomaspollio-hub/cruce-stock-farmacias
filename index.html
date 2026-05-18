@@ -518,7 +518,7 @@
         <div style="display:flex;gap:var(--space-2)">
           <a href="cadete.html?cruce=${ultimo.id}" class="btn btn-primary btn-sm">Ruta del día</a>
           <a href="operador.html?cruce=${ultimo.id}" class="btn btn-ghost btn-sm">Centro de control</a>
-          <a href="/api/cruces/${ultimo.id}/download" class="btn btn-ghost btn-sm">Excel</a>
+          <button class="btn btn-ghost btn-sm" onclick="downloadExcel(${ultimo.id})">Excel</button>
         </div>`;
     }
   }
@@ -533,6 +533,20 @@
   });
 
   cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'));
+
+  window.downloadExcel = async function(id) {
+    try {
+      const r = await auth.apiFetch(`/api/cruces/${id}/download`);
+      if (!r.ok) { showToast('Error al descargar Excel', 'danger'); return; }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cruce_${id}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { showToast('Error al descargar Excel', 'danger'); }
+  };
 </script>
 
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
