@@ -545,6 +545,17 @@ def cruces_entregas_list(cruce_id):
         if r['nro_pedido']:
             grupos[pt].add(r['nro_pedido'])
 
+    # Agregar todos los nodos del stock que no tienen punto_retiro propio
+    nodo_rows = db.execute(
+        '''SELECT DISTINCT nodo_asignado FROM lineas
+           WHERE cruce_id = ? AND nodo_asignado IS NOT NULL AND nodo_asignado != ''
+           ORDER BY nodo_asignado''',
+        (cruce_id,)
+    ).fetchall()
+    for r in nodo_rows:
+        if r['nodo_asignado'] not in grupos:
+            grupos[r['nodo_asignado']] = set()
+
     result = []
     for pt, pedidos in sorted(grupos.items()):
         conf = conf_map.get(pt)
@@ -552,17 +563,18 @@ def cruces_entregas_list(cruce_id):
         pedidos_activos   = hab_map.get(pt, [])
         pedidos_enc       = sorted(list(enc_map.get(pt, set())))
         result.append({
-            'punto_retiro':       pt,
-            'nro_pedidos':        todos_sorted,
-            'total_pedidos':      len(pedidos),
-            'activa':             pt in habilitadas,
-            'pedidos_activos':    pedidos_activos,    # seleccionados por operador
-            'pedidos_encontrados': pedidos_enc,        # pre-sugeridos (tienen ENCONTRADO)
-            'confirmada':         conf is not None,
-            'receptor':           conf['receptor']      if conf else None,
-            'entregado_at':       conf['entregado_at']  if conf else None,
-            'firma_base64':       conf['firma_base64']  if conf else None,
-            'entrega_id':         conf['id']             if conf else None,
+            'punto_retiro':        pt,
+            'nro_pedidos':         todos_sorted,
+            'total_pedidos':       len(pedidos),
+            'tiene_pedidos':       len(pedidos) > 0,
+            'activa':              pt in habilitadas,
+            'pedidos_activos':     pedidos_activos,
+            'pedidos_encontrados': pedidos_enc,
+            'confirmada':          conf is not None,
+            'receptor':            conf['receptor']     if conf else None,
+            'entregado_at':        conf['entregado_at'] if conf else None,
+            'firma_base64':        conf['firma_base64'] if conf else None,
+            'entrega_id':          conf['id']           if conf else None,
         })
 
     return jsonify({'ok': True, 'entregas': result, 'total': len(result)})

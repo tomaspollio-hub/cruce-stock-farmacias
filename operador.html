@@ -147,6 +147,7 @@
       padding: 0;
     }
     .entrega-tile.activa { border-color: #93c5fd; background: #eff6ff; }
+    .entrega-tile.sin-pedidos { opacity: .65; border-style: dashed; }
     .et-activar-btn {
       margin-top: var(--space-3);
       width: 100%;
@@ -350,7 +351,7 @@
     </div>
     <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-4)" id="activar-modal-subtitle"></p>
 
-    <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
+    <div class="sel-bar" style="display:flex;gap:var(--space-2);margin-bottom:var(--space-3)">
       <button class="btn btn-ghost btn-sm" id="activar-sel-todos">Seleccionar todos</button>
       <button class="btn btn-ghost btn-sm" id="activar-sel-ninguno">Ninguno</button>
       <span id="activar-enc-hint" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;align-items:center;margin-left:auto"></span>
@@ -761,8 +762,10 @@
       return;
     }
 
-    const total     = entregas.length;
-    const confirmadas = entregas.filter(e => e.confirmada).length;
+    // Solo las que tienen pedidos del cruce cuentan para el resumen/progreso
+    const conPedidos  = entregas.filter(e => e.tiene_pedidos);
+    const total       = conPedidos.length;
+    const confirmadas = conPedidos.filter(e => e.confirmada).length;
     const pendientes  = total - confirmadas;
     const pct = total > 0 ? Math.round(confirmadas / total * 100) : 0;
 
@@ -786,7 +789,13 @@
       if (e.confirmada) firmasCache[e.punto_retiro] = e.firma_base64 ?? null;
     });
 
-    const tiles = entregas.map(e => {
+    // Ordenar: confirmadas > activas > con pedidos > sin pedidos
+    const ordenadas = [...entregas].sort((a, b) => {
+      const score = e => e.confirmada ? 3 : e.activa ? 2 : e.tiene_pedidos ? 1 : 0;
+      return score(b) - score(a) || a.punto_retiro.localeCompare(b.punto_retiro);
+    });
+
+    const tiles = ordenadas.map(e => {
       const ptEnc = encodeURIComponent(e.punto_retiro);
       if (e.confirmada) {
         const hora = new Date(e.entregado_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
@@ -801,24 +810,40 @@
             <div class="et-hora">🕐 ${hora}</div>
             ${firma}
           </div>`;
-      } else {
+      } else if (e.tiene_pedidos) {
         const pedStr = e.nro_pedidos.slice(0, 3).join(', ') + (e.nro_pedidos.length > 3 ? '…' : '');
-        const esActiva   = e.activa;
-        const tileClass  = esActiva ? 'entrega-tile activa' : 'entrega-tile';
-        const iconoPre   = esActiva ? '📍' : '⏳';
-        const actLabel   = esActiva
+        const esActiva  = e.activa;
+        const tileClass = esActiva ? 'entrega-tile activa' : 'entrega-tile';
+        const iconoPre  = esActiva ? '📍' : '⏳';
+        const actLabel  = esActiva
           ? `${e.pedidos_activos.length}/${e.total_pedidos} pedido${e.pedidos_activos.length !== 1 ? 's' : ''} hoy`
           : `${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}`;
-        const badgeHtml  = esActiva
+        const badgeHtml = esActiva
           ? `<span class="badge badge-blue" style="margin-top:var(--space-2)">Activa hoy</span>`
           : `<span class="badge badge-gray" style="margin-top:var(--space-2)">Sin activar</span>`;
-        const btnLabel   = esActiva ? 'Editar selección' : 'Activar para hoy';
-        const btnClass   = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
+        const btnLabel  = esActiva ? 'Editar selección' : 'Activar para hoy';
+        const btnClass  = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
         return `
           <div class="${tileClass}">
             <div class="et-farmacia" title="${e.punto_retiro}">${iconoPre} ${e.punto_retiro}</div>
             <div class="et-pedidos">${actLabel}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${pedStr}</div>
+            ${badgeHtml}
+            <button class="${btnClass}" data-pt="${ptEnc}" data-activa="${esActiva ? '1' : '0'}">${btnLabel}</button>
+          </div>`;
+      } else {
+        // Sucursal del stock sin pedidos en este cruce
+        const esActiva  = e.activa;
+        const tileClass = esActiva ? 'entrega-tile activa' : 'entrega-tile sin-pedidos';
+        const badgeHtml = esActiva
+          ? `<span class="badge badge-blue" style="margin-top:var(--space-2)">Activa hoy</span>`
+          : `<span class="badge badge-gray" style="margin-top:var(--space-2)">Sin pedidos</span>`;
+        const btnLabel  = esActiva ? 'Editar selección' : 'Activar manualmente';
+        const btnClass  = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
+        return `
+          <div class="${tileClass}">
+            <div class="et-farmacia" title="${e.punto_retiro}" style="color:var(--text-secondary)">🏪 ${e.punto_retiro}</div>
+            <div class="et-pedidos" style="color:var(--text-muted)">Sin pedidos en este cruce</div>
             ${badgeHtml}
             <button class="${btnClass}" data-pt="${ptEnc}" data-activa="${esActiva ? '1' : '0'}">${btnLabel}</button>
           </div>`;
@@ -846,11 +871,13 @@
   let entregasData = [];   // cache de la última respuesta
 
   function abrirModalActivar(e) {
-    const yaActiva = e.activa;
+    const yaActiva    = e.activa;
+    const sinPedidos  = !e.tiene_pedidos;
 
     document.getElementById('activar-modal-title').textContent    = e.punto_retiro;
-    document.getElementById('activar-modal-subtitle').textContent =
-      `${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''} en este cruce · seleccioná los que van hoy`;
+    document.getElementById('activar-modal-subtitle').textContent = sinPedidos
+      ? 'Sin pedidos en este cruce — ingresá los números de pedido manualmente'
+      : `${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''} en este cruce · seleccioná los que van hoy`;
 
     // Pre-selección: si ya está activa usamos los activos, sino sugerimos los encontrados
     const presel = new Set(yaActiva && e.pedidos_activos.length
@@ -862,7 +889,14 @@
       ? `✓ ${e.pedidos_encontrados.length} con productos encontrados (pre-tildados)`
       : '';
 
+    // Mostrar/ocultar controles de selección según si hay pedidos del cruce
+    const selBar = document.querySelector('#activar-modal-overlay .sel-bar');
+    if (selBar) selBar.style.display = sinPedidos ? 'none' : '';
+
     const lista = document.getElementById('activar-checklist');
+    if (sinPedidos) {
+      lista.innerHTML = '';  // sin checkboxes, solo campo manual
+    } else
     lista.innerHTML = e.nro_pedidos.map(p => {
       const enc     = e.pedidos_encontrados.includes(p);
       const checked = presel.has(p) ? 'checked' : '';
@@ -877,7 +911,7 @@
           <span style="font-size:var(--text-sm);font-weight:var(--font-medium);color:#1e293b">Pedido #${p}</span>
           ${enc ? `<span class="badge badge-green" style="margin-left:auto">✓ encontrado</span>` : ''}
         </label>`;
-    }).join('');
+    }).join('');  // cierra else
 
     const desBtnEl = document.getElementById('activar-desactivar-btn');
     const confBtn  = document.getElementById('activar-modal-confirm');
