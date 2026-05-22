@@ -2,7 +2,7 @@
   "name": "ECommerce — Farmacias Global",
   "short_name": "ECommerce",
   "description": "Gestión operativa de pedidos y stock para el canal ecommerce",
-  "start_url": "/",
+  "start_url": "/cadete.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0284c7",

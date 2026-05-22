@@ -447,9 +447,24 @@
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
 
-  const params  = new URLSearchParams(location.search);
-  const cruceId = params.get('cruce');
-  if (!cruceId) { location.href = 'index.html'; }
+  const params = new URLSearchParams(location.search);
+  let cruceId  = params.get('cruce');
+
+  if (!cruceId) {
+    // PWA abierta sin ?cruce= → cargar el cruce más reciente automáticamente
+    try {
+      const r = await auth.apiFetch('/api/cruces');
+      const d = await r.json();
+      if (d.ok && d.cruces.length > 0) {
+        cruceId = String(d.cruces[0].id);
+        history.replaceState(null, '', `?cruce=${cruceId}`);
+      } else {
+        location.href = 'index.html';
+      }
+    } catch {
+      location.href = 'index.html';
+    }
+  }
 
   document.getElementById('btn-excel').href = `/api/cruces/${cruceId}/download`;
 
