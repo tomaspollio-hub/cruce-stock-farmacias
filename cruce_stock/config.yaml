@@ -206,3 +206,8 @@ asignacion:
   consolidacion_por_pedido: true
   max_sucursales_por_producto: 3
 nodos_geo: {}
+
+# Sucursales que siempre aparecen en las tiles de Entregas del día,
+# aunque no estén en el archivo de stock del cruce actual.
+sucursales_fijas:
+- GLOBAL RIVADAVIA 280

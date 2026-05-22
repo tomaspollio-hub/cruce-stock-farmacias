@@ -504,6 +504,14 @@ def cruce_progreso(cruce_id):
 def cruces_entregas_list(cruce_id):
     db = get_db()
 
+    # Sucursales fijas definidas en config.yaml
+    try:
+        with open(CONFIG_PATH) as f:
+            _cfg = yaml.safe_load(f)
+        sucursales_fijas = set(_cfg.get('sucursales_fijas', []))
+    except Exception:
+        sucursales_fijas = set()
+
     # Pedidos únicos por punto de retiro
     rows = db.execute(
         '''SELECT punto_retiro, nro_pedido
@@ -558,6 +566,11 @@ def cruces_entregas_list(cruce_id):
     for r in nodo_rows:
         if r['nodo_asignado'] not in grupos:
             grupos[r['nodo_asignado']] = set()
+
+    # Agregar sucursales fijas del config aunque no estén en el stock
+    for sf in sucursales_fijas:
+        if sf not in grupos:
+            grupos[sf] = set()
 
     result = []
     for pt, pedidos in sorted(grupos.items()):
