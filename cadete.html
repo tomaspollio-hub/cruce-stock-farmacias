@@ -299,6 +299,7 @@
 </div>
 
 <div id="toast-container"></div>
+<datalist id="reas-nodos-list"></datalist>
 
 <!-- Modal: nota libre -->
 <div id="modal-notas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
@@ -403,7 +404,6 @@
         <label class="form-label" for="reas-select">Nueva sucursal</label>
         <input class="form-input" id="reas-select" list="reas-nodos-list"
                placeholder="Escribí o elegí de la lista">
-        <datalist id="reas-nodos-list"></datalist>
         <p class="form-hint">Elegí de la lista o escribí el nombre exacto de la sucursal.</p>
       </div>
     </div>
@@ -1045,7 +1045,7 @@
     document.getElementById('reas-producto').textContent   = linea?.producto || `Línea #${linea_id}`;
     document.getElementById('reas-nodo-actual').textContent =
       linea?.nodo_asignado ? `Sucursal actual: ${linea.nodo_asignado}` : 'Sin sucursal asignada';
-    document.getElementById('reas-select').value = linea?.nodo_asignado || '';
+    document.getElementById('reas-select').value = '';   // vacío para que el datalist muestre todas
     document.getElementById('modal-reasignar').style.display = 'flex';
     setTimeout(() => document.getElementById('reas-select').focus(), 80);
   }
