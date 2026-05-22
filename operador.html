@@ -356,7 +356,14 @@
       <span id="activar-enc-hint" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;align-items:center;margin-left:auto"></span>
     </div>
 
-    <div id="activar-checklist" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3);margin-bottom:var(--space-5);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+    <div id="activar-checklist" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3);margin-bottom:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+
+    <!-- Agregar pedido manual -->
+    <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)">
+      <input id="activar-pedido-manual" class="form-input" placeholder="Agregar nro. de pedido manualmente"
+             style="flex:1;font-size:var(--text-sm)">
+      <button class="btn btn-ghost btn-sm" id="activar-pedido-add" title="Agregar pedido" style="white-space:nowrap">+ Agregar</button>
+    </div>
 
     <div style="display:flex;gap:var(--space-3);justify-content:flex-end">
       <button class="btn btn-ghost" id="activar-modal-cancel">Cancelar</button>
@@ -899,6 +906,37 @@
   document.getElementById('activar-sel-ninguno').addEventListener('click', () => {
     document.querySelectorAll('#activar-checklist input[type=checkbox]')
       .forEach(cb => cb.checked = false);
+  });
+
+  function agregarPedidoManual() {
+    const input = document.getElementById('activar-pedido-manual');
+    const val   = input.value.trim();
+    if (!val) return;
+
+    const lista = document.getElementById('activar-checklist');
+    const yaExiste = [...lista.querySelectorAll('input[type=checkbox]')]
+      .some(cb => cb.value === val);
+    if (yaExiste) {
+      showToast(`El pedido #${val} ya está en la lista`, 'warning');
+      input.value = '';
+      return;
+    }
+
+    const item = document.createElement('label');
+    item.style.cssText = 'display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius);cursor:pointer;background:var(--surface)';
+    item.innerHTML = `
+      <input type="checkbox" value="${val}" checked
+             style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
+      <span style="font-size:var(--text-sm);font-weight:var(--font-medium)">Pedido #${val}</span>
+      <span class="badge badge-blue" style="margin-left:auto">manual</span>`;
+    lista.appendChild(item);
+    input.value = '';
+    input.focus();
+  }
+
+  document.getElementById('activar-pedido-add').addEventListener('click', agregarPedidoManual);
+  document.getElementById('activar-pedido-manual').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); agregarPedidoManual(); }
   });
 
   async function llamarActivar(pt, activa, nro_pedidos = []) {

@@ -386,6 +386,34 @@
   </div>
 </div>
 
+<!-- Modal: reasignar sucursal (solo admin/operador) -->
+<div id="modal-reasignar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
+  <div class="card" style="width:100%;max-width:440px;margin:var(--space-4)">
+    <div class="card-header">
+      <h2 class="card-title">📍 Reasignar sucursal</h2>
+      <button id="reas-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <div>
+        <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Producto</div>
+        <div id="reas-producto" style="font-weight:var(--font-semibold);font-size:var(--text-sm)">–</div>
+        <div id="reas-nodo-actual" style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px"></div>
+      </div>
+      <div>
+        <label class="form-label" for="reas-select">Nueva sucursal</label>
+        <input class="form-input" id="reas-select" list="reas-nodos-list"
+               placeholder="Escribí o elegí de la lista">
+        <datalist id="reas-nodos-list"></datalist>
+        <p class="form-hint">Elegí de la lista o escribí el nombre exacto de la sucursal.</p>
+      </div>
+    </div>
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+      <button class="btn btn-ghost" id="reas-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="reas-confirm">Reasignar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: planificar jornada -->
 <div id="modal-jornada" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
   <div class="card" style="width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column">
@@ -586,6 +614,7 @@
         const accion   = btn.dataset.accion;
         if (accion === 'NOTA')             { abrirModalNota(linea_id);     return; }
         if (accion === 'MAL_STOCK_PROMPT') { abrirModalMalStock(linea_id); return; }
+        if (accion === 'REASIGNAR_NODO')   { abrirModalReasignar(linea_id); return; }
         await cambiarEstado(linea_id, accion);
       });
     });
@@ -688,6 +717,7 @@
                 <button class="btn btn-warning btn-sm" data-accion="MAL_STOCK_PROMPT" data-linea="${l.id}">⚠ Mal stock</button>
                 <button class="btn btn-ghost btn-sm"   data-accion="EN_REVISION"      data-linea="${l.id}">⏸ Revisar</button>
                 <button class="btn btn-ghost btn-sm"   data-accion="NOTA"             data-linea="${l.id}">📝</button>
+                <button class="btn btn-ghost btn-sm admin-only" data-accion="REASIGNAR_NODO" data-linea="${l.id}" title="Cambiar sucursal asignada">📍 Cambiar sucursal</button>
               </div>`
           }
           ${alts.length > 0 ? `
@@ -992,6 +1022,77 @@
       showToast('Nota guardada', 'success');
     } else {
       showToast('Error al guardar nota', 'danger');
+    }
+  });
+
+  // ── Modal reasignar nodo (admin/operador) ────────────────────
+
+  let nodosDisponibles = [];
+  let reasLineaId      = null;
+
+  auth.apiFetch(`/api/cruces/${cruceId}/nodos`).then(r => r.json())
+    .then(d => {
+      if (d.ok) {
+        nodosDisponibles = d.nodos;
+        const dl = document.getElementById('reas-nodos-list');
+        dl.innerHTML = nodosDisponibles.map(n => `<option value="${n}">`).join('');
+      }
+    }).catch(() => {});
+
+  function abrirModalReasignar(linea_id) {
+    reasLineaId = linea_id;
+    const linea = lineas.find(l => l.id === linea_id);
+    document.getElementById('reas-producto').textContent   = linea?.producto || `Línea #${linea_id}`;
+    document.getElementById('reas-nodo-actual').textContent =
+      linea?.nodo_asignado ? `Sucursal actual: ${linea.nodo_asignado}` : 'Sin sucursal asignada';
+    document.getElementById('reas-select').value = linea?.nodo_asignado || '';
+    document.getElementById('modal-reasignar').style.display = 'flex';
+    setTimeout(() => document.getElementById('reas-select').focus(), 80);
+  }
+
+  document.getElementById('reas-close').addEventListener('click', () => {
+    document.getElementById('modal-reasignar').style.display = 'none';
+  });
+  document.getElementById('reas-cancel').addEventListener('click', () => {
+    document.getElementById('modal-reasignar').style.display = 'none';
+  });
+
+  document.getElementById('reas-confirm').addEventListener('click', async () => {
+    const nuevoNodo = document.getElementById('reas-select').value.trim();
+    if (!nuevoNodo) {
+      showToast('Ingresá el nombre de la sucursal', 'warning'); return;
+    }
+
+    const btn = document.getElementById('reas-confirm');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/lineas/${reasLineaId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nodo_asignado: nuevoNodo }),
+    });
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.textContent = 'Reasignar';
+
+    if (data.ok) {
+      const linea = lineas.find(l => l.id === reasLineaId);
+      if (linea) linea.nodo_asignado = nuevoNodo;
+      document.getElementById('modal-reasignar').style.display = 'none';
+      poblarSelectorSucursal();
+      renderLineas();
+      // Refrescar datalist con nodos actualizados (puede haber uno nuevo)
+      if (!nodosDisponibles.includes(nuevoNodo)) {
+        nodosDisponibles.push(nuevoNodo);
+        nodosDisponibles.sort();
+        const dl = document.getElementById('reas-nodos-list');
+        dl.innerHTML = nodosDisponibles.map(n => `<option value="${n}">`).join('');
+      }
+      showToast(`Sucursal cambiada a ${nuevoNodo}`, 'success');
+    } else {
+      showToast(data.motivo === 'sin_permiso' ? 'Sin permisos para reasignar' : 'Error al reasignar', 'danger');
     }
   });
 

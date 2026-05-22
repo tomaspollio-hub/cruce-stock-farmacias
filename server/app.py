@@ -437,6 +437,10 @@ def linea_update(cruce_id, linea_id):
     if not row:
         return jsonify({'ok': False, 'motivo': 'no_encontrado'}), 404
 
+    # Solo admin/operador pueden reasignar nodo
+    if 'nodo_asignado' in data and g.rol not in ('admin', 'operador'):
+        return jsonify({'ok': False, 'motivo': 'sin_permiso'}), 403
+
     updates = {}
     if nuevo_estado:
         updates['estado']     = nuevo_estado
@@ -445,6 +449,9 @@ def linea_update(cruce_id, linea_id):
         updates['notas'] = data['notas']
     if 'alternativa_nodo' in data:
         updates['alternativa_nodo'] = data['alternativa_nodo']
+    if 'nodo_asignado' in data and g.rol in ('admin', 'operador'):
+        updates['nodo_asignado'] = data['nodo_asignado'].strip() if data['nodo_asignado'] else None
+        updates['updated_at']    = datetime.now(timezone.utc).isoformat()
 
     if updates:
         set_clause = ', '.join(f'{k} = ?' for k in updates)
