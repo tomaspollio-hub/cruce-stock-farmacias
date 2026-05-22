@@ -452,6 +452,9 @@ def linea_update(cruce_id, linea_id):
     if 'nodo_asignado' in data and g.rol in ('admin', 'operador'):
         updates['nodo_asignado'] = data['nodo_asignado'].strip() if data['nodo_asignado'] else None
         updates['updated_at']    = datetime.now(timezone.utc).isoformat()
+    if 'stock_disponible' in data and g.rol in ('admin', 'operador'):
+        val = data['stock_disponible']
+        updates['stock_disponible'] = int(val) if val is not None else None
 
     if updates:
         set_clause = ', '.join(f'{k} = ?' for k in updates)

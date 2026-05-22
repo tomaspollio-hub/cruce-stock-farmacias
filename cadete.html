@@ -618,6 +618,56 @@
         await cambiarEstado(linea_id, accion);
       });
     });
+
+    document.querySelectorAll('.sincob-asignar').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        const linea_id = parseInt(btn.dataset.linea);
+        const card     = document.getElementById(`linea-${linea_id}`);
+        const nodo     = card.querySelector('.sincob-nodo').value.trim();
+        const stock    = card.querySelector('.sincob-stock').value;
+
+        if (!nodo) { showToast('Ingresá la sucursal', 'warning'); return; }
+
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        const res  = await auth.apiFetch(`/api/cruces/${cruceId}/lineas/${linea_id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodo_asignado:    nodo,
+            stock_disponible: stock !== '' ? parseInt(stock) : null,
+            estado:           'PENDIENTE',
+          }),
+        });
+        const data = await res.json();
+
+        btn.disabled = false;
+        btn.textContent = 'Asignar';
+
+        if (data.ok) {
+          const linea = lineas.find(l => l.id === linea_id);
+          if (linea) {
+            linea.nodo_asignado    = nodo;
+            linea.stock_disponible = stock !== '' ? parseInt(stock) : null;
+            linea.estado           = 'PENDIENTE';
+          }
+          if (!nodosDisponibles.includes(nodo)) {
+            nodosDisponibles.push(nodo);
+            nodosDisponibles.sort();
+            document.getElementById('reas-nodos-list').innerHTML =
+              nodosDisponibles.map(n => `<option value="${n}">`).join('');
+          }
+          poblarSelectorSucursal();
+          renderLineas();
+          await actualizarProgreso();
+          showToast(`Asignado a ${nodo} — ahora el cadete puede buscarlo`, 'success');
+        } else {
+          showToast('Error al asignar', 'danger');
+        }
+      });
+    });
   }
 
   const imgCache = {};   // gtin → url | null
@@ -710,7 +760,19 @@
         <div class="linea-card-body" style="display:none">
           ${l.notas ? `<div class="alert alert-info" style="margin-bottom:var(--space-3);font-size:var(--text-xs)">📝 ${l.notas}</div>` : ''}
           ${isSinCob
-            ? `<div class="alert alert-warning">Sin cobertura en ninguna sucursal.</div>`
+            ? `<div class="alert alert-warning" style="margin-bottom:var(--space-3)">Sin cobertura — no se encontró stock en ninguna sucursal.</div>
+               <div class="admin-only" style="display:flex;flex-direction:column;gap:var(--space-2)">
+                 <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Asignar manualmente</div>
+                 <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
+                   <input class="form-input sincob-nodo" list="reas-nodos-list"
+                          placeholder="Sucursal" style="flex:2;min-width:160px;font-size:var(--text-sm)"
+                          data-linea="${l.id}">
+                   <input class="form-input sincob-stock" type="number" min="0"
+                          placeholder="Stock" style="flex:1;min-width:80px;font-size:var(--text-sm)"
+                          data-linea="${l.id}">
+                   <button class="btn btn-primary btn-sm sincob-asignar" data-linea="${l.id}">Asignar</button>
+                 </div>
+               </div>`
             : `<div class="linea-acciones">
                 <button class="btn btn-success btn-sm" data-accion="ENCONTRADO"       data-linea="${l.id}">✓ Encontrado</button>
                 <button class="btn btn-danger btn-sm"  data-accion="NO_ENCONTRADO"    data-linea="${l.id}">✕ No encontrado</button>
