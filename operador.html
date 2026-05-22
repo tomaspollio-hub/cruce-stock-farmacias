@@ -356,7 +356,7 @@
       <span id="activar-enc-hint" style="font-size:var(--text-xs);color:var(--text-muted);display:flex;align-items:center;margin-left:auto"></span>
     </div>
 
-    <div id="activar-checklist" style="overflow-y:auto;flex:1;border:1px solid var(--border);border-radius:var(--radius-lg);padding:var(--space-3);margin-bottom:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)"></div>
+    <div id="activar-checklist" style="overflow-y:auto;flex:1;border-radius:var(--radius-lg);margin-bottom:var(--space-3);display:flex;flex-direction:column;gap:var(--space-2)"></div>
 
     <!-- Agregar pedido manual -->
     <div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)">
@@ -866,13 +866,15 @@
     lista.innerHTML = e.nro_pedidos.map(p => {
       const enc     = e.pedidos_encontrados.includes(p);
       const checked = presel.has(p) ? 'checked' : '';
+      const bg      = enc ? '#f0fdf4' : '#f1f5f9';
+      const border  = enc ? '1px solid #86efac' : '1px solid #cbd5e1';
       return `
-        <label style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);
+        <label style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-3);
                        border-radius:var(--radius);cursor:pointer;
-                       background:${enc ? 'var(--success-light)' : 'var(--surface)'}">
+                       background:${bg};border:${border}">
           <input type="checkbox" value="${p}" ${checked}
                  style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
-          <span style="font-size:var(--text-sm);font-weight:var(--font-medium)">Pedido #${p}</span>
+          <span style="font-size:var(--text-sm);font-weight:var(--font-medium);color:#1e293b">Pedido #${p}</span>
           ${enc ? `<span class="badge badge-green" style="margin-left:auto">✓ encontrado</span>` : ''}
         </label>`;
     }).join('');
@@ -923,7 +925,7 @@
     }
 
     const item = document.createElement('label');
-    item.style.cssText = 'display:flex;align-items:center;gap:var(--space-3);padding:var(--space-2) var(--space-3);border-radius:var(--radius);cursor:pointer;background:var(--surface)';
+    item.style.cssText = 'display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-3);border-radius:var(--radius);cursor:pointer;background:#eff6ff;border:1px solid #93c5fd';
     item.innerHTML = `
       <input type="checkbox" value="${val}" checked
              style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
