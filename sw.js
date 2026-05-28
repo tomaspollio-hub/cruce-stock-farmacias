@@ -1,4 +1,4 @@
-const CACHE = 'farmacias-global-v4';
+const CACHE = 'farmacias-global-v5';
 
 const STATIC = [
   '/login.html',
@@ -57,8 +57,21 @@ self.addEventListener('fetch', e => {
         })
         .catch(() => caches.match(e.request))
     );
+  } else if (url.pathname.endsWith('.html') || url.pathname === '/') {
+    // HTML: red primero para siempre obtener versión fresca, cache como fallback offline
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          if (res.ok) {
+            const clone = res.clone();
+            caches.open(CACHE).then(c => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
   } else {
-    // Estáticos: cache primero, red como fallback
+    // Otros estáticos (CSS, JS, imágenes): cache primero
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request))
     );
