@@ -1469,11 +1469,16 @@ def health():
 
 @app.get('/')
 def root():
-    return send_from_directory(str(BASE_DIR), 'login.html')
+    resp = send_from_directory(str(BASE_DIR), 'login.html')
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return resp
 
 @app.get('/<path:path>')
 def static_files(path):
-    return send_from_directory(str(BASE_DIR), path)
+    resp = send_from_directory(str(BASE_DIR), path)
+    if path.endswith('.html'):
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    return resp
 
 # ── Main ────────────────────────────────────────────────────────────────────────
 
