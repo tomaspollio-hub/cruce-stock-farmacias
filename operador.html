@@ -287,6 +287,7 @@
         <span class="badge badge-green" id="ent-confirmed-badge" style="display:none">0 confirmadas</span>
         <span class="badge badge-yellow" id="ent-pending-badge"  style="display:none">0 pendientes</span>
       </div>
+      <button class="btn btn-ghost btn-sm" id="btn-agregar-fija" title="Agregar punto de retiro fijo">+ Sucursal</button>
     </div>
     <div id="entregas-summary" class="entrega-summary" style="display:none">
       <div>
@@ -457,7 +458,7 @@
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
-  initMobileNav('operador');
+  initMobileNav('operador', session.rol);
 
   // ── Notificaciones push ───────────────────────────────────────
   let notifDesde    = new Date().toISOString();
@@ -1152,7 +1153,93 @@
   // Arrancar el poll de notificaciones (15s) después de la carga inicial
   notifDesde = new Date().toISOString();
   checkNotificaciones();
+
+  // ── Modal: puntos de retiro fijos ────────────────────────────────────────────
+  const modalFija   = document.getElementById('modal-fija');
+  const fijasLista  = document.getElementById('fija-lista');
+  const fijaInput   = document.getElementById('fija-input');
+
+  async function cargarFijas() {
+    // Reutiliza la lista que ya tiene el cruce actual (sucursales sin pedidos = fijas)
+    const r = await auth.apiFetch(`/api/cruces/${cruceId}/entregas`);
+    const d = await r.json();
+    const fijas = (d.entregas || []).filter(e => !e.tiene_pedidos).map(e => e.punto_retiro);
+    fijasLista.innerHTML = fijas.length === 0
+      ? '<span style="color:var(--text-muted);font-size:var(--text-sm)">Sin sucursales fijas configuradas</span>'
+      : fijas.map(n => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3);background:var(--bg-subtle);border-radius:var(--radius)">
+            <span style="font-size:var(--text-sm)">🏪 ${n}</span>
+            <button class="btn btn-ghost btn-sm fija-quitar-btn" data-nombre="${n}" style="color:var(--danger);padding:2px 6px">✕</button>
+          </div>`).join('');
+  }
+
+  document.getElementById('btn-agregar-fija').addEventListener('click', async () => {
+    await cargarFijas();
+    fijaInput.value = '';
+    modalFija.style.display = 'flex';
+    fijaInput.focus();
+  });
+
+  document.getElementById('modal-fija-close').addEventListener('click', () => {
+    modalFija.style.display = 'none';
+  });
+  modalFija.addEventListener('click', e => {
+    if (e.target === modalFija) modalFija.style.display = 'none';
+  });
+
+  async function agregarFija() {
+    const nombre = fijaInput.value.trim();
+    if (!nombre) return;
+    const r = await auth.apiFetch('/api/sucursales-fijas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre }),
+    });
+    const d = await r.json();
+    if (!d.ok) { showToast(d.motivo || 'Error al agregar', 'danger'); return; }
+    fijaInput.value = '';
+    await cargarFijas();
+    await cargarDatos();
+  }
+
+  document.getElementById('fija-agregar-btn').addEventListener('click', agregarFija);
+  fijaInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); agregarFija(); } });
+
+  fijasLista.addEventListener('click', async e => {
+    const btn = e.target.closest('.fija-quitar-btn');
+    if (!btn) return;
+    const nombre = btn.dataset.nombre;
+    const r = await auth.apiFetch('/api/sucursales-fijas', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre }),
+    });
+    const d = await r.json();
+    if (!d.ok) { showToast(d.motivo || 'Error al quitar', 'danger'); return; }
+    await cargarFijas();
+    await cargarDatos();
+  });
 </script>
+
+<!-- Modal: agregar punto de retiro fijo -->
+<div id="modal-fija" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;padding:var(--space-4)">
+  <div class="card" style="width:100%;max-width:440px">
+    <div class="card-header">
+      <h2 class="card-title">🏪 Puntos de retiro fijos</h2>
+      <button id="modal-fija-close" class="btn btn-ghost btn-sm">✕</button>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-4)">
+      <p style="font-size:var(--text-sm);color:var(--text-muted)">
+        Estas sucursales aparecen siempre en las entregas, aunque no tengan pedidos en el cruce actual.
+      </p>
+      <div id="fija-lista" style="display:flex;flex-direction:column;gap:var(--space-2)"></div>
+      <div style="display:flex;gap:var(--space-2);margin-top:var(--space-2)">
+        <input class="form-input" id="fija-input" placeholder="Nombre exacto de la sucursal" style="flex:1">
+        <button class="btn btn-primary btn-sm" id="fija-agregar-btn">+ Agregar</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>if("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
 </body>

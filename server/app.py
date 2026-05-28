@@ -1092,6 +1092,48 @@ def usuarios_eliminar(uid):
 
 # ── Configuración del sistema ───────────────────────────────────────────────────
 
+@app.post('/api/sucursales-fijas')
+@require_auth
+def sucursal_fija_add():
+    if g.rol not in ('admin', 'operador'):
+        return jsonify({'ok': False, 'motivo': 'Sin permiso'}), 403
+    data = request.get_json(force=True)
+    nombre = data.get('nombre', '').strip()
+    if not nombre:
+        return jsonify({'ok': False, 'motivo': 'Nombre requerido'}), 400
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+        fijas = cfg.get('sucursales_fijas', [])
+        if nombre not in fijas:
+            fijas.append(nombre)
+            cfg['sucursales_fijas'] = fijas
+            with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+                yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    except Exception as e:
+        return jsonify({'ok': False, 'motivo': str(e)}), 500
+    return jsonify({'ok': True, 'sucursales_fijas': fijas})
+
+
+@app.delete('/api/sucursales-fijas')
+@require_auth
+def sucursal_fija_remove():
+    if g.rol not in ('admin', 'operador'):
+        return jsonify({'ok': False, 'motivo': 'Sin permiso'}), 403
+    data = request.get_json(force=True)
+    nombre = data.get('nombre', '').strip()
+    try:
+        with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
+            cfg = yaml.safe_load(f)
+        fijas = [s for s in cfg.get('sucursales_fijas', []) if s != nombre]
+        cfg['sucursales_fijas'] = fijas
+        with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
+            yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    except Exception as e:
+        return jsonify({'ok': False, 'motivo': str(e)}), 500
+    return jsonify({'ok': True, 'sucursales_fijas': fijas})
+
+
 @app.get('/api/config')
 @require_admin
 def config_leer():
