@@ -1102,8 +1102,9 @@ def config_leer():
         return jsonify({'ok': False, 'motivo': str(e)}), 500
     return jsonify({
         'ok': True,
-        'asignacion':  cfg.get('asignacion',  {}),
-        'optimizacion': cfg.get('optimizacion', {}),
+        'asignacion':      cfg.get('asignacion',      {}),
+        'optimizacion':    cfg.get('optimizacion',    {}),
+        'sucursales_fijas': cfg.get('sucursales_fijas', []),
     })
 
 
@@ -1129,6 +1130,12 @@ def config_guardar():
                       'stock_sospechoso_umbral', 'max_opciones_override'):
                 if k in body['optimizacion']:
                     o[k] = body['optimizacion'][k]
+
+        if 'sucursales_fijas' in body:
+            cfg['sucursales_fijas'] = [
+                s.strip() for s in body['sucursales_fijas']
+                if isinstance(s, str) and s.strip()
+            ]
 
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             yaml.dump(cfg, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

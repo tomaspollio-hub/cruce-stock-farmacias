@@ -206,6 +206,23 @@
     </div>
   </div>
 
+  <!-- Puntos de retiro fijos -->
+  <div class="card" style="max-width:1000px;margin-top:var(--space-6)">
+    <div class="card-header">
+      <h2 class="card-title">🏪 Puntos de retiro fijos</h2>
+    </div>
+    <div class="card-body">
+      <p style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">
+        Estas sucursales aparecen siempre en <strong>Entregas del día</strong> del operador, aunque no tengan pedidos en el cruce actual. Usá el nombre exacto tal como aparece en los pedidos (mayúsculas incluidas).
+      </p>
+      <div class="chip-list" id="chips-fijas"></div>
+      <div class="add-row">
+        <input class="form-input" id="add-fijas" placeholder="Ej: GLOBAL RIVADAVIA 280">
+        <button class="btn btn-ghost btn-sm" data-add="sucursales_fijas" data-input="add-fijas" data-preserve-case>+ Agregar</button>
+      </div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast-container"></div>
@@ -223,7 +240,7 @@
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
-  initMobileNav('config');
+  initMobileNav('config', session.rol);
 
   // ── Estado local ──────────────────────────────────────────────────────────────
 
@@ -241,6 +258,7 @@
       max_sucursales_por_producto: 3,
       stock_sospechoso_umbral:     200,
     },
+    sucursales_fijas: [],
   };
 
   // key → chip-list element id
@@ -266,8 +284,22 @@
           </span>`).join('');
   }
 
+  function renderFijas() {
+    const items = state.sucursales_fijas;
+    const container = document.getElementById('chips-fijas');
+    if (!container) return;
+    container.innerHTML = items.length === 0
+      ? '<span style="color:var(--text-muted);font-size:var(--text-sm)">Sin sucursales fijas configuradas</span>'
+      : items.map((item, i) => `
+          <span class="chip" data-key="sucursales_fijas" data-idx="${i}">
+            ${item}
+            <button class="chip-remove" title="Eliminar">×</button>
+          </span>`).join('');
+  }
+
   function renderAll() {
     Object.keys(LIST_MAP).forEach(renderChips);
+    renderFijas();
     document.getElementById('opt-stock-seg').value = state.optimizacion.stock_seguridad ?? 3;
     document.getElementById('opt-max-suc').value   = state.optimizacion.max_sucursales_por_producto ?? 3;
     document.getElementById('opt-umbral').value    = state.optimizacion.stock_sospechoso_umbral ?? 200;
@@ -282,8 +314,13 @@
     const chip = btn.closest('.chip');
     const key  = chip.dataset.key;
     const idx  = parseInt(chip.dataset.idx);
-    state.asignacion[key].splice(idx, 1);
-    renderChips(key);
+    if (key === 'sucursales_fijas') {
+      state.sucursales_fijas.splice(idx, 1);
+      renderFijas();
+    } else {
+      state.asignacion[key].splice(idx, 1);
+      renderChips(key);
+    }
   });
 
   document.querySelector('.main').addEventListener('click', e => {
@@ -291,12 +328,21 @@
     if (!btn) return;
     const key     = btn.dataset.add;
     const inputEl = document.getElementById(btn.dataset.input);
-    const val     = inputEl.value.trim().toLowerCase();
+    const val     = key === 'sucursales_fijas'
+      ? inputEl.value.trim()
+      : inputEl.value.trim().toLowerCase();
     if (!val) return;
-    if (!state.asignacion[key]) state.asignacion[key] = [];
-    if (!state.asignacion[key].includes(val)) {
-      state.asignacion[key].push(val);
-      renderChips(key);
+    if (key === 'sucursales_fijas') {
+      if (!state.sucursales_fijas.includes(val)) {
+        state.sucursales_fijas.push(val);
+        renderFijas();
+      }
+    } else {
+      if (!state.asignacion[key]) state.asignacion[key] = [];
+      if (!state.asignacion[key].includes(val)) {
+        state.asignacion[key].push(val);
+        renderChips(key);
+      }
     }
     inputEl.value = '';
     inputEl.focus();
@@ -478,8 +524,9 @@
     const dataSug = await resSug.json().catch(() => null);
 
     if (!dataCfg.ok) throw new Error(dataCfg.motivo);
-    if (dataCfg.asignacion)   Object.assign(state.asignacion,   dataCfg.asignacion);
-    if (dataCfg.optimizacion) Object.assign(state.optimizacion, dataCfg.optimizacion);
+    if (dataCfg.asignacion)      Object.assign(state.asignacion,   dataCfg.asignacion);
+    if (dataCfg.optimizacion)    Object.assign(state.optimizacion, dataCfg.optimizacion);
+    if (dataCfg.sucursales_fijas) state.sucursales_fijas = dataCfg.sucursales_fijas;
     renderAll();
 
     if (dataSug?.ok) renderSugerencias(dataSug.sugerencias);
