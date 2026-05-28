@@ -130,11 +130,13 @@
   const session = await auth.requireAuth();
   if (!session) throw new Error('sin sesion');
 
+  if (session.rol === 'operador') { window.location.href = 'operador.html'; }
+
   document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
-  initMobileNav('historial');
+  initMobileNav('historial', session.rol);
 
   // ── Firma modal ───────────────────────────────────────────────
   document.getElementById('firma-modal-close').addEventListener('click', () => {
@@ -318,13 +320,13 @@
 
   window.downloadExcel = async function(id) {
     try {
-      const r = await auth.apiFetch(`/api/cruces/${id}/download`);
+      const r = await auth.apiFetch(`/api/cruces/${id}/export`);
       if (!r.ok) { showToast('Error al descargar Excel', 'danger'); return; }
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `cruce_${id}.xlsx`;
+      a.download = `reporte_cruce_${id}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch { showToast('Error al descargar Excel', 'danger'); }

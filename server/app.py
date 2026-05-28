@@ -9,6 +9,9 @@ import os
 import sys
 import threading
 import uuid
+
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 from pathlib import Path
@@ -400,6 +403,89 @@ def cruce_download(cruce_id):
     if not path.exists():
         return jsonify({'ok': False, 'motivo': 'archivo_no_encontrado'}), 404
     return send_file(str(path), as_attachment=True, download_name=f'cruce_{cruce_id}.xlsx')
+
+@app.get('/api/cruces/<int:cruce_id>/export')
+@require_auth
+def cruce_export(cruce_id):
+    db  = get_db()
+    cruce = db.execute('SELECT * FROM cruces WHERE id = ?', (cruce_id,)).fetchone()
+    if not cruce:
+        return jsonify({'ok': False, 'motivo': 'no encontrado'}), 404
+
+    lineas = db.execute(
+        '''SELECT nro_pedido, punto_retiro, producto, gtin, sku, marca,
+                  unidades, nodo_asignado, zona, stock_disponible, estado, notas, updated_at
+           FROM lineas WHERE cruce_id = ?
+           ORDER BY nodo_asignado, nro_pedido, producto''',
+        (cruce_id,)
+    ).fetchall()
+
+    ESTADO_LABEL = {
+        'PENDIENTE':      'Pendiente',
+        'ENCONTRADO':     'Encontrado',
+        'NO_ENCONTRADO':  'No encontrado',
+        'MAL_STOCK':      'Mal stock',
+        'REASIGNADO':     'Reasignado',
+        'EN_REVISION':    'En revisión',
+        'SIN_COBERTURA':  'Sin cobertura',
+    }
+    ESTADO_COLOR = {
+        'ENCONTRADO':    '92D050',  # verde
+        'NO_ENCONTRADO': 'FF4C4C',  # rojo
+        'MAL_STOCK':     'FFB84C',  # naranja
+        'EN_REVISION':   'B8B8FF',  # violeta
+        'SIN_COBERTURA': 'D3D3D3',  # gris
+        'REASIGNADO':    'A9D18E',  # verde claro
+        'PENDIENTE':     'FFFFFF',  # blanco
+    }
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Reporte'
+
+    headers = ['N° Pedido', 'Punto de Retiro', 'Producto', 'GTIN', 'SKU',
+               'Marca', 'Unidades', 'Sucursal Asignada', 'Zona',
+               'Stock Disponible', 'Estado', 'Notas', 'Actualizado']
+    header_fill = PatternFill(fill_type='solid', fgColor='2563EB')
+    header_font = Font(bold=True, color='FFFFFF')
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=h)
+        cell.fill   = header_fill
+        cell.font   = header_font
+        cell.alignment = Alignment(horizontal='center')
+
+    for row_i, l in enumerate(lineas, 2):
+        estado = l['estado'] or 'PENDIENTE'
+        values = [
+            l['nro_pedido'], l['punto_retiro'], l['producto'],
+            l['gtin'], l['sku'], l['marca'], l['unidades'],
+            l['nodo_asignado'], l['zona'], l['stock_disponible'],
+            ESTADO_LABEL.get(estado, estado),
+            l['notas'], l['updated_at'],
+        ]
+        for col, val in enumerate(values, 1):
+            ws.cell(row=row_i, column=col, value=val)
+        fill_color = ESTADO_COLOR.get(estado, 'FFFFFF')
+        fill = PatternFill(fill_type='solid', fgColor=fill_color)
+        for col in range(1, len(headers) + 1):
+            ws.cell(row=row_i, column=col).fill = fill
+
+    # Ajustar anchos de columna
+    col_widths = [14, 28, 36, 16, 16, 18, 9, 28, 14, 16, 16, 24, 20]
+    for col, width in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+
+    ws.freeze_panes = 'A2'
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    fecha = (cruce['fecha'] or '')[:10]
+    filename = f'reporte_cruce_{cruce_id}_{fecha}.xlsx'
+    return send_file(buf, as_attachment=True, download_name=filename,
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 
 # ── Rutas lineas / estados cadete ───────────────────────────────────────────────
 
