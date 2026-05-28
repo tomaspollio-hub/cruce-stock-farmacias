@@ -1,4 +1,4 @@
-const CACHE = 'farmacias-global-v2';
+const CACHE = 'farmacias-global-v4';
 
 const STATIC = [
   '/login.html',
