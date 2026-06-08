@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
   <style>
+    body:not([data-rol="admin"]) .admin-only { display: none !important; }
     .ent-row {
       display: grid;
       grid-template-columns: 1fr 130px 130px 80px;
@@ -132,6 +133,7 @@
 
   if (session.rol === 'operador') { window.location.href = 'operador.html'; }
 
+  document.body.dataset.rol = session.rol;
   document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
@@ -275,11 +277,13 @@
       const pct   = c.pct_cobertura.toFixed(1);
       const color = pct >= 80 ? 'green' : pct >= 50 ? 'yellow' : 'red';
       const label = c.archivo_pedidos || `Cruce #${c.id}`;
+      const usuario = c.usuario_nombre ? `<div style="font-size:var(--text-xs);color:var(--text-muted)">${c.usuario_nombre}</div>` : '';
       return `
-        <tr>
+        <tr id="cruce-row-${c.id}">
           <td>
             <div style="font-weight:var(--font-medium)">${label}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted)">${c.archivo_stock || ''}</div>
+            ${usuario}
           </td>
           <td>${fecha}</td>
           <td>${c.total_lineas}</td>
@@ -287,10 +291,11 @@
           <td>${c.con_cobertura}</td>
           <td>${c.sin_cobertura}</td>
           <td>
-            <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
+            <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
               <a href="cadete.html?cruce=${c.id}" class="btn btn-primary btn-sm">Cadete</a>
               <button class="btn btn-ghost btn-sm" data-cruce="${c.id}" data-label="${label}">📦 Entregas</button>
               <button class="btn btn-ghost btn-sm" onclick="downloadExcel(${c.id})">Excel</button>
+              <button class="btn btn-danger btn-sm admin-only" data-delete="${c.id}" data-label="${label}" title="Borrar cruce">🗑</button>
             </div>
           </td>
         </tr>`;
@@ -313,6 +318,32 @@
       btn.addEventListener('click', () =>
         abrirEntregas(parseInt(btn.dataset.cruce), btn.dataset.label)
       );
+    });
+
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id    = parseInt(btn.dataset.delete);
+        const label = btn.dataset.label;
+        if (!confirm(`¿Borrar el cruce "${label}"?\n\nEsta acción no se puede deshacer.`)) return;
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          const res  = await auth.apiFetch(`/api/cruces/${id}`, { method: 'DELETE' });
+          const data = await res.json();
+          if (data.ok) {
+            document.getElementById(`cruce-row-${id}`)?.remove();
+            showToast('Cruce borrado', 'success');
+          } else {
+            showToast('No se pudo borrar el cruce', 'danger');
+            btn.disabled = false;
+            btn.textContent = '🗑';
+          }
+        } catch {
+          showToast('Error al borrar', 'danger');
+          btn.disabled = false;
+          btn.textContent = '🗑';
+        }
+      });
     });
   }
 

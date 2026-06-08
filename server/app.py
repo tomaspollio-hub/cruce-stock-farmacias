@@ -293,6 +293,18 @@ def cruce_detail(cruce_id):
         'lineas': [dict(l) for l in lineas],
     })
 
+@app.delete('/api/cruces/<int:cruce_id>')
+@require_admin
+def cruce_delete(cruce_id):
+    db = get_db()
+    if not db.execute('SELECT id FROM cruces WHERE id = ?', (cruce_id,)).fetchone():
+        return jsonify({'ok': False, 'motivo': 'no_encontrado'}), 404
+    # jornadas no tiene ON DELETE CASCADE, hay que borrar antes
+    db.execute('DELETE FROM jornadas WHERE cruce_id = ?', (cruce_id,))
+    db.execute('DELETE FROM cruces WHERE id = ?', (cruce_id,))
+    db.commit()
+    return jsonify({'ok': True})
+
 # ── Jobs (procesamiento asíncrono) ──────────────────────────────────────────────
 
 _jobs: dict = {}   # job_id → {status, step, cruce_id, resumen, error}
@@ -1050,34 +1062,66 @@ def _procesar_cruce(path_pedidos, path_stock, out_dir):
     )
     exportar_excel_profesional(datos, excel_path)
 
+    # Índice GTIN/SKU → LineaMatching para calcular alternativas
+    import pandas as _pd
+    _col_nodo = mapa_stock["nodo"]
+    _col_stk  = mapa_stock["stock"]
+    _gtin_idx: dict = {}
+    _sku_idx:  dict = {}
+    for _lm in resultado_matching.lineas:
+        if _lm.gtin and _lm.df_stock is not None:
+            _gtin_idx[str(_lm.gtin).strip()] = _lm
+        if _lm.sku and _lm.df_stock is not None:
+            _sku_idx[str(_lm.sku).strip()] = _lm
+
+    def _get_alternativas(gtin, sku, nodo_asignado):
+        lm = _gtin_idx.get(str(gtin).strip()) or _sku_idx.get(str(sku).strip())
+        if not lm or lm.df_stock is None:
+            return []
+        df_tmp = _pd.DataFrame({
+            'nodo':  lm.df_stock[_col_nodo].values,
+            'stock': _pd.to_numeric(lm.df_stock[_col_stk], errors='coerce').fillna(0).values,
+        })
+        stock_por_nodo = df_tmp.groupby('nodo')['stock'].sum().sort_values(ascending=False)
+        return [
+            {'nodo': n, 'stock': int(s)}
+            for n, s in stock_por_nodo.items()
+            if int(s) > 0 and n != nodo_asignado
+        ][:3]
+
     # Convertir df_ruta al formato de líneas que espera la API
     lineas = []
     if not df_ruta.empty:
         for _, row in df_ruta.iterrows():
             farmacia = row.get('Farmacia', '')
             es_sin_cob = (not farmacia) or farmacia == '— SIN COBERTURA —'
+            gtin = str(row.get('GTIN', '') or '')
+            sku  = str(row.get('Zetti (ID)', '') or '')
+            nodo = None if es_sin_cob else farmacia
             lineas.append({
                 'nro_pedido':      str(row.get('N° Pedido', '') or ''),
-                'gtin':            str(row.get('GTIN', '') or ''),
-                'sku':             str(row.get('Zetti (ID)', '') or ''),
+                'gtin':            gtin,
+                'sku':             sku,
                 'producto':        str(row.get('Producto', '') or ''),
                 'marca':           '',
                 'unidades':        int(row.get('Unidades a buscar') or row.get('Cantidad pedida') or 1),
-                'nodo_asignado':    None if es_sin_cob else farmacia,
+                'nodo_asignado':    nodo,
                 'zona':             int(row.get('prioridad', 2)),
                 'tier':             int(row.get('_tier', 2)),
                 'stock_disponible': int(row.get('Stock sucursal', 0) or 0),
-                'alternativas':     [],
+                'alternativas':     _get_alternativas(gtin, sku, nodo),
                 'punto_retiro':     str(row.get('Punto de Retiro', '') or ''),
             })
 
     # Líneas sin cobertura del df_sin_stock
     if not df_sin_stock.empty:
         for _, row in df_sin_stock.iterrows():
+            gtin = str(row.get('GTIN', '') or '')
+            sku  = str(row.get('SKU', '') or '')
             lineas.append({
                 'nro_pedido':      str(row.get('N° Pedido', '') or ''),
-                'gtin':            str(row.get('GTIN', '') or ''),
-                'sku':             str(row.get('SKU', '') or ''),
+                'gtin':            gtin,
+                'sku':             sku,
                 'producto':        str(row.get('Producto', '') or ''),
                 'marca':           '',
                 'unidades':        int(row.get('Unidades', 1) or 1),
@@ -1085,7 +1129,7 @@ def _procesar_cruce(path_pedidos, path_stock, out_dir):
                 'zona':             99,
                 'tier':             99,
                 'stock_disponible': 0,
-                'alternativas':     [],
+                'alternativas':     _get_alternativas(gtin, sku, None),
                 'punto_retiro':     str(row.get('Punto de Retiro', '') or ''),
             })
 
