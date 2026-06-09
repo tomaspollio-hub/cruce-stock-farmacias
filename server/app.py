@@ -1520,9 +1520,11 @@ def cruce_agregar_linea(cid):
         INSERT INTO lineas
             (cruce_id, nro_pedido, gtin, sku, producto, unidades,
              nodo_asignado, tier, estado, notas, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (cid, nro_ped, gtin, sku, producto, unidades,
-          nodo or None, tier, notas, now))
+          nodo or None, tier,
+          'PENDIENTE' if nodo else 'SIN_COBERTURA',
+          notas, now))
 
     db.execute('UPDATE cruces SET total_lineas = total_lineas + 1 WHERE id = ?', (cid,))
     db.commit()

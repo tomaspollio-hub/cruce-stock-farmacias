@@ -101,6 +101,7 @@
       background: var(--bg-subtle);
       border: 1px solid var(--border);
       flex-shrink: 0;
+      cursor: zoom-in;
     }
     .linea-producto {
       font-weight: var(--font-semibold);
@@ -148,6 +149,8 @@
       border-bottom: 1px solid var(--border);
     }
     .alternativa-item:last-child { border-bottom: none; }
+    .alternativa-item.seleccionable { cursor: pointer; transition: background var(--transition-fast), color var(--transition-fast); }
+    .alternativa-item.seleccionable:hover { background: var(--accent-light); color: var(--accent); border-radius: var(--radius-sm); }
 
     /* ── Entrega card ─────────────────────────────────────────── */
     .entrega-card {
@@ -406,6 +409,10 @@
                placeholder="Escribí o elegí de la lista">
         <p class="form-hint">Elegí de la lista o escribí el nombre exacto de la sucursal.</p>
       </div>
+      <div id="reas-alternativas" style="display:none">
+        <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-2)">Mejores alternativas — tocá para seleccionar</div>
+        <div id="reas-alternativas-list" class="alternativas-list" style="margin-top:0"></div>
+      </div>
     </div>
     <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
       <button class="btn btn-ghost" id="reas-cancel">Cancelar</button>
@@ -432,6 +439,11 @@
       <button class="btn btn-primary" id="jornada-save">Guardar jornada</button>
     </div>
   </div>
+</div>
+
+<!-- Lightbox: imagen expandida -->
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:600;align-items:center;justify-content:center;cursor:zoom-out">
+  <img id="lightbox-img" src="" alt="" style="max-width:92vw;max-height:92vh;border-radius:var(--radius-md);object-fit:contain;box-shadow:var(--shadow-lg)">
 </div>
 
 <script type="module">
@@ -634,6 +646,33 @@
       });
     });
 
+    document.querySelectorAll('.alternativa-item.seleccionable').forEach(item => {
+      item.addEventListener('click', e => {
+        e.stopPropagation();
+        const lineaId = parseInt(item.dataset.altLinea);
+        const nodo    = item.dataset.altNodo;
+        const stock   = item.dataset.altStock;
+        if (item.dataset.altAccion === 'sincob') {
+          const card = document.getElementById(`linea-${lineaId}`);
+          if (card) {
+            card.querySelector('.sincob-nodo').value = nodo;
+            if (stock) card.querySelector('.sincob-stock').value = stock;
+          }
+        } else {
+          abrirModalReasignar(lineaId, nodo);
+        }
+      });
+    });
+
+    document.querySelectorAll('.linea-thumb').forEach(img => {
+      img.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!img.dataset.cargada || !img.src) return;
+        document.getElementById('lightbox-img').src = img.src;
+        document.getElementById('lightbox').style.display = 'flex';
+      });
+    });
+
     document.querySelectorAll('.sincob-asignar').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
@@ -799,9 +838,13 @@
           }
           ${alts.length > 0 ? `
             <div class="alternativas-list">
-              <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2)">ALTERNATIVAS (${alts.length})</div>
+              <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2)">ALTERNATIVAS (${alts.length}) — tocá para seleccionar</div>
               ${alts.map(a => `
-                <div class="alternativa-item">
+                <div class="alternativa-item seleccionable"
+                     data-alt-accion="${isSinCob ? 'sincob' : 'reas'}"
+                     data-alt-nodo="${a.nodo || a}"
+                     data-alt-stock="${a.stock || ''}"
+                     data-alt-linea="${l.id}">
                   <span>📍</span><span style="flex:1">${a.nodo || a}</span>
                   ${a.stock ? `<span class="badge badge-gray">${a.stock} un.</span>` : ''}
                 </div>`).join('')}
@@ -1069,6 +1112,15 @@
     renderLineas();
   });
 
+  // ── Lightbox imagen ─────────────────────────────────────────
+  document.getElementById('lightbox').addEventListener('click', () => {
+    document.getElementById('lightbox').style.display = 'none';
+    document.getElementById('lightbox-img').src = '';
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('lightbox').style.display = 'none';
+  });
+
   // ── Modal nota ───────────────────────────────────────────────
 
   function abrirModalNota(linea_id) {
@@ -1116,13 +1168,33 @@
       }
     }).catch(() => {});
 
-  function abrirModalReasignar(linea_id) {
+  function abrirModalReasignar(linea_id, preselect = '') {
     reasLineaId = linea_id;
     const linea = lineas.find(l => l.id === linea_id);
     document.getElementById('reas-producto').textContent   = linea?.producto || `Línea #${linea_id}`;
     document.getElementById('reas-nodo-actual').textContent =
       linea?.nodo_asignado ? `Sucursal actual: ${linea.nodo_asignado}` : 'Sin sucursal asignada';
-    document.getElementById('reas-select').value = '';   // vacío para que el datalist muestre todas
+    document.getElementById('reas-select').value = preselect;
+
+    const alts         = Array.isArray(linea?.alternativas) ? linea.alternativas : [];
+    const altContainer = document.getElementById('reas-alternativas');
+    const altList      = document.getElementById('reas-alternativas-list');
+    if (alts.length > 0) {
+      altList.innerHTML = alts.map(a => `
+        <div class="alternativa-item seleccionable" data-nodo="${a.nodo || a}">
+          <span>📍</span><span style="flex:1">${a.nodo || a}</span>
+          ${a.stock ? `<span class="badge badge-gray">${a.stock} un.</span>` : ''}
+        </div>`).join('');
+      altList.querySelectorAll('.alternativa-item').forEach(item => {
+        item.addEventListener('click', () => {
+          document.getElementById('reas-select').value = item.dataset.nodo;
+        });
+      });
+      altContainer.style.display = '';
+    } else {
+      altContainer.style.display = 'none';
+    }
+
     document.getElementById('modal-reasignar').style.display = 'flex';
     setTimeout(() => document.getElementById('reas-select').focus(), 80);
   }
