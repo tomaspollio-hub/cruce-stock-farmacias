@@ -136,6 +136,10 @@
   letter-spacing: 0.05em;
 }
 
+@media (max-width: 600px) {
+  .stat-value { font-size: var(--text-xl); }
+}
+
 /* ── Badges ───────────────────────────────────────────────────── */
 .badge {
   display: inline-flex;

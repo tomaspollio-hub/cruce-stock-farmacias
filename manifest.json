@@ -1,11 +1,11 @@
 {
-  "name": "ECommerce — Farmacias Global",
-  "short_name": "ECommerce",
+  "name": "Farmacias Global — Operaciones",
+  "short_name": "FG Ops",
   "description": "Gestión operativa de pedidos y stock para el canal ecommerce",
   "start_url": "/cadete.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0284c7",
+  "theme_color": "#2563eb",
   "orientation": "portrait-primary",
   "icons": [
     {
