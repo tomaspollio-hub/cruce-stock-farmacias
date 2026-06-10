@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ECommerce — Usuarios</title>
+  <title>Farmacias Global — Usuarios</title>
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -111,7 +111,7 @@
   document.getElementById('user-avatar').textContent =
     (session.nombre || session.usuario).charAt(0).toUpperCase();
   document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
-  initMobileNav('usuarios');
+  initMobileNav('usuarios', session.rol);
 
   const ROL_BADGE = { admin: 'badge-red', operador: 'badge-blue', cadete: 'badge-green' };
   const ROL_LABEL = { admin: 'Admin', operador: 'Operador', cadete: 'Cadete' };

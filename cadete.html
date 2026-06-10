@@ -5,7 +5,7 @@
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#2563eb">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ECommerce — Vista cadete</title>
+  <title>Farmacias Global — Ruta del día</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/variables.css">
@@ -306,7 +306,7 @@
 
 <!-- Modal: nota libre -->
 <div id="modal-notas" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
-  <div class="card" style="width:100%;max-width:420px;margin:var(--space-4)">
+  <div class="card modal-panel" style="width:100%;max-width:420px;margin:var(--space-4)">
     <div class="card-header">
       <h2 class="card-title">Agregar nota</h2>
       <button id="modal-close" class="btn btn-ghost btn-sm">✕</button>
@@ -324,7 +324,7 @@
 
 <!-- Modal: mal stock con sucursal alternativa -->
 <div id="modal-malstock" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
-  <div class="card" style="width:100%;max-width:440px;margin:var(--space-4)">
+  <div class="card modal-panel" style="width:100%;max-width:440px;margin:var(--space-4)">
     <div class="card-header">
       <h2 class="card-title">⚠ Confirmar mal stock</h2>
       <button id="ms-close" class="btn btn-ghost btn-sm">✕</button>
@@ -346,7 +346,7 @@
 
 <!-- Modal: confirmar entrega + firma digital -->
 <div id="modal-entrega" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
-  <div class="card" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
+  <div class="card modal-panel" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
     <div class="card-header">
       <h2 class="card-title">📦 Confirmar entrega</h2>
       <button id="ent-close" class="btn btn-ghost btn-sm">✕</button>
@@ -392,7 +392,7 @@
 
 <!-- Modal: reasignar sucursal (solo admin/operador) -->
 <div id="modal-reasignar" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;align-items:center;justify-content:center">
-  <div class="card" style="width:100%;max-width:440px;margin:var(--space-4)">
+  <div class="card modal-panel" style="width:100%;max-width:440px;margin:var(--space-4)">
     <div class="card-header">
       <h2 class="card-title">📍 Reasignar sucursal</h2>
       <button id="reas-close" class="btn btn-ghost btn-sm">✕</button>
@@ -423,7 +423,7 @@
 
 <!-- Modal: planificar jornada -->
 <div id="modal-jornada" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
-  <div class="card" style="width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column">
+  <div class="card modal-panel" style="width:100%;max-width:480px;max-height:85vh;display:flex;flex-direction:column">
     <div class="card-header">
       <h2 class="card-title">🗺 Planificar jornada</h2>
       <button id="jornada-close" class="btn btn-ghost btn-sm">✕</button>
