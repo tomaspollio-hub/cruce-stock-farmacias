@@ -624,6 +624,7 @@
         if (body?.classList.contains('linea-card-body')) {
           const abriendo = body.style.display === 'none';
           body.style.display = abriendo ? 'block' : 'none';
+          h.classList.toggle('open', abriendo);
           if (abriendo) {
             const card = h.closest('.linea-card');
             const linId = card?.id?.replace('linea-', '');
@@ -794,7 +795,7 @@
       : '';
 
     return `
-      <div class="linea-card" id="linea-${l.id}">
+      <div class="linea-card linea-card--${l.estado}" id="linea-${l.id}">
         <div class="linea-card-header">
           <div class="linea-header-wrap">
             ${imgHtml}
@@ -809,7 +810,7 @@
             </div>
           </div>
           <span class="badge estado-${l.estado}">${ESTADO_LABEL[l.estado] || l.estado}</span>
-          <span style="color:var(--text-muted);font-size:var(--text-lg)">⌄</span>
+          <span class="linea-chevron"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
         </div>
         <div class="linea-card-body" style="display:none">
           ${l.notas ? `<div class="alert alert-info" style="margin-bottom:var(--space-3);font-size:var(--text-xs)">📝 ${l.notas}</div>` : ''}
@@ -828,12 +829,14 @@
                  </div>
                </div>`
             : `<div class="linea-acciones">
-                <button class="btn btn-success btn-sm" data-accion="ENCONTRADO"       data-linea="${l.id}">✓ Encontrado</button>
-                <button class="btn btn-danger btn-sm"  data-accion="NO_ENCONTRADO"    data-linea="${l.id}">✕ No encontrado</button>
-                <button class="btn btn-warning btn-sm" data-accion="MAL_STOCK_PROMPT" data-linea="${l.id}">⚠ Mal stock</button>
-                <button class="btn btn-ghost btn-sm"   data-accion="EN_REVISION"      data-linea="${l.id}">⏸ Revisar</button>
-                <button class="btn btn-ghost btn-sm"   data-accion="NOTA"             data-linea="${l.id}">📝</button>
-                <button class="btn btn-ghost btn-sm admin-only" data-accion="REASIGNAR_NODO" data-linea="${l.id}" title="Cambiar sucursal asignada">📍 Cambiar sucursal</button>
+                <button class="btn btn-success btn-block" data-accion="ENCONTRADO" data-linea="${l.id}">✓ Encontrado</button>
+                <div class="linea-acciones-sec">
+                  <button class="btn btn-danger btn-sm"  data-accion="NO_ENCONTRADO"    data-linea="${l.id}">✕ No encontrado</button>
+                  <button class="btn btn-warning btn-sm" data-accion="MAL_STOCK_PROMPT" data-linea="${l.id}">⚠ Mal stock</button>
+                  <button class="btn btn-ghost btn-sm"   data-accion="EN_REVISION"      data-linea="${l.id}">⏸ Revisar</button>
+                  <button class="btn btn-ghost btn-sm"   data-accion="NOTA"             data-linea="${l.id}">📝</button>
+                  <button class="btn btn-ghost btn-sm admin-only" data-accion="REASIGNAR_NODO" data-linea="${l.id}" title="Cambiar sucursal asignada">📍</button>
+                </div>
               </div>`
           }
           ${alts.length > 0 ? `

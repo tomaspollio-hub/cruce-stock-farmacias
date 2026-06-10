@@ -265,6 +265,7 @@ table.data-table tr:hover td { background: var(--bg-subtle); }
 .linea-card {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
   border-radius: var(--radius-lg);
   margin-bottom: var(--space-3);
   overflow: hidden;
@@ -272,6 +273,14 @@ table.data-table tr:hover td { background: var(--bg-subtle); }
 }
 
 .linea-card:hover { box-shadow: var(--shadow-md); }
+
+.linea-card--PENDIENTE     { border-left-color: var(--accent); }
+.linea-card--ENCONTRADO    { border-left-color: var(--success); }
+.linea-card--NO_ENCONTRADO { border-left-color: var(--danger); }
+.linea-card--MAL_STOCK     { border-left-color: var(--warning); }
+.linea-card--EN_REVISION   { border-left-color: #7c3aed; }
+.linea-card--REASIGNADO    { border-left-color: var(--info); }
+.linea-card--SIN_COBERTURA { border-left-color: var(--border-strong); }
 
 .linea-card-header {
   display: flex;
@@ -284,6 +293,15 @@ table.data-table tr:hover td { background: var(--bg-subtle); }
 
 .linea-card-header:hover { background: var(--bg-subtle); }
 
+.linea-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  transition: transform var(--transition-fast);
+}
+.linea-card-header.open .linea-chevron { transform: rotate(180deg); }
+
 .linea-card-body {
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--border);
@@ -292,9 +310,15 @@ table.data-table tr:hover td { background: var(--bg-subtle); }
 
 .linea-acciones {
   display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.linea-acciones-sec {
+  display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: var(--space-3);
 }
 
 /* ── Grupo sucursal ───────────────────────────────────────────── */
