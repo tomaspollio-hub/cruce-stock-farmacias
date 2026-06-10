@@ -342,6 +342,16 @@
     </div>
   </div>
 
+  <div class="card" style="margin-bottom:var(--space-6)">
+    <div class="card-header">
+      <h2 class="card-title">Tiempos por farmacia</h2>
+      <span style="font-size:var(--text-xs);color:var(--text-muted)">tiempo promedio del cadete en cada sucursal</span>
+    </div>
+    <div class="card-body" id="tbl-tiempos-farmacia">
+      <div class="spinner" style="margin:var(--space-6) auto"></div>
+    </div>
+  </div>
+
 </main>
 
 <div id="toast-container"></div>
@@ -442,6 +452,32 @@
     document.getElementById('btn-export').href = url;
   }
 
+  // ── Tiempos por farmacia ────────────────────────────────────
+  function renderTiemposFarmacia(farmacias) {
+    const el = document.getElementById('tbl-tiempos-farmacia');
+    if (!farmacias || farmacias.length === 0) {
+      el.innerHTML = `<div class="empty-state" style="padding:var(--space-4) 0">
+        <div class="empty-state-icon">⏱</div>
+        <div class="empty-state-title">Sin datos aún</div>
+        <div class="empty-state-desc">Los tiempos se calculan en base a la actividad del cadete</div>
+      </div>`;
+      return;
+    }
+    const max = Math.max(...farmacias.map(f => f.promedio_min), 1);
+    const tIcon  = t => t === 'mejorando' ? '↓' : t === 'empeorando' ? '↑' : '→';
+    const tColor = t => t === 'mejorando' ? 'var(--success)' : t === 'empeorando' ? 'var(--danger)' : 'var(--text-muted)';
+    el.innerHTML = farmacias.map(f => `
+      <div class="top-row">
+        <div class="top-name" title="${f.nodo}">${f.nodo}</div>
+        <div class="top-bar-bg">
+          <div class="top-bar-fill" style="width:${Math.round(f.promedio_min / max * 100)}%;background:var(--accent)"></div>
+        </div>
+        <div class="top-val" style="width:56px;text-align:right">${f.promedio_min} min</div>
+        <div style="font-size:var(--text-xs);font-weight:700;color:${tColor(f.tendencia)};width:14px;text-align:center;flex-shrink:0" title="Última: ${f.ultima_min} min">${tIcon(f.tendencia)}</div>
+        <div style="font-size:var(--text-xs);color:var(--text-muted);width:30px;text-align:right;flex-shrink:0">${f.muestras}×</div>
+      </div>`).join('');
+  }
+
   // ── Carga de datos ─────────────────────────────────────────
   async function cargarDashboard() {
     const desde = document.getElementById('f-desde').value;
@@ -454,14 +490,16 @@
     if (hasta) params.push(`hasta=${hasta}`);
     const qs = params.length ? '?' + params.join('&') : '';
 
-    const [rAnalytics, rCruces] = await Promise.all([
+    const [rAnalytics, rCruces, rTiempos] = await Promise.all([
       auth.apiFetch('/api/analytics' + qs),
       auth.apiFetch('/api/cruces'),
+      auth.apiFetch('/api/analytics/tiempos-farmacia'),
     ]);
 
-    const [analytics, cruces] = await Promise.all([
+    const [analytics, cruces, tiempos] = await Promise.all([
       rAnalytics.json().catch(() => null),
       rCruces.json().catch(() => null),
+      rTiempos.json().catch(() => null),
     ]);
 
     if (analytics?.ok) {
@@ -486,6 +524,8 @@
       document.getElementById('tbl-puntos-retiro').innerHTML =
         topList(analytics.top_puntos_retiro, 'punto_retiro', 'pedidos');
     }
+
+    if (tiempos?.ok) renderTiemposFarmacia(tiempos.farmacias);
 
     if (cruces?.ok && cruces.cruces.length > 0) {
       const ultimo = cruces.cruces[0];

@@ -1590,6 +1590,126 @@ def cruce_jornadas(cid):
     ]})
 
 
+# ── Tiempos por farmacia ────────────────────────────────────────────────────────
+
+@app.get('/api/analytics/tiempos-farmacia')
+@require_auth
+def analytics_tiempos_farmacia():
+    from datetime import datetime as dt
+    db   = get_db()
+    rows = db.execute('''
+        SELECT
+            nodo_asignado,
+            cruce_id,
+            MIN(CASE WHEN estado NOT IN ('PENDIENTE','SIN_COBERTURA') THEN updated_at END) AS primera_accion,
+            MAX(CASE WHEN estado NOT IN ('PENDIENTE','SIN_COBERTURA') THEN updated_at END) AS ultima_accion
+        FROM lineas
+        WHERE nodo_asignado IS NOT NULL AND nodo_asignado != ''
+          AND updated_at IS NOT NULL
+        GROUP BY cruce_id, nodo_asignado
+        HAVING primera_accion IS NOT NULL
+    ''').fetchall()
+
+    farm_muestras = {}
+    for r in rows:
+        nodo = r['nodo_asignado']
+        try:
+            t1  = dt.fromisoformat(r['primera_accion'].replace('Z', '+00:00'))
+            t2  = dt.fromisoformat(r['ultima_accion'].replace('Z', '+00:00'))
+            dur = (t2 - t1).total_seconds() / 60
+            if dur < 1:
+                continue
+        except Exception:
+            continue
+        farm_muestras.setdefault(nodo, []).append({
+            'cruce_id':    r['cruce_id'],
+            'duracion_min': round(dur, 1),
+            'fecha':        r['primera_accion'],
+        })
+
+    result = []
+    for nodo, muestras in farm_muestras.items():
+        muestras.sort(key=lambda x: x['fecha'])
+        durs     = [m['duracion_min'] for m in muestras]
+        promedio = sum(durs) / len(durs)
+        ultima   = durs[-1]
+        if len(durs) >= 3:
+            hist_prom = sum(durs[:-1]) / len(durs[:-1])
+            tendencia = ('mejorando'  if ultima < hist_prom * 0.85 else
+                         'empeorando' if ultima > hist_prom * 1.15 else 'estable')
+        else:
+            tendencia = 'sin_datos'
+        result.append({
+            'nodo':         nodo,
+            'promedio_min': round(promedio, 1),
+            'min_min':      round(min(durs), 1),
+            'max_min':      round(max(durs), 1),
+            'ultima_min':   round(ultima, 1),
+            'muestras':     len(muestras),
+            'tendencia':    tendencia,
+        })
+
+    result.sort(key=lambda x: x['promedio_min'], reverse=True)
+    return jsonify({'ok': True, 'farmacias': result})
+
+
+@app.get('/api/cruces/<int:cid>/timing')
+@require_auth
+def cruce_timing(cid):
+    from datetime import datetime as dt
+    db   = get_db()
+    rows = db.execute('''
+        SELECT
+            nodo_asignado,
+            MIN(CASE WHEN estado NOT IN ('PENDIENTE','SIN_COBERTURA') THEN updated_at END) AS primera_accion,
+            MAX(CASE WHEN estado NOT IN ('PENDIENTE','SIN_COBERTURA') THEN updated_at END) AS ultima_accion,
+            SUM(CASE WHEN estado = 'PENDIENTE' THEN 1 ELSE 0 END) AS pendientes,
+            COUNT(*) AS total
+        FROM lineas
+        WHERE cruce_id = ?
+          AND nodo_asignado IS NOT NULL AND nodo_asignado != ''
+        GROUP BY nodo_asignado
+    ''', (cid,)).fetchall()
+
+    ahora     = datetime.now(timezone.utc)
+    farmacias = {}
+    for r in rows:
+        nodo    = r['nodo_asignado']
+        primera = r['primera_accion']
+        ultima  = r['ultima_accion']
+        pend    = r['pendientes']
+        dur     = None
+
+        if primera is None:
+            estado = 'pendiente'
+        elif pend == 0:
+            estado = 'completada'
+            try:
+                t1  = dt.fromisoformat(primera.replace('Z', '+00:00'))
+                t2  = dt.fromisoformat(ultima.replace('Z', '+00:00'))
+                dur = round((t2 - t1).total_seconds() / 60, 1)
+            except Exception:
+                pass
+        else:
+            estado = 'en_curso'
+            try:
+                t1  = dt.fromisoformat(primera.replace('Z', '+00:00'))
+                dur = round((ahora - t1).total_seconds() / 60, 1)
+            except Exception:
+                pass
+
+        farmacias[nodo] = {
+            'primera_accion': primera,
+            'ultima_accion':  ultima,
+            'pendientes':     pend,
+            'total':          r['total'],
+            'estado':         estado,
+            'duracion_min':   dur,
+        }
+
+    return jsonify({'ok': True, 'farmacias': farmacias})
+
+
 # ── Health check ────────────────────────────────────────────────────────────────
 
 @app.get('/api/health')

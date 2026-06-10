@@ -160,6 +160,15 @@
     }
     .entrega-tile.activa { border-color: #93c5fd; background: #eff6ff; }
     .entrega-tile.sin-pedidos { opacity: .65; border-style: dashed; }
+    .et-eta {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: var(--space-1);
+    }
+    .et-eta.et-eta-active {
+      color: var(--accent);
+      font-weight: var(--font-semibold);
+    }
     .et-activar-btn {
       margin-top: var(--space-3);
       width: 100%;
@@ -633,20 +642,30 @@
     setRefreshBadge('actualizando');
 
     try {
-      const [rProg, rInc, rEnt, rJor] = await Promise.all([
+      const [rProg, rInc, rEnt, rJor, rTiming, rHistorico] = await Promise.all([
         auth.apiFetch(`/api/cruces/${cruceId}/progreso`),
         auth.apiFetch(`/api/cruces/${cruceId}/incidencias`),
         auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
         auth.apiFetch(`/api/cruces/${cruceId}/jornadas`),
+        auth.apiFetch(`/api/cruces/${cruceId}/timing`),
+        auth.apiFetch('/api/analytics/tiempos-farmacia'),
       ]);
 
-      // Parsear cada respuesta de forma independiente para que un error no bloquee los demás
-      const [dProg, dInc, dEnt, dJor] = await Promise.all([
+      const [dProg, dInc, dEnt, dJor, dTiming, dHistorico] = await Promise.all([
         rProg.json().catch(() => null),
         rInc.json().catch(() => null),
         rEnt.json().catch(() => null),
         rJor.json().catch(() => null),
+        rTiming.json().catch(() => null),
+        rHistorico.json().catch(() => null),
       ]);
+
+      if (dTiming?.ok)    timingFarmacias = dTiming.farmacias ?? {};
+      if (dHistorico?.ok) {
+        historicoPorFarmacia = {};
+        dHistorico.farmacias.forEach(f => { historicoPorFarmacia[f.nodo] = f; });
+      }
+      jornadaOrden = (dJor?.ok && dJor.jornadas.length > 0) ? dJor.jornadas[0].puntos : [];
 
       if (dProg?.ok) renderProgreso(dProg.progreso);
       if (dInc?.ok)  renderIncidencias(dInc.incidencias);
@@ -757,6 +776,47 @@
     document.getElementById('firma-modal-overlay').classList.add('open');
   }
 
+  function calcularETA(nodoTarget) {
+    const idxTarget = jornadaOrden.indexOf(nodoTarget);
+    if (idxTarget === -1) return null;
+
+    // Buscar farmacia en_curso
+    let currentIdx = -1;
+    for (let i = 0; i < jornadaOrden.length; i++) {
+      if (timingFarmacias[jornadaOrden[i]]?.estado === 'en_curso') { currentIdx = i; break; }
+    }
+
+    // Si no hay en_curso, buscar la última completada para calcular desde ahí
+    if (currentIdx === -1) {
+      for (let i = jornadaOrden.length - 1; i >= 0; i--) {
+        if (timingFarmacias[jornadaOrden[i]]?.estado === 'completada') { currentIdx = i; break; }
+      }
+      if (currentIdx === -1 || idxTarget <= currentIdx) return null;
+      // Cadete terminó la última farmacia: contar desde después de ella
+      let totalMin = 5;  // viaje a la próxima
+      for (let i = currentIdx + 1; i < idxTarget; i++) {
+        totalMin += (historicoPorFarmacia[jornadaOrden[i]]?.promedio_min ?? 20) + 5;
+      }
+      const eta = new Date(Date.now() + totalMin * 60000);
+      return eta.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    if (idxTarget <= currentIdx) return null;
+
+    // Tiempo restante en farmacia actual
+    const t        = timingFarmacias[jornadaOrden[currentIdx]];
+    const promCur  = historicoPorFarmacia[jornadaOrden[currentIdx]]?.promedio_min ?? 20;
+    const restante = Math.max(3, promCur - (t?.duracion_min ?? 0));
+
+    let totalMin = restante + 5;  // +5 viaje a la próxima
+    for (let i = currentIdx + 1; i < idxTarget; i++) {
+      totalMin += (historicoPorFarmacia[jornadaOrden[i]]?.promedio_min ?? 20) + 5;
+    }
+
+    const eta = new Date(Date.now() + totalMin * 60000);
+    return eta.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  }
+
   function renderEntregas(entregas) {
     const cont = document.getElementById('entregas-content');
     const summ = document.getElementById('entregas-summary');
@@ -823,7 +883,7 @@
             ${firma}
           </div>`;
       } else if (e.tiene_pedidos) {
-        const pedStr = e.nro_pedidos.slice(0, 3).join(', ') + (e.nro_pedidos.length > 3 ? '…' : '');
+        const pedStr    = e.nro_pedidos.slice(0, 3).join(', ') + (e.nro_pedidos.length > 3 ? '…' : '');
         const esActiva  = e.activa;
         const tileClass = esActiva ? 'entrega-tile activa' : 'entrega-tile';
         const iconoPre  = esActiva ? '📍' : '⏳';
@@ -835,12 +895,23 @@
           : `<span class="badge badge-gray" style="margin-top:var(--space-2)">Sin activar</span>`;
         const btnLabel  = esActiva ? 'Editar selección' : 'Activar para hoy';
         const btnClass  = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
+        // ETA / tiempo en curso
+        const farmTiming = timingFarmacias[e.punto_retiro];
+        let tiempoHtml = '';
+        if (esActiva && farmTiming?.estado === 'en_curso') {
+          const t = Math.round(farmTiming.duracion_min ?? 0);
+          tiempoHtml = `<div class="et-eta et-eta-active">📍 En curso · hace ${t} min</div>`;
+        } else if (!esActiva) {
+          const eta = calcularETA(e.punto_retiro);
+          if (eta) tiempoHtml = `<div class="et-eta">⏱ ETA ~${eta}</div>`;
+        }
         return `
           <div class="${tileClass}">
             <div class="et-farmacia" title="${e.punto_retiro}">${iconoPre} ${e.punto_retiro}</div>
             <div class="et-pedidos">${actLabel}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">${pedStr}</div>
             ${badgeHtml}
+            ${tiempoHtml}
             <button class="${btnClass}" data-pt="${ptEnc}" data-activa="${esActiva ? '1' : '0'}">${btnLabel}</button>
           </div>`;
       } else {
@@ -852,11 +923,18 @@
           : `<span class="badge badge-gray" style="margin-top:var(--space-2)">Sin pedidos</span>`;
         const btnLabel  = esActiva ? 'Editar selección' : 'Activar manualmente';
         const btnClass  = esActiva ? 'et-activar-btn desactivar' : 'et-activar-btn activar';
+        const farmTiming = timingFarmacias[e.punto_retiro];
+        let tiempoHtml = '';
+        if (esActiva && farmTiming?.estado === 'en_curso') {
+          const t = Math.round(farmTiming.duracion_min ?? 0);
+          tiempoHtml = `<div class="et-eta et-eta-active">📍 En curso · hace ${t} min</div>`;
+        }
         return `
           <div class="${tileClass}">
             <div class="et-farmacia" title="${e.punto_retiro}" style="color:var(--text-secondary)">🏪 ${e.punto_retiro}</div>
             <div class="et-pedidos" style="color:var(--text-muted)">Sin pedidos en este cruce</div>
             ${badgeHtml}
+            ${tiempoHtml}
             <button class="${btnClass}" data-pt="${ptEnc}" data-activa="${esActiva ? '1' : '0'}">${btnLabel}</button>
           </div>`;
       }
@@ -880,7 +958,10 @@
   }
 
   // ── Modal de selección de pedidos ────────────────────────────
-  let entregasData = [];   // cache de la última respuesta
+  let entregasData        = [];
+  let timingFarmacias     = {};  // { nodo: { estado, duracion_min, ... } }
+  let historicoPorFarmacia = {}; // { nodo: { promedio_min, ... } }
+  let jornadaOrden        = [];  // [nodo, ...] según jornada del cadete
 
   function abrirModalActivar(e) {
     const yaActiva    = e.activa;
