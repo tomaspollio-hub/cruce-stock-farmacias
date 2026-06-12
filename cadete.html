@@ -602,6 +602,8 @@
   let msLineaId    = null;
   let entPuntoRetiro = null;
   let firmaVacia   = true;
+  let lineasCargadas   = false;
+  let entregasCargadas = false;
 
   const ZONA_LABEL = {
     0: 'Depósito', 1: 'NQN Capital',
@@ -648,14 +650,37 @@
   // ── Carga inicial ────────────────────────────────────────────
 
   async function cargarLineas() {
-    const [rCruce, rLineas] = await Promise.all([
-      auth.apiFetch(`/api/cruces/${cruceId}`),
-      auth.apiFetch(`/api/cruces/${cruceId}/lineas`),
-    ]);
-    const dataCruce  = await rCruce.json();
-    const dataLineas = await rLineas.json();
+    let rCruce, rLineas;
+    try {
+      [rCruce, rLineas] = await Promise.all([
+        auth.apiFetch(`/api/cruces/${cruceId}`),
+        auth.apiFetch(`/api/cruces/${cruceId}/lineas`),
+      ]);
+    } catch {
+      showToast('Sin conexión — revisá tu señal', 'warning');
+      if (!lineasCargadas) document.getElementById('cadete-content').innerHTML =
+        `<div class="alert alert-warning">Sin conexión. Las líneas se van a cargar cuando vuelva la señal.</div>`;
+      return;
+    }
+
+    let dataCruce, dataLineas;
+    try {
+      dataCruce  = await rCruce.json();
+      dataLineas = await rLineas.json();
+    } catch {
+      showToast('Sin conexión — revisá tu señal', 'warning');
+      if (!lineasCargadas) document.getElementById('cadete-content').innerHTML =
+        `<div class="alert alert-warning">Sin conexión. Las líneas se van a cargar cuando vuelva la señal.</div>`;
+      return;
+    }
 
     if (!dataCruce.ok || !dataLineas.ok) {
+      if (dataCruce.motivo === 'offline' || dataLineas.motivo === 'offline') {
+        showToast('Sin conexión — revisá tu señal', 'warning');
+        if (!lineasCargadas) document.getElementById('cadete-content').innerHTML =
+          `<div class="alert alert-warning">Sin conexión. Las líneas se van a cargar cuando vuelva la señal.</div>`;
+        return;
+      }
       document.getElementById('cadete-content').innerHTML =
         `<div class="alert alert-danger">Error al cargar el cruce.</div>`;
       return;
@@ -665,6 +690,7 @@
     document.getElementById('cruce-subtitle').textContent =
       `${cruce.archivo_pedidos} · ${cruce.total_lineas} líneas · ${cruce.pct_cobertura.toFixed(1)}% cobertura`;
 
+    lineasCargadas = true;
     lineas = dataLineas.lineas;
     poblarSelectorSucursal();
     renderLineas();
@@ -978,20 +1004,50 @@
 
   // ── Render entregas ──────────────────────────────────────────
 
+  function _mostrarOfflineEntregas() {
+    document.getElementById('entregas-content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.56 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></div>
+        <div class="empty-state-title">Sin conexión</div>
+        <div class="empty-state-desc">Conectate para ver las entregas del día</div>
+      </div>`;
+  }
+
   async function cargarEntregas() {
-    const [resEnt, resJor] = await Promise.all([
-      auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
-      auth.apiFetch(`/api/jornada/hoy?cruce_id=${cruceId}`),
-    ]);
-    const dataEnt = await resEnt.json();
-    const dataJor = await resJor.json().catch(() => null);
+    let resEnt, resJor;
+    try {
+      [resEnt, resJor] = await Promise.all([
+        auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
+        auth.apiFetch(`/api/jornada/hoy?cruce_id=${cruceId}`),
+      ]);
+    } catch {
+      showToast('Sin conexión — revisá tu señal', 'warning');
+      if (!entregasCargadas) _mostrarOfflineEntregas();
+      return;
+    }
+
+    let dataEnt, dataJor;
+    try {
+      dataEnt = await resEnt.json();
+      dataJor = await resJor.json().catch(() => null);
+    } catch {
+      showToast('Sin conexión — revisá tu señal', 'warning');
+      if (!entregasCargadas) _mostrarOfflineEntregas();
+      return;
+    }
 
     if (!dataEnt.ok) {
+      if (dataEnt.motivo === 'offline') {
+        showToast('Sin conexión — mostrando última carga', 'warning');
+        if (!entregasCargadas) _mostrarOfflineEntregas();
+        return;
+      }
       document.getElementById('entregas-content').innerHTML =
         `<div class="alert alert-danger">Error al cargar entregas.</div>`;
       return;
     }
 
+    entregasCargadas = true;
     entregas = dataEnt.entregas;
     jornada  = dataJor?.jornada ?? null;
     renderJornadaBanner();
@@ -1229,8 +1285,11 @@
   }
 
   async function actualizarProgreso() {
-    const res  = await auth.apiFetch(`/api/cruces/${cruceId}/progreso`);
-    const data = await res.json();
+    let res, data;
+    try {
+      res  = await auth.apiFetch(`/api/cruces/${cruceId}/progreso`);
+      data = await res.json();
+    } catch { return; }
     if (!data.ok) return;
     const p = data.progreso;
     document.getElementById('progress-fixed').style.display = 'flex';

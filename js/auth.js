@@ -62,7 +62,7 @@ function _scheduleTimers(token) {
 
 const auth = {
   async _doRefresh() {
-    const token = sessionStorage.getItem('cruce_token');
+    const token = localStorage.getItem('cruce_token');
     if (!token) return;
     try {
       const res = await fetch('/api/auth/refresh', {
@@ -72,7 +72,7 @@ const auth = {
       if (!res.ok) return;
       const data = await res.json();
       if (data.ok && data.token) {
-        sessionStorage.setItem('cruce_token', data.token);
+        localStorage.setItem('cruce_token', data.token);
         _hideBanner();
         _scheduleTimers(data.token);
       }
@@ -93,7 +93,7 @@ const auth = {
     const data = await res.json();
     if (!data.ok) return { ok: false, motivo: data.motivo };
 
-    sessionStorage.setItem('cruce_token', data.token);
+    localStorage.setItem('cruce_token', data.token);
     await storage.saveSession(data.session);
     _scheduleTimers(data.token);
     return { ok: true, session: data.session };
@@ -101,7 +101,7 @@ const auth = {
 
   async logout() {
     _clearTimers();
-    const token = sessionStorage.getItem('cruce_token');
+    const token = localStorage.getItem('cruce_token');
     await fetch('/api/auth/logout', {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -117,7 +117,7 @@ const auth = {
   async requireAuth() {
     const session = await storage.getSession();
     if (!session) { window.location.href = './login.html'; return null; }
-    const token = sessionStorage.getItem('cruce_token');
+    const token = localStorage.getItem('cruce_token');
     if (!token) { await storage.clearSession(); window.location.href = './login.html'; return null; }
     const exp = _tokenExp(token);
     if (exp && Math.floor(Date.now() / 1000) >= exp) {
@@ -130,7 +130,7 @@ const auth = {
   },
 
   getToken() {
-    return sessionStorage.getItem('cruce_token');
+    return localStorage.getItem('cruce_token');
   },
 
   async apiFetch(url, options = {}) {

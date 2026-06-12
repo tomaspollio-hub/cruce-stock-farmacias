@@ -1,23 +1,23 @@
 /**
- * storage.js — sesión local (sessionStorage).
- * La autenticación vive en sessionStorage; los datos en el servidor.
+ * storage.js — sesión local (localStorage).
+ * La autenticación vive en localStorage; los datos en el servidor.
  */
 
 const storage = {
   async getSession() {
     try {
-      const raw = sessionStorage.getItem('cruce_session');
+      const raw = localStorage.getItem('cruce_session');
       return raw ? JSON.parse(raw) : null;
     } catch { return null; }
   },
 
   async saveSession(data) {
-    sessionStorage.setItem('cruce_session', JSON.stringify(data));
+    localStorage.setItem('cruce_session', JSON.stringify(data));
   },
 
   async clearSession() {
-    sessionStorage.removeItem('cruce_session');
-    sessionStorage.removeItem('cruce_token');
+    localStorage.removeItem('cruce_session');
+    localStorage.removeItem('cruce_token');
   },
 };
 

@@ -1,4 +1,4 @@
-const CACHE = 'farmacias-global-v7';
+const CACHE = 'farmacias-global-v8';
 
 // Solo pre-cachear imágenes y manifest — CSS/JS/HTML siempre van a la red primero
 const STATIC_IMAGES = [
@@ -35,7 +35,12 @@ self.addEventListener('fetch', e => {
           if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
           return res;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() => caches.match(e.request).then(cached =>
+          cached || new Response(
+            JSON.stringify({ ok: false, motivo: 'offline' }),
+            { status: 503, headers: { 'Content-Type': 'application/json' } }
+          )
+        ))
     );
   } else if (
     url.pathname.endsWith('.html') || url.pathname === '/' ||

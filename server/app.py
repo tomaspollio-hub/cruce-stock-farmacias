@@ -419,81 +419,178 @@ def cruce_download(cruce_id):
 @app.get('/api/cruces/<int:cruce_id>/export')
 @require_auth
 def cruce_export(cruce_id):
-    db  = get_db()
+    from openpyxl.styles import Border, Side
+    from openpyxl.utils  import get_column_letter
+
+    db    = get_db()
     cruce = db.execute('SELECT * FROM cruces WHERE id = ?', (cruce_id,)).fetchone()
     if not cruce:
         return jsonify({'ok': False, 'motivo': 'no encontrado'}), 404
 
     lineas = db.execute(
-        '''SELECT nro_pedido, punto_retiro, producto, gtin, sku, marca,
-                  unidades, nodo_asignado, zona, stock_disponible, estado, notas, updated_at
+        '''SELECT id, nro_pedido, punto_retiro, producto, gtin, sku, marca,
+                  unidades, nodo_asignado, zona, stock_disponible,
+                  estado, notas, alternativa_nodo, updated_at
            FROM lineas WHERE cruce_id = ?
            ORDER BY nodo_asignado, nro_pedido, producto''',
         (cruce_id,)
     ).fetchall()
 
+    confirmadas = db.execute(
+        'SELECT punto_retiro, receptor, entregado_at FROM entregas_confirmadas WHERE cruce_id = ?',
+        (cruce_id,)
+    ).fetchall()
+    conf_map = {r['punto_retiro']: r for r in confirmadas}
+
+    habilitadas = db.execute(
+        'SELECT punto_retiro, nro_pedidos FROM entregas_habilitadas WHERE cruce_id = ?',
+        (cruce_id,)
+    ).fetchall()
+    hab_map = {r['punto_retiro']: json.loads(r['nro_pedidos'] or '[]') for r in habilitadas}
+
     ESTADO_LABEL = {
-        'PENDIENTE':      'Pendiente',
-        'ENCONTRADO':     'Encontrado',
-        'NO_ENCONTRADO':  'No encontrado',
-        'MAL_STOCK':      'Mal stock',
-        'REASIGNADO':     'Reasignado',
-        'EN_REVISION':    'En revisión',
-        'SIN_COBERTURA':  'Sin cobertura',
+        'PENDIENTE':     'Pendiente',
+        'ENCONTRADO':    'Encontrado',
+        'NO_ENCONTRADO': 'No encontrado',
+        'MAL_STOCK':     'Mal stock',
+        'REASIGNADO':    'Reasignado',
+        'EN_REVISION':   'En revisión',
+        'SIN_COBERTURA': 'Sin cobertura',
     }
     ESTADO_COLOR = {
-        'ENCONTRADO':    '92D050',  # verde
-        'NO_ENCONTRADO': 'FF4C4C',  # rojo
-        'MAL_STOCK':     'FFB84C',  # naranja
-        'EN_REVISION':   'B8B8FF',  # violeta
-        'SIN_COBERTURA': 'D3D3D3',  # gris
-        'REASIGNADO':    'A9D18E',  # verde claro
-        'PENDIENTE':     'FFFFFF',  # blanco
+        'ENCONTRADO':    '92D050',
+        'NO_ENCONTRADO': 'FF4C4C',
+        'MAL_STOCK':     'FFB84C',
+        'EN_REVISION':   'B8B8FF',
+        'SIN_COBERTURA': 'D3D3D3',
+        'REASIGNADO':    'A9D18E',
+        'PENDIENTE':     'FFFFFF',
     }
 
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = 'Reporte'
+    HDR_FILL  = PatternFill(fill_type='solid', fgColor='2563EB')
+    HDR_FONT  = Font(bold=True, color='FFFFFF', size=10)
+    HDR_ALIGN = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    THIN_SIDE = Side(style='thin', color='D0D5DD')
+    THIN_BDR  = Border(left=THIN_SIDE, right=THIN_SIDE, top=THIN_SIDE, bottom=THIN_SIDE)
+    DATA_FONT = Font(size=10)
 
-    headers = ['N° Pedido', 'Punto de Retiro', 'Producto', 'GTIN', 'SKU',
-               'Marca', 'Unidades', 'Sucursal Asignada', 'Zona',
-               'Stock Disponible', 'Estado', 'Notas', 'Actualizado']
-    header_fill = PatternFill(fill_type='solid', fgColor='2563EB')
-    header_font = Font(bold=True, color='FFFFFF')
-    for col, h in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col, value=h)
-        cell.fill   = header_fill
-        cell.font   = header_font
-        cell.alignment = Alignment(horizontal='center')
+    def write_header(ws, headers):
+        for col, h in enumerate(headers, 1):
+            c = ws.cell(row=1, column=col, value=h)
+            c.fill, c.font, c.alignment = HDR_FILL, HDR_FONT, HDR_ALIGN
+            c.border = THIN_BDR
+        ws.row_dimensions[1].height = 30
+
+    def apply_row(ws, row_i, values, n_cols, fill=None):
+        for col, val in enumerate(values, 1):
+            c = ws.cell(row=row_i, column=col, value=val)
+            c.font   = DATA_FONT
+            c.border = THIN_BDR
+            c.alignment = Alignment(vertical='center', wrap_text=False)
+            if fill:
+                c.fill = fill
+
+    def set_widths(ws, widths):
+        for col, w in enumerate(widths, 1):
+            ws.column_dimensions[get_column_letter(col)].width = w
+
+    wb = openpyxl.Workbook()
+
+    # ── Hoja 1: Detalle completo ─────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Detalle'
+
+    h1 = ['N° Pedido', 'Punto de Retiro', 'Producto', 'GTIN', 'SKU', 'Marca',
+          'Unidades', 'Sucursal Asignada', 'Zona', 'Stock Disp.', 'Estado',
+          'Alternativa Propuesta', 'Notas', 'Última actualización']
+    write_header(ws1, h1)
 
     for row_i, l in enumerate(lineas, 2):
         estado = l['estado'] or 'PENDIENTE'
-        values = [
+        fill   = PatternFill(fill_type='solid', fgColor=ESTADO_COLOR.get(estado, 'FFFFFF'))
+        apply_row(ws1, row_i, [
             l['nro_pedido'], l['punto_retiro'], l['producto'],
             l['gtin'], l['sku'], l['marca'], l['unidades'],
             l['nodo_asignado'], l['zona'], l['stock_disponible'],
             ESTADO_LABEL.get(estado, estado),
-            l['notas'], l['updated_at'],
-        ]
-        for col, val in enumerate(values, 1):
-            ws.cell(row=row_i, column=col, value=val)
-        fill_color = ESTADO_COLOR.get(estado, 'FFFFFF')
-        fill = PatternFill(fill_type='solid', fgColor=fill_color)
-        for col in range(1, len(headers) + 1):
-            ws.cell(row=row_i, column=col).fill = fill
+            l['alternativa_nodo'] or '',
+            l['notas'] or '',
+            (l['updated_at'] or '')[:16].replace('T', ' '),
+        ], len(h1), fill=fill)
 
-    # Ajustar anchos de columna
-    col_widths = [14, 28, 36, 16, 16, 18, 9, 28, 14, 16, 16, 24, 20]
-    for col, width in enumerate(col_widths, 1):
-        ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = width
+    set_widths(ws1, [14, 28, 36, 16, 14, 18, 9, 28, 14, 11, 14, 22, 24, 18])
+    ws1.freeze_panes = 'A2'
+    ws1.auto_filter.ref = f'A1:{get_column_letter(len(h1))}1'
 
-    ws.freeze_panes = 'A2'
+    # ── Hoja 2: Entregas por sucursal ────────────────────────────
+    ws2 = wb.create_sheet('Entregas')
+
+    h2 = ['Sucursal', 'N° Pedidos', 'Cant. Pedidos', 'Receptor', 'Hora de entrega', 'Estado entrega']
+    write_header(ws2, h2)
+
+    sucursales = sorted({l['nodo_asignado'] for l in lineas if l['nodo_asignado']})
+    for row_i, suc in enumerate(sucursales, 2):
+        conf  = conf_map.get(suc)
+        pedidos = hab_map.get(suc, [])
+        if not pedidos:
+            pedidos_suc = sorted({l['nro_pedido'] for l in lineas
+                                   if l['nodo_asignado'] == suc and l['nro_pedido']})
+        else:
+            pedidos_suc = pedidos
+
+        if conf:
+            estado_ent = 'Entregado'
+            fill       = PatternFill(fill_type='solid', fgColor='92D050')
+            hora       = (conf['entregado_at'] or '')[:16].replace('T', ' ')
+            receptor   = conf['receptor'] or ''
+        else:
+            estado_ent = 'Pendiente'
+            fill       = PatternFill(fill_type='solid', fgColor='FFFFFF')
+            hora       = ''
+            receptor   = ''
+
+        apply_row(ws2, row_i, [
+            suc,
+            ', '.join(str(p) for p in pedidos_suc),
+            len(pedidos_suc),
+            receptor,
+            hora,
+            estado_ent,
+        ], len(h2), fill=fill)
+
+    set_widths(ws2, [30, 40, 14, 24, 18, 16])
+    ws2.freeze_panes = 'A2'
+
+    # ── Hoja 3: Incidencias (NO_ENCONTRADO + MAL_STOCK) ──────────
+    ws3 = wb.create_sheet('Incidencias')
+
+    h3 = ['N° Pedido', 'Punto de Retiro', 'Sucursal Asignada', 'Producto',
+          'GTIN', 'Unidades', 'Incidencia', 'Alternativa Propuesta', 'Notas']
+    write_header(ws3, h3)
+
+    incidencias = [l for l in lineas if l['estado'] in ('NO_ENCONTRADO', 'MAL_STOCK')]
+    if incidencias:
+        for row_i, l in enumerate(incidencias, 2):
+            estado = l['estado']
+            fill   = PatternFill(fill_type='solid', fgColor=ESTADO_COLOR[estado])
+            apply_row(ws3, row_i, [
+                l['nro_pedido'], l['punto_retiro'], l['nodo_asignado'],
+                l['producto'], l['gtin'], l['unidades'],
+                ESTADO_LABEL[estado],
+                l['alternativa_nodo'] or '',
+                l['notas'] or '',
+            ], len(h3), fill=fill)
+    else:
+        ws3.cell(row=2, column=1, value='Sin incidencias registradas').font = Font(italic=True, color='888888')
+
+    set_widths(ws3, [14, 28, 28, 36, 16, 9, 16, 22, 24])
+    ws3.freeze_panes = 'A2'
 
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
 
-    fecha = (cruce['fecha'] or '')[:10]
+    fecha    = (cruce['fecha'] or '')[:10]
     filename = f'reporte_cruce_{cruce_id}_{fecha}.xlsx'
     return send_file(buf, as_attachment=True, download_name=filename,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
