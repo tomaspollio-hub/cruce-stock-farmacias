@@ -49,11 +49,11 @@
       <!-- Archivo pedidos -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">📋 Archivo de pedidos</h2>
+          <h2 class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Archivo de pedidos</h2>
         </div>
         <div class="card-body">
           <label class="upload-zone" id="zone-pedidos" for="file-pedidos">
-            <div class="upload-zone-icon">📄</div>
+            <div class="upload-zone-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
             <div class="upload-zone-label">Arrastrá o hacé click para seleccionar</div>
             <div class="upload-zone-hint" id="hint-pedidos">.xlsx · .csv</div>
             <input type="file" id="file-pedidos" accept=".xlsx,.csv">
@@ -64,11 +64,11 @@
       <!-- Archivo stock -->
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">🏪 Archivo de stock</h2>
+          <h2 class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/><path d="M9 12h6"/></svg> Archivo de stock</h2>
         </div>
         <div class="card-body">
           <label class="upload-zone" id="zone-stock" for="file-stock">
-            <div class="upload-zone-icon">📊</div>
+            <div class="upload-zone-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
             <div class="upload-zone-label">Arrastrá o hacé click para seleccionar</div>
             <div class="upload-zone-hint" id="hint-stock">.xlsx · .csv</div>
             <input type="file" id="file-stock" accept=".xlsx,.csv">
@@ -93,7 +93,7 @@
             con rutas óptimas por zona.
           </p>
           <button class="btn btn-primary btn-lg btn-block" id="btn-procesar" disabled>
-            ⚡ Generar planilla
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Generar planilla
           </button>
         </div>
       </div>
@@ -156,7 +156,10 @@
       const f = input.files[0];
       if (!f) return;
       onFile(f);
-      hint.textContent = `✓ ${f.name}`;
+      const kb = f.size < 1024 * 1024
+        ? `${(f.size / 1024).toFixed(0)} KB`
+        : `${(f.size / 1024 / 1024).toFixed(1)} MB`;
+      hint.textContent = `${f.name} · ${kb}`;
       zone.classList.add('has-file');
     });
 
@@ -168,7 +171,10 @@
       const f = e.dataTransfer.files[0];
       if (!f) return;
       onFile(f);
-      hint.textContent = `✓ ${f.name}`;
+      const kb = f.size < 1024 * 1024
+        ? `${(f.size / 1024).toFixed(0)} KB`
+        : `${(f.size / 1024 / 1024).toFixed(1)} MB`;
+      hint.textContent = `${f.name} · ${kb}`;
       zone.classList.add('has-file');
     });
   }
@@ -266,13 +272,13 @@
       </div>
       <div style="display:flex;gap:var(--space-3);flex-wrap:wrap">
         <a href="cadete.html?cruce=${resultado.cruce_id}" class="btn btn-primary">
-          👁 Ruta del día
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ruta del día
         </a>
         <a href="operador.html?cruce=${resultado.cruce_id}" class="btn btn-ghost">
-          📡 Centro de control
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Centro de control
         </a>
         <a href="/api/cruces/${resultado.cruce_id}/download" class="btn btn-ghost">
-          ⬇ Descargar Excel
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar Excel
         </a>
       </div>`;
 

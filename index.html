@@ -196,34 +196,34 @@
     <button class="btn btn-ghost btn-sm" id="btn-filtrar">Filtrar</button>
     <button class="btn btn-ghost btn-sm" id="btn-limpiar" style="color:var(--text-muted)">Limpiar</button>
     <div class="filter-spacer"></div>
-    <a id="btn-export" href="#" class="btn btn-ghost btn-sm">⬇ Exportar Excel</a>
+    <a id="btn-export" href="#" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px;flex-shrink:0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar Excel</a>
   </div>
 
   <!-- KPIs -->
   <div class="grid-4" style="margin-bottom:var(--space-8)">
     <div class="stat-card">
-      <div class="stat-icon green">✓</div>
+      <div class="stat-icon green"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
       <div class="stat-content">
         <div class="stat-value" id="kpi-cobertura">–</div>
         <div class="stat-label">Cobertura promedio</div>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon blue">📦</div>
+      <div class="stat-icon blue"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
       <div class="stat-content">
         <div class="stat-value" id="kpi-pedidos">–</div>
         <div class="stat-label">Pedidos procesados</div>
       </div>
     </div>
     <div class="stat-card">
-      <div class="stat-icon red">⚠</div>
+      <div class="stat-icon red"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
       <div class="stat-content">
         <div class="stat-value" id="kpi-incidencias">–</div>
         <div class="stat-label">Incidencias</div>
       </div>
     </div>
     <div class="stat-card" style="opacity:.75">
-      <div class="stat-icon" style="background:var(--bg-subtle);color:var(--text-muted)">📋</div>
+      <div class="stat-icon gray"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></div>
       <div class="stat-content">
         <div class="stat-value" id="kpi-cruces" style="font-size:var(--text-xl)">–</div>
         <div class="stat-label">Cruces realizados</div>
@@ -245,7 +245,7 @@
           <div class="evo-labels" id="evo-labels"></div>
         </div>
         <div id="evo-empty" class="empty-state" style="display:none;padding:var(--space-6) 0">
-          <div class="empty-state-icon">📈</div>
+          <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
           <div class="empty-state-title">Sin datos en el período</div>
         </div>
       </div>
@@ -258,18 +258,18 @@
         </div>
         <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)">
           <a href="nuevo-cruce.html" class="btn btn-primary btn-lg btn-block">
-            ⚡ Iniciar nuevo cruce
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Iniciar nuevo cruce
           </a>
           <div id="cadete-link-wrap" style="display:none">
             <a href="#" class="btn btn-ghost btn-block" id="cadete-link">
-              📍 Ruta del día (cadete)
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ruta del día (cadete)
             </a>
             <a href="#" class="btn btn-ghost btn-block" id="operador-link" style="display:none;margin-top:var(--space-2)">
-              📡 Centro de control (operador)
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Centro de control (operador)
             </a>
           </div>
           <a href="historial.html" class="btn btn-ghost btn-block">
-            📂 Ver historial completo
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Ver historial completo
           </a>
         </div>
       </div>
@@ -361,6 +361,19 @@
   import { showToast } from './js/toast.js';
   import { initMobileNav } from './js/mobile-nav.js';
 
+  function countUp(el, target, fmt = n => Math.round(n).toLocaleString('es-AR'), duration = 720) {
+    if (target == null || isNaN(target)) { el.textContent = fmt(target ?? 0); return; }
+    const start = performance.now();
+    const tick = now => {
+      const p    = Math.min((now - start) / duration, 1);
+      const ease = 1 - (1 - p) ** 3;
+      el.textContent = fmt(target * ease);
+      if (p < 1) requestAnimationFrame(tick);
+      else el.textContent = fmt(target);
+    };
+    requestAnimationFrame(tick);
+  }
+
   const session = await auth.requireAuth();
   if (!session) throw new Error('sin sesion');
 
@@ -387,7 +400,7 @@
   function topList(rows, nameKey, valKey, colorClass = '') {
     if (!rows || rows.length === 0)
       return `<div class="empty-state" style="padding:var(--space-4) 0">
-                <div class="empty-state-icon">🔍</div>
+                <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
                 <div class="empty-state-title">Sin datos</div>
               </div>`;
     const max = rows[0][valKey] || 1;
@@ -505,11 +518,15 @@
     if (analytics?.ok) {
       const t = analytics.totales;
       const fmt = n => (n ?? 0).toLocaleString('es-AR');
-      document.getElementById('kpi-cobertura').textContent =
-        t.total_cruces > 0 ? `${parseFloat(t.cobertura_promedio).toFixed(1)}%` : '–';
-      document.getElementById('kpi-pedidos').textContent     = fmt(t.total_pedidos);
-      document.getElementById('kpi-incidencias').textContent = fmt(t.total_incidencias);
-      document.getElementById('kpi-cruces').textContent      = fmt(t.total_cruces);
+      if (t.total_cruces > 0) {
+        countUp(document.getElementById('kpi-cobertura'),
+          parseFloat(t.cobertura_promedio), n => `${n.toFixed(1)}%`);
+      } else {
+        document.getElementById('kpi-cobertura').textContent = '–';
+      }
+      countUp(document.getElementById('kpi-pedidos'),     t.total_pedidos);
+      countUp(document.getElementById('kpi-incidencias'), t.total_incidencias);
+      countUp(document.getElementById('kpi-cruces'),      t.total_cruces);
 
       buildEvoChart(analytics.evolucion);
 
@@ -575,6 +592,13 @@
   });
 
   cargarDashboard().catch(() => showToast('Error al cargar datos', 'danger'));
+
+  // Auto-refresh KPIs every 60s — only when no custom date filter is active
+  setInterval(() => {
+    const desde = document.getElementById('f-desde').value;
+    const hasta = document.getElementById('f-hasta').value;
+    if (!desde && !hasta) cargarDashboard().catch(() => {});
+  }, 60_000);
 
   window.downloadExcel = async function(id) {
     try {

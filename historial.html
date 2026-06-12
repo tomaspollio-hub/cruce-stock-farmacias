@@ -101,7 +101,7 @@
         <h3 style="font-size:var(--text-lg);font-weight:var(--font-semibold)" id="ent-modal-title">Entregas del cruce</h3>
         <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px" id="ent-modal-sub"></p>
       </div>
-      <button class="btn btn-ghost btn-sm" id="ent-modal-close">✕</button>
+      <button class="btn btn-ghost btn-sm btn-icon" id="ent-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div id="ent-modal-body">
       <div class="empty-state" style="padding:var(--space-8)">
@@ -117,7 +117,7 @@
   <div style="background:var(--bg-card);border-radius:var(--radius-xl);padding:var(--space-6);max-width:400px;width:94%;box-shadow:var(--shadow-xl)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
       <h3 style="font-size:var(--text-base);font-weight:var(--font-semibold)" id="firma-modal-title">Firma de recepción</h3>
-      <button class="btn btn-ghost btn-sm" id="firma-modal-close">✕</button>
+      <button class="btn btn-ghost btn-sm btn-icon" id="firma-modal-close"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div id="firma-modal-body" style="text-align:center"></div>
   </div>
@@ -193,7 +193,7 @@
     if (entregas.length === 0) {
       document.getElementById('ent-modal-body').innerHTML = `
         <div class="empty-state" style="padding:var(--space-8)">
-          <div class="empty-state-icon">📦</div>
+          <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
           <div class="empty-state-title">Sin puntos de retiro en este cruce</div>
         </div>`;
       return;
@@ -210,11 +210,11 @@
         return `
           <div class="ent-row conf">
             <div>
-              <div style="font-weight:var(--font-medium)">✓ ${e.punto_retiro}</div>
+              <div style="font-weight:var(--font-medium);color:var(--success)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:13px;height:13px;vertical-align:-0.1em"><polyline points="20 6 9 17 4 12"/></svg> ${e.punto_retiro}</div>
               <div style="font-size:var(--text-xs);color:var(--text-muted)">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
             </div>
-            <div style="font-size:var(--text-sm)">👤 ${e.receptor}</div>
-            <div style="font-size:var(--text-xs);color:var(--text-muted)">🕐 ${hora}</div>
+            <div style="font-size:var(--text-sm)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${e.receptor}</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${hora}</div>
             <div>${firmaBtn}</div>
           </div>`;
       } else {
@@ -261,7 +261,7 @@
     if (data.cruces.length === 0) {
       document.getElementById('historial-content').innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
+          <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg></div>
           <div class="empty-state-title">Sin cruces aún</div>
           <div class="empty-state-desc">Creá tu primer cruce para verlo acá.</div>
           <a href="nuevo-cruce.html" class="btn btn-primary" style="margin-top:var(--space-4)">+ Nuevo cruce</a>
@@ -293,9 +293,9 @@
           <td>
             <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:center">
               <a href="cadete.html?cruce=${c.id}" class="btn btn-primary btn-sm">Cadete</a>
-              <button class="btn btn-ghost btn-sm" data-cruce="${c.id}" data-label="${label}">📦 Entregas</button>
+              <button class="btn btn-ghost btn-sm" data-cruce="${c.id}" data-label="${label}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Entregas</button>
               <button class="btn btn-ghost btn-sm" onclick="downloadExcel(${c.id})">Excel</button>
-              <button class="btn btn-danger btn-sm admin-only" data-delete="${c.id}" data-label="${label}" title="Borrar cruce">🗑</button>
+              <button class="btn btn-danger btn-sm btn-icon admin-only" data-delete="${c.id}" data-label="${label}" title="Borrar cruce"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
             </div>
           </td>
         </tr>`;
@@ -336,12 +336,12 @@
           } else {
             showToast('No se pudo borrar el cruce', 'danger');
             btn.disabled = false;
-            btn.textContent = '🗑';
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
           }
         } catch {
           showToast('Error al borrar', 'danger');
           btn.disabled = false;
-          btn.textContent = '🗑';
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
         }
       });
     });
