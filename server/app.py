@@ -528,13 +528,13 @@ def cruce_export(cruce_id):
     h2 = ['Sucursal', 'N° Pedidos', 'Cant. Pedidos', 'Receptor', 'Hora de entrega', 'Estado entrega']
     write_header(ws2, h2)
 
-    sucursales = sorted({l['nodo_asignado'] for l in lineas if l['nodo_asignado']})
+    sucursales = sorted({l['punto_retiro'] for l in lineas if l['punto_retiro']})
     for row_i, suc in enumerate(sucursales, 2):
         conf  = conf_map.get(suc)
         pedidos = hab_map.get(suc, [])
         if not pedidos:
             pedidos_suc = sorted({l['nro_pedido'] for l in lineas
-                                   if l['nodo_asignado'] == suc and l['nro_pedido']})
+                                   if l['punto_retiro'] == suc and l['nro_pedido']})
         else:
             pedidos_suc = pedidos
 
