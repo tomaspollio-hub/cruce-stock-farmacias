@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import threading
+import time
 import uuid
 
 import openpyxl
@@ -18,7 +19,7 @@ from pathlib import Path
 
 import jwt
 import yaml
-from flask import Flask, g, jsonify, request, send_from_directory, send_file
+from flask import Flask, Response, g, jsonify, request, send_from_directory, send_file, stream_with_context
 from werkzeug.security import check_password_hash, generate_password_hash
 
 BASE_DIR    = Path(__file__).parent.parent
@@ -120,6 +121,17 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_lineas_cruce    ON lineas(cruce_id);
         CREATE INDEX IF NOT EXISTS idx_lineas_estado   ON lineas(estado);
         CREATE INDEX IF NOT EXISTS idx_eventos_linea   ON eventos_estado(linea_id);
+
+        CREATE TABLE IF NOT EXISTS jobs (
+            id         TEXT PRIMARY KEY,
+            status     TEXT DEFAULT 'pending',
+            step       TEXT DEFAULT 'En cola...',
+            cruce_id   INTEGER,
+            resumen    TEXT,
+            error      TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
     """)
 
     # Migraciones para versiones anteriores de la DB
@@ -198,10 +210,11 @@ def require_auth(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         header = request.headers.get('Authorization', '')
-        if not header.startswith('Bearer '):
+        token_str = header[7:] if header.startswith('Bearer ') else request.args.get('token', '')
+        if not token_str:
             return jsonify({'ok': False, 'motivo': 'sin_token'}), 401
         try:
-            payload = _decode_token(header[7:])
+            payload = _decode_token(token_str)
         except jwt.ExpiredSignatureError:
             return jsonify({'ok': False, 'motivo': 'token_vencido'}), 401
         except jwt.InvalidTokenError:
@@ -307,15 +320,25 @@ def cruce_delete(cruce_id):
 
 # ── Jobs (procesamiento asíncrono) ──────────────────────────────────────────────
 
-_jobs: dict = {}   # job_id → {status, step, cruce_id, resumen, error}
+def _job_update(job_id, **kwargs):
+    """Actualiza un job en la DB desde cualquier hilo (sin contexto Flask)."""
+    import sqlite3 as _sqlite3
+    kwargs['updated_at'] = datetime.now(timezone.utc).isoformat()
+    sets = ', '.join(f'{k} = ?' for k in kwargs)
+    conn = _sqlite3.connect(str(DB_PATH))
+    try:
+        conn.execute(f'UPDATE jobs SET {sets} WHERE id = ?', list(kwargs.values()) + [job_id])
+        conn.commit()
+    finally:
+        conn.close()
 
 def _run_job(job_id, path_pedidos, path_stock, run_dir, nombre_pedidos, nombre_stock, usuario_id):
     """Corre en un hilo separado. Procesa el cruce y guarda en la DB."""
     def upd(step):
-        _jobs[job_id]['step'] = step
+        _job_update(job_id, step=step)
 
     try:
-        _jobs[job_id]['status'] = 'running'
+        _job_update(job_id, status='running')
         upd('Cargando y validando archivos...')
         resultado = _procesar_cruce(path_pedidos, path_stock, run_dir)
 
@@ -355,10 +378,11 @@ def _run_job(job_id, path_pedidos, path_stock, run_dir, nombre_pedidos, nombre_s
                 )
             db.commit()
 
-        _jobs[job_id].update({'status': 'done', 'cruce_id': cruce_id, 'resumen': resultado})
+        _job_update(job_id, status='done', cruce_id=cruce_id,
+                    resumen=json.dumps(resultado, ensure_ascii=False))
 
     except Exception as e:
-        _jobs[job_id].update({'status': 'error', 'error': str(e)})
+        _job_update(job_id, status='error', error=str(e))
 
 
 @app.post('/api/cruces')
@@ -380,10 +404,10 @@ def cruce_nuevo():
     f_stock.save(str(path_stock))
 
     job_id = uuid.uuid4().hex
-    _jobs[job_id] = {
-        'status': 'pending', 'step': 'En cola...',
-        'cruce_id': None, 'resumen': None, 'error': None,
-    }
+    db = get_db()
+    db.execute('INSERT INTO jobs (id, status, step) VALUES (?, ?, ?)',
+               (job_id, 'pending', 'En cola...'))
+    db.commit()
 
     t = threading.Thread(
         target=_run_job,
@@ -399,9 +423,12 @@ def cruce_nuevo():
 @app.get('/api/jobs/<job_id>')
 @require_auth
 def job_status(job_id):
-    job = _jobs.get(job_id)
-    if not job:
+    row = get_db().execute('SELECT * FROM jobs WHERE id = ?', (job_id,)).fetchone()
+    if not row:
         return jsonify({'ok': False, 'motivo': 'job_no_encontrado'}), 404
+    job = dict(row)
+    if job.get('resumen'):
+        job['resumen'] = json.loads(job['resumen'])
     return jsonify({'ok': True, **job})
 
 @app.get('/api/cruces/<int:cruce_id>/download')
@@ -876,6 +903,42 @@ def cruce_incidencias(cruce_id):
         d['alternativas'] = json.loads(d['alternativas'] or '[]')
         result.append(d)
     return jsonify({'ok': True, 'incidencias': result, 'total': len(result)})
+
+@app.get('/api/cruces/<int:cruce_id>/stream')
+@require_auth
+def cruce_stream(cruce_id):
+    """SSE: emite eventos de incidencia nuevas cada 8s. Reemplaza el poll de 15s."""
+    import sqlite3 as _sqlite3
+
+    def generate():
+        conn = _sqlite3.connect(str(DB_PATH))
+        conn.row_factory = _sqlite3.Row
+        desde = datetime.now(timezone.utc).isoformat()
+        try:
+            while True:
+                rows = conn.execute(
+                    '''SELECT id, nro_pedido, producto, nodo_asignado, estado, updated_at, punto_retiro
+                       FROM lineas WHERE cruce_id = ? AND estado IN ('MAL_STOCK','NO_ENCONTRADO')
+                       AND updated_at > ? ORDER BY updated_at ASC LIMIT 20''',
+                    (cruce_id, desde)
+                ).fetchall()
+                if rows:
+                    desde = datetime.now(timezone.utc).isoformat()
+                    for r in rows:
+                        yield f'data: {json.dumps(dict(r), ensure_ascii=False)}\n\n'
+                else:
+                    yield ': ping\n\n'
+                time.sleep(8)
+        except GeneratorExit:
+            pass
+        finally:
+            conn.close()
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'},
+    )
 
 @app.get('/api/cruces/<int:cruce_id>/notificaciones')
 @require_auth

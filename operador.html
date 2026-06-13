@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
   <meta name="theme-color" content="#2563eb">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Farmacias Global — Operador</title>
@@ -482,9 +485,8 @@
   initMobileNav('operador', session.rol);
 
   // ── Notificaciones push ───────────────────────────────────────
-  let notifDesde    = new Date().toISOString();
-  let notifTimer    = null;
-  let notifPermiso  = Notification.permission;  // 'default' | 'granted' | 'denied'
+  let notifES      = null;  // EventSource activo
+  let notifPermiso = Notification.permission;  // 'default' | 'granted' | 'denied'
 
   function actualizarBtnNotif() {
     const icon  = document.getElementById('notif-icon');
@@ -559,17 +561,16 @@
     }
   }
 
-  async function checkNotificaciones() {
-    if (!cruceId) return;
-    try {
-      const res  = await auth.apiFetch(`/api/cruces/${cruceId}/notificaciones?desde=${encodeURIComponent(notifDesde)}`);
-      const data = await res.json().catch(() => null);
-      if (data?.ok && data.nuevas.length > 0) {
-        data.nuevas.forEach(dispararNotificacion);
-        notifDesde = new Date().toISOString();
-      }
-    } catch { /* silencioso — no interrumpir la operación */ }
-    notifTimer = setTimeout(checkNotificaciones, 15000);
+  function conectarStream(id) {
+    if (notifES) { notifES.close(); notifES = null; }
+    if (!id) return;
+    const token = localStorage.getItem('cruce_token');
+    if (!token) return;
+    notifES = new EventSource(`/api/cruces/${id}/stream?token=${encodeURIComponent(token)}`);
+    notifES.onmessage = e => {
+      try { dispararNotificacion(JSON.parse(e.data)); } catch { /* malformed */ }
+    };
+    notifES.onerror = () => { /* browser reconnects automáticamente */ };
   }
 
   const params = new URLSearchParams(location.search);
@@ -620,10 +621,7 @@
       history.replaceState(null, '', `?cruce=${cruceId}`);
       actualizarBtnCadete();
       cargarDatos();
-      // Reiniciar poll de notificaciones para el nuevo cruce
-      clearTimeout(notifTimer);
-      notifDesde = new Date().toISOString();
-      checkNotificaciones();
+      conectarStream(cruceId);
     });
 
     actualizarBtnCadete();
@@ -1242,9 +1240,8 @@
     .then(d => { if (d.ok) nodosConocidos = d.nodos; })
     .catch(() => {});
 
-  // Arrancar el poll de notificaciones (15s) después de la carga inicial
-  notifDesde = new Date().toISOString();
-  checkNotificaciones();
+  // Conectar SSE de notificaciones después de la carga inicial
+  conectarStream(cruceId);
 
   // ── Modal: puntos de retiro fijos ────────────────────────────────────────────
   const modalFija   = document.getElementById('modal-fija');
