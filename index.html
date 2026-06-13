@@ -163,6 +163,7 @@
     <a href="index.html" class="active">Dashboard</a>
     <a href="nuevo-cruce.html">Nuevo cruce</a>
     <a href="operador.html">Operador</a>
+    <a href="cadete.html">Ruta del día</a>
     <a href="historial.html">Historial</a>
     <a href="usuarios.html">Usuarios</a>
     <a href="config.html">Config</a>
@@ -231,7 +232,7 @@
     </div>
   </div>
 
-  <!-- Evolución + accesos rápidos -->
+  <!-- Evolución + último cruce -->
   <div class="grid-2 grid-2-evo" style="margin-bottom:var(--space-6)">
 
     <div class="card">
@@ -251,36 +252,16 @@
       </div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:var(--space-6)">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Accesos rápidos</h2>
-        </div>
-        <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-3)">
-          <a href="nuevo-cruce.html" class="btn btn-primary btn-lg btn-block">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Iniciar nuevo cruce
-          </a>
-          <div id="cadete-link-wrap" style="display:none">
-            <a href="#" class="btn btn-ghost btn-block" id="cadete-link">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Ruta del día (cadete)
-            </a>
-            <a href="#" class="btn btn-ghost btn-block" id="operador-link" style="display:none;margin-top:var(--space-2)">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> Centro de control (operador)
-            </a>
-          </div>
-          <a href="historial.html" class="btn btn-ghost btn-block">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> Ver historial completo
-          </a>
-        </div>
+    <div class="card" id="ultimo-cruce-card">
+      <div class="card-header">
+        <h2 class="card-title">Último cruce</h2>
+        <a href="nuevo-cruce.html" class="btn btn-primary btn-sm">+ Nuevo cruce</a>
       </div>
-
-      <div class="card" id="ultimo-cruce-card" style="display:none">
-        <div class="card-header">
-          <h2 class="card-title">Último cruce</h2>
-        </div>
-        <div class="card-body" id="ultimo-cruce-body"></div>
+      <div class="card-body" id="ultimo-cruce-body">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
       </div>
     </div>
+
   </div>
 
   <!-- Tablas analíticas -->
@@ -345,7 +326,7 @@
   <div class="card" style="margin-bottom:var(--space-6)">
     <div class="card-header">
       <h2 class="card-title">Tiempos por farmacia</h2>
-      <span style="font-size:var(--text-xs);color:var(--text-muted)">tiempo promedio del cadete en cada sucursal</span>
+      <span style="font-size:var(--text-xs);color:var(--text-muted)">demora promedio acumulada · todos los cruces del período</span>
     </div>
     <div class="card-body" id="tbl-tiempos-farmacia">
       <div class="spinner" style="margin:var(--space-6) auto"></div>
@@ -550,12 +531,6 @@
         day: '2-digit', month: '2-digit', year: '2-digit',
         hour: '2-digit', minute: '2-digit',
       });
-      document.getElementById('cadete-link-wrap').style.display = 'block';
-      document.getElementById('cadete-link').href   = `cadete.html?cruce=${ultimo.id}`;
-      document.getElementById('operador-link').href = `operador.html?cruce=${ultimo.id}`;
-      document.getElementById('operador-link').style.display = 'flex';
-
-      document.getElementById('ultimo-cruce-card').style.display = 'block';
       document.getElementById('ultimo-cruce-body').innerHTML = `
         <div style="display:flex;gap:var(--space-6);flex-wrap:wrap;margin-bottom:var(--space-4)">
           <div>
@@ -573,11 +548,17 @@
             <div style="font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Sin stock</div>
           </div>
         </div>
-        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-3)">${fecha} · ${ultimo.archivo_pedidos || ''}</div>
-        <div style="display:flex;gap:var(--space-2)">
+        <div style="font-size:var(--text-xs);color:var(--text-muted);margin-bottom:var(--space-4)">${fecha} · ${ultimo.archivo_pedidos || ''}</div>
+        <div style="display:flex;gap:var(--space-2);flex-wrap:wrap">
           <a href="cadete.html?cruce=${ultimo.id}" class="btn btn-primary btn-sm">Ruta del día</a>
           <a href="operador.html?cruce=${ultimo.id}" class="btn btn-ghost btn-sm">Centro de control</a>
           <button class="btn btn-ghost btn-sm" onclick="downloadExcel(${ultimo.id})">Excel</button>
+        </div>`;
+    } else if (cruces?.ok) {
+      document.getElementById('ultimo-cruce-body').innerHTML = `
+        <div class="empty-state" style="padding:var(--space-4) 0">
+          <div class="empty-state-title">Sin cruces todavía</div>
+          <div class="empty-state-desc">Iniciá el primer cruce desde <a href="nuevo-cruce.html">Nuevo cruce</a></div>
         </div>`;
     }
   }
