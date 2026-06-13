@@ -440,13 +440,13 @@ def cruce_export(cruce_id):
         'SELECT punto_retiro, receptor, entregado_at FROM entregas_confirmadas WHERE cruce_id = ?',
         (cruce_id,)
     ).fetchall()
-    conf_map = {r['punto_retiro']: r for r in confirmadas}
+    conf_map = {r['punto_retiro'].strip(): r for r in confirmadas}
 
     habilitadas = db.execute(
         'SELECT punto_retiro, nro_pedidos FROM entregas_habilitadas WHERE cruce_id = ?',
         (cruce_id,)
     ).fetchall()
-    hab_map = {r['punto_retiro']: json.loads(r['nro_pedidos'] or '[]') for r in habilitadas}
+    hab_map = {r['punto_retiro'].strip(): json.loads(r['nro_pedidos'] or '[]') for r in habilitadas}
 
     ESTADO_LABEL = {
         'PENDIENTE':     'Pendiente',
@@ -528,13 +528,14 @@ def cruce_export(cruce_id):
     h2 = ['Sucursal', 'N° Pedidos', 'Cant. Pedidos', 'Receptor', 'Hora de entrega', 'Estado entrega']
     write_header(ws2, h2)
 
-    sucursales = sorted({l['punto_retiro'] for l in lineas if l['punto_retiro']})
+    # Unión de habilitadas + confirmadas: ambas usan nodo_asignado como clave
+    sucursales = sorted(set(hab_map.keys()) | set(conf_map.keys()))
     for row_i, suc in enumerate(sucursales, 2):
-        conf  = conf_map.get(suc)
+        conf    = conf_map.get(suc)
         pedidos = hab_map.get(suc, [])
         if not pedidos:
             pedidos_suc = sorted({l['nro_pedido'] for l in lineas
-                                   if l['punto_retiro'] == suc and l['nro_pedido']})
+                                   if l['nodo_asignado'] and l['nodo_asignado'].strip() == suc and l['nro_pedido']})
         else:
             pedidos_suc = pedidos
 
