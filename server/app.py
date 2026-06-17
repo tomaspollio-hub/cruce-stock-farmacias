@@ -1326,7 +1326,9 @@ def incidencias_stock():
         conds.append('e.nodo_asignado = ?'); params.append(sucursal)
 
     rows = db.execute(
-        f'''SELECT e.id, e.estado_nuevo, e.nodo_asignado, e.created_at,
+        f'''SELECT e.id, e.estado_nuevo,
+                   COALESCE(e.nodo_asignado, l.nodo_asignado) as nodo_asignado,
+                   e.created_at,
                    l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
                    l.unidades, l.alternativa_nodo, l.notas, l.cruce_id
             FROM eventos_estado e
@@ -1366,7 +1368,9 @@ def incidencias_stock_farmacia(nombre):
         conds.append('e.created_at <= ?'); params.append(hasta + 'T23:59:59')
 
     rows = db.execute(
-        f'''SELECT e.estado_nuevo, e.created_at,
+        f'''SELECT e.estado_nuevo,
+                   COALESCE(e.nodo_asignado, l.nodo_asignado) as nodo_asignado,
+                   e.created_at,
                    l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
                    l.unidades, l.alternativa_nodo, l.notas
             FROM eventos_estado e

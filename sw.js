@@ -1,4 +1,4 @@
-const CACHE = 'farmacias-global-v8';
+const CACHE = 'farmacias-global-v9';
 
 // Solo pre-cachear imágenes y manifest — CSS/JS/HTML siempre van a la red primero
 const STATIC_IMAGES = [
