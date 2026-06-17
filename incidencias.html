@@ -40,7 +40,7 @@
     }
     .filter-bar {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       gap: var(--space-3);
       flex-wrap: wrap;
       margin-bottom: var(--space-5);
@@ -49,8 +49,13 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
     }
-    .filter-bar label {
-      font-size: var(--text-sm);
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-group label {
+      font-size: var(--text-xs);
       font-weight: var(--font-medium);
       color: var(--text-secondary);
       white-space: nowrap;
@@ -65,7 +70,20 @@
       color: var(--text-primary);
       background: var(--bg-subtle);
     }
+    .filter-actions {
+      display: flex;
+      gap: var(--space-2);
+      align-items: center;
+      padding-bottom: 1px;
+    }
     .filter-spacer { flex: 1; }
+    @media (max-width: 600px) {
+      .filter-bar { gap: var(--space-2); }
+      .filter-group { flex: 1 1 calc(50% - var(--space-2)); }
+      .filter-group select, .filter-group input { width: 100%; box-sizing: border-box; }
+      .filter-actions { width: 100%; }
+      .filter-spacer { display: none; }
+    }
     .inc-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
     .inc-table th {
       text-align: left;
@@ -81,6 +99,34 @@
       vertical-align: top;
     }
     .inc-table tr:last-child td { border-bottom: none; }
+    @media (max-width: 600px) {
+      .inc-table thead { display: none; }
+      .inc-table tr {
+        display: block;
+        padding: var(--space-3) 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .inc-table tr:last-child { border-bottom: none; }
+      .inc-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 3px var(--space-2);
+        border: none;
+        font-size: var(--text-xs);
+        gap: var(--space-2);
+      }
+      .inc-table td::before {
+        content: attr(data-label);
+        color: var(--text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-width: 80px;
+      }
+      .inc-table td:empty { display: none; }
+      .col-hide-mobile { display: none; }
+    }
     .badge {
       display: inline-block;
       padding: 2px 8px;
@@ -183,18 +229,25 @@
   <!-- TAB: Stock -->
   <div id="tab-stock">
     <div class="filter-bar">
-      <label>Desde:</label>
-      <input type="date" id="s-desde">
-      <label>Hasta:</label>
-      <input type="date" id="s-hasta">
-      <label>Sucursal:</label>
-      <select id="s-sucursal" style="min-width:180px">
-        <option value="">Todas</option>
-      </select>
-      <button class="btn btn-ghost btn-sm" id="s-filtrar">Filtrar</button>
-      <button class="btn btn-ghost btn-sm" id="s-limpiar" style="color:var(--text-muted)">Limpiar</button>
-      <div class="filter-spacer"></div>
-      <span id="s-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+      <div class="filter-group">
+        <label>Desde</label>
+        <input type="date" id="s-desde">
+      </div>
+      <div class="filter-group">
+        <label>Hasta</label>
+        <input type="date" id="s-hasta">
+      </div>
+      <div class="filter-group" style="flex:1;min-width:160px">
+        <label>Sucursal</label>
+        <select id="s-sucursal">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-ghost btn-sm" id="s-filtrar">Filtrar</button>
+        <button class="btn btn-ghost btn-sm" id="s-limpiar" style="color:var(--text-muted)">Limpiar</button>
+        <span id="s-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+      </div>
     </div>
     <div class="card">
       <div class="card-body" id="tbl-stock">
@@ -206,27 +259,34 @@
   <!-- TAB: Operativas -->
   <div id="tab-operativas" style="display:none">
     <div class="filter-bar">
-      <label>Tipo:</label>
-      <select id="o-tipo">
-        <option value="">Todos</option>
-        <option value="pedido_perdido">Pedido perdido</option>
-        <option value="mal_armado">Mal armado</option>
-        <option value="demora">Demora</option>
-        <option value="reclamo">Reclamo farmacia</option>
-        <option value="otro">Otro</option>
-      </select>
-      <label>Estado:</label>
-      <select id="o-estado">
-        <option value="">Todos</option>
-        <option value="abierta">Abierta</option>
-        <option value="resuelta">Resuelta</option>
-      </select>
-      <label>Desde:</label>
-      <input type="date" id="o-desde">
-      <button class="btn btn-ghost btn-sm" id="o-filtrar">Filtrar</button>
-      <button class="btn btn-ghost btn-sm" id="o-limpiar" style="color:var(--text-muted)">Limpiar</button>
-      <div class="filter-spacer"></div>
-      <span id="o-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+      <div class="filter-group">
+        <label>Tipo</label>
+        <select id="o-tipo">
+          <option value="">Todos</option>
+          <option value="pedido_perdido">Pedido perdido</option>
+          <option value="mal_armado">Mal armado</option>
+          <option value="demora">Demora</option>
+          <option value="reclamo">Reclamo farmacia</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Estado</label>
+        <select id="o-estado">
+          <option value="">Todos</option>
+          <option value="abierta">Abierta</option>
+          <option value="resuelta">Resuelta</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Desde</label>
+        <input type="date" id="o-desde">
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-ghost btn-sm" id="o-filtrar">Filtrar</button>
+        <button class="btn btn-ghost btn-sm" id="o-limpiar" style="color:var(--text-muted)">Limpiar</button>
+        <span id="o-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+      </div>
     </div>
     <div class="card">
       <div class="card-body" id="tbl-operativas">
@@ -379,18 +439,18 @@
               <th>Pedido</th>
               <th>Producto</th>
               <th>Estado</th>
-              <th>Alternativa</th>
-              <th>Notas</th>
+              <th class="col-hide-mobile">Alternativa</th>
+              <th class="col-hide-mobile">Notas</th>
             </tr></thead>
             <tbody>${d.incidencias.map(i => `
               <tr>
-                <td style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
-                <td style="font-weight:500">${i.nodo_asignado || '—'}</td>
-                <td>${i.nro_pedido || '—'}</td>
-                <td>${i.producto || '—'}</td>
-                <td><span class="badge ${STOCK_BADGE[i.estado_nuevo] || 'badge-gray'}">${STOCK_LABEL[i.estado_nuevo] || i.estado_nuevo}</span></td>
-                <td style="color:var(--text-muted)">${i.alternativa_nodo || '—'}</td>
-                <td style="color:var(--text-muted)">${i.notas || '—'}</td>
+                <td data-label="Fecha" style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
+                <td data-label="Sucursal" style="font-weight:500">${i.nodo_asignado || '—'}</td>
+                <td data-label="Pedido">${i.nro_pedido || '—'}</td>
+                <td data-label="Producto">${i.producto || '—'}</td>
+                <td data-label="Estado"><span class="badge ${STOCK_BADGE[i.estado_nuevo] || 'badge-gray'}">${STOCK_LABEL[i.estado_nuevo] || i.estado_nuevo}</span></td>
+                <td data-label="Alternativa" class="col-hide-mobile" style="color:var(--text-muted)">${i.alternativa_nodo || '—'}</td>
+                <td data-label="Notas" class="col-hide-mobile" style="color:var(--text-muted)">${i.notas || '—'}</td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -441,23 +501,24 @@
             <thead><tr>
               <th>Fecha</th>
               <th>Tipo</th>
-              <th>Pedido</th>
-              <th>Sucursal</th>
+              <th class="col-hide-mobile">Pedido</th>
+              <th class="col-hide-mobile">Sucursal</th>
               <th>Descripción</th>
               <th>Estado</th>
               <th></th>
             </tr></thead>
             <tbody>${d.incidencias.map(i => `
               <tr>
-                <td style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
-                <td><span class="badge ${TIPO_BADGE[i.tipo] || 'badge-gray'}">${TIPO_LABEL[i.tipo] || i.tipo}</span></td>
-                <td>${i.nro_pedido || '—'}</td>
-                <td>${i.sucursal || '—'}</td>
-                <td style="max-width:240px">
+                <td data-label="Fecha" style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
+                <td data-label="Tipo"><span class="badge ${TIPO_BADGE[i.tipo] || 'badge-gray'}">${TIPO_LABEL[i.tipo] || i.tipo}</span></td>
+                <td data-label="Pedido" class="col-hide-mobile">${i.nro_pedido || '—'}</td>
+                <td data-label="Sucursal" class="col-hide-mobile">${i.sucursal || '—'}</td>
+                <td data-label="Descripción" style="max-width:240px">
                   <div style="font-weight:500">${i.descripcion}</div>
+                  ${i.nro_pedido ? `<div style="font-size:var(--text-xs);color:var(--text-muted)">Pedido ${i.nro_pedido}${i.sucursal ? ' · ' + i.sucursal : ''}</div>` : ''}
                   ${i.resolucion ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">✓ ${i.resolucion}</div>` : ''}
                 </td>
-                <td><span class="badge ${i.estado === 'resuelta' ? 'badge-green' : 'badge-red'}">${i.estado === 'resuelta' ? 'Resuelta' : 'Abierta'}</span></td>
+                <td data-label="Estado"><span class="badge ${i.estado === 'resuelta' ? 'badge-green' : 'badge-red'}">${i.estado === 'resuelta' ? 'Resuelta' : 'Abierta'}</span></td>
                 <td>
                   <button class="btn btn-ghost btn-sm" onclick="editarInc(${i.id})">Editar</button>
                 </td>
