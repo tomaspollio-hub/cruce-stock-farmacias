@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Farmacias Global — Incidencias</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+  <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .tabs {
+      display: flex;
+      gap: 2px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: var(--space-6);
+    }
+    .tab-btn {
+      padding: var(--space-2) var(--space-5);
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: color .15s, border-color .15s;
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex-wrap: wrap;
+      margin-bottom: var(--space-5);
+      padding: var(--space-4) var(--space-5);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+    }
+    .filter-bar label {
+      font-size: var(--text-sm);
+      font-weight: var(--font-medium);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .filter-bar input[type="date"],
+    .filter-bar select {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 6px 10px;
+      font-size: var(--text-sm);
+      font-family: inherit;
+      color: var(--text-primary);
+      background: var(--bg-subtle);
+    }
+    .filter-spacer { flex: 1; }
+    .inc-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .inc-table th {
+      text-align: left;
+      padding: 8px 10px;
+      color: var(--text-muted);
+      font-weight: 500;
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    .inc-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .inc-table tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 99px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-red    { background: #fee2e2; color: #b91c1c; }
+    .badge-orange { background: #ffedd5; color: #c2410c; }
+    .badge-green  { background: #dcfce7; color: #15803d; }
+    .badge-gray   { background: var(--bg-subtle); color: var(--text-muted); }
+    .badge-blue   { background: #dbeafe; color: #1d4ed8; }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0,0,0,.45);
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-4);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--bg-card);
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 560px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-5) var(--space-6);
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 { margin: 0; font-size: var(--text-base); font-weight: var(--font-semibold); }
+    .modal-body { overflow-y: auto; padding: var(--space-5) var(--space-6) var(--space-6); }
+    .modal-close { background: none; border: none; cursor: pointer; font-size: 18px; color: var(--text-muted); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-group label { display: block; font-size: var(--text-sm); font-weight: 500; margin-bottom: var(--space-1); }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      font-size: var(--text-sm);
+      font-family: inherit;
+      background: var(--bg-subtle);
+      color: var(--text-primary);
+      box-sizing: border-box;
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-logo"><a href="index.html" style="display:flex;align-items:center;text-decoration:none"><img src="/img/logo-global.png" alt="Farmacias Global" style="height:44px;width:auto"></a></div>
+  <nav class="header-nav">
+    <a href="index.html">Dashboard</a>
+    <a href="nuevo-cruce.html">Nuevo cruce</a>
+    <a href="operador.html">Operador</a>
+    <a href="cadete.html">Ruta del día</a>
+    <a href="incidencias.html" class="active">Incidencias</a>
+    <a href="historial.html">Historial</a>
+    <a href="usuarios.html">Usuarios</a>
+    <a href="config.html">Config</a>
+  </nav>
+  <div class="header-spacer"></div>
+  <div class="header-user">
+    <div class="header-user-avatar" id="user-avatar">–</div>
+    <span id="user-nombre"></span>
+    <button class="btn btn-ghost btn-sm" id="logout-btn">Salir</button>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:var(--space-4);margin-bottom:var(--space-6)">
+    <div>
+      <h1 class="page-title">Incidencias</h1>
+      <p class="page-subtitle">Registro de problemas de stock y operativos</p>
+    </div>
+    <button class="btn btn-primary" id="btn-nueva">+ Nueva incidencia</button>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="stock">Incidencias de stock</button>
+    <button class="tab-btn" data-tab="operativas">Operativas</button>
+  </div>
+
+  <!-- TAB: Stock -->
+  <div id="tab-stock">
+    <div class="filter-bar">
+      <label>Desde:</label>
+      <input type="date" id="s-desde">
+      <label>Hasta:</label>
+      <input type="date" id="s-hasta">
+      <label>Sucursal:</label>
+      <select id="s-sucursal" style="min-width:180px">
+        <option value="">Todas</option>
+      </select>
+      <button class="btn btn-ghost btn-sm" id="s-filtrar">Filtrar</button>
+      <button class="btn btn-ghost btn-sm" id="s-limpiar" style="color:var(--text-muted)">Limpiar</button>
+      <div class="filter-spacer"></div>
+      <span id="s-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+    </div>
+    <div class="card">
+      <div class="card-body" id="tbl-stock">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Operativas -->
+  <div id="tab-operativas" style="display:none">
+    <div class="filter-bar">
+      <label>Tipo:</label>
+      <select id="o-tipo">
+        <option value="">Todos</option>
+        <option value="pedido_perdido">Pedido perdido</option>
+        <option value="mal_armado">Mal armado</option>
+        <option value="demora">Demora</option>
+        <option value="reclamo">Reclamo farmacia</option>
+        <option value="otro">Otro</option>
+      </select>
+      <label>Estado:</label>
+      <select id="o-estado">
+        <option value="">Todos</option>
+        <option value="abierta">Abierta</option>
+        <option value="resuelta">Resuelta</option>
+      </select>
+      <label>Desde:</label>
+      <input type="date" id="o-desde">
+      <button class="btn btn-ghost btn-sm" id="o-filtrar">Filtrar</button>
+      <button class="btn btn-ghost btn-sm" id="o-limpiar" style="color:var(--text-muted)">Limpiar</button>
+      <div class="filter-spacer"></div>
+      <span id="o-count" style="font-size:var(--text-sm);color:var(--text-muted)"></span>
+    </div>
+    <div class="card">
+      <div class="card-body" id="tbl-operativas">
+        <div class="spinner" style="margin:var(--space-6) auto"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<!-- Modal nueva/editar incidencia operativa -->
+<div class="modal-overlay" id="modal-inc">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-inc-title">Nueva incidencia</h3>
+      <button class="modal-close" id="modal-inc-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="inc-id">
+      <div class="form-group">
+        <label>Tipo</label>
+        <select id="inc-tipo">
+          <option value="pedido_perdido">Pedido perdido</option>
+          <option value="mal_armado">Mal armado</option>
+          <option value="demora">Demora</option>
+          <option value="reclamo">Reclamo farmacia</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)">
+        <div class="form-group">
+          <label>N° Pedido</label>
+          <input type="text" id="inc-pedido" placeholder="Opcional">
+        </div>
+        <div class="form-group">
+          <label>Sucursal</label>
+          <input type="text" id="inc-sucursal" placeholder="Opcional">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descripción <span style="color:var(--danger)">*</span></label>
+        <textarea id="inc-descripcion" placeholder="Detallá qué ocurrió..."></textarea>
+      </div>
+      <div class="form-group" id="group-resolucion" style="display:none">
+        <label>Resolución</label>
+        <textarea id="inc-resolucion" placeholder="Cómo se resolvió..."></textarea>
+      </div>
+      <div class="form-group" id="group-estado" style="display:none">
+        <label>Estado</label>
+        <select id="inc-estado">
+          <option value="abierta">Abierta</option>
+          <option value="resuelta">Resuelta</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:var(--space-3);justify-content:flex-end;margin-top:var(--space-2)">
+        <button class="btn btn-ghost" id="modal-inc-cancel">Cancelar</button>
+        <button class="btn btn-primary" id="modal-inc-save">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import auth from './js/auth.js';
+  import { showToast } from './js/toast.js';
+  import { initMobileNav } from './js/mobile-nav.js';
+
+  const session = await auth.requireAuth();
+  if (!session) throw new Error('sin sesion');
+  if (session.rol === 'cadete') { window.location.href = 'cadete.html'; }
+
+  document.getElementById('user-nombre').textContent = session.nombre || session.usuario;
+  document.getElementById('user-avatar').textContent = (session.nombre || session.usuario).charAt(0).toUpperCase();
+  document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+  initMobileNav('incidencias', session.rol);
+
+  // ── Tabs ──────────────────────────────────────────────
+  let tabActual = 'stock';
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabActual = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-stock').style.display     = tabActual === 'stock'      ? '' : 'none';
+      document.getElementById('tab-operativas').style.display = tabActual === 'operativas' ? '' : 'none';
+      if (tabActual === 'operativas') cargarOperativas();
+    });
+  });
+
+  // ── Labels / colores ───────────────────────────────────
+  const TIPO_LABEL = {
+    pedido_perdido: 'Pedido perdido',
+    mal_armado:     'Mal armado',
+    demora:         'Demora',
+    reclamo:        'Reclamo farmacia',
+    otro:           'Otro',
+  };
+  const TIPO_BADGE = {
+    pedido_perdido: 'badge-red',
+    mal_armado:     'badge-orange',
+    demora:         'badge-orange',
+    reclamo:        'badge-blue',
+    otro:           'badge-gray',
+  };
+  const STOCK_LABEL = { MAL_STOCK: 'Mal stock', NO_ENCONTRADO: 'No encontrado' };
+  const STOCK_BADGE = { MAL_STOCK: 'badge-orange', NO_ENCONTRADO: 'badge-red' };
+
+  function fmtFecha(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }
+
+  // ── TAB STOCK ──────────────────────────────────────────
+  async function cargarStock() {
+    const desde    = document.getElementById('s-desde').value;
+    const hasta    = document.getElementById('s-hasta').value;
+    const sucursal = document.getElementById('s-sucursal').value;
+    const qs = [desde && `desde=${desde}`, hasta && `hasta=${hasta}`, sucursal && `sucursal=${encodeURIComponent(sucursal)}`].filter(Boolean).join('&');
+
+    document.getElementById('tbl-stock').innerHTML = '<div class="spinner" style="margin:var(--space-6) auto"></div>';
+    try {
+      const r = await auth.apiFetch('/api/incidencias/stock' + (qs ? '?' + qs : ''));
+      const d = await r.json();
+      if (!d.ok) throw new Error();
+
+      // Poblar selector de sucursales
+      const sel = document.getElementById('s-sucursal');
+      const cur = sel.value;
+      sel.innerHTML = '<option value="">Todas</option>' + d.sucursales.map(s => `<option value="${s}"${s === cur ? ' selected' : ''}>${s}</option>`).join('');
+
+      document.getElementById('s-count').textContent = d.incidencias.length ? `${d.incidencias.length} registro(s)` : '';
+
+      if (!d.incidencias.length) {
+        document.getElementById('tbl-stock').innerHTML = `
+          <div class="empty-state" style="padding:var(--space-6) 0">
+            <div class="empty-state-title">Sin incidencias en el período</div>
+            <div class="empty-state-desc">Los eventos MAL_STOCK y NO_ENCONTRADO aparecen aquí automáticamente</div>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('tbl-stock').innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="inc-table">
+            <thead><tr>
+              <th>Fecha</th>
+              <th>Sucursal</th>
+              <th>Pedido</th>
+              <th>Producto</th>
+              <th>Estado</th>
+              <th>Alternativa</th>
+              <th>Notas</th>
+            </tr></thead>
+            <tbody>${d.incidencias.map(i => `
+              <tr>
+                <td style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
+                <td style="font-weight:500">${i.nodo_asignado || '—'}</td>
+                <td>${i.nro_pedido || '—'}</td>
+                <td>${i.producto || '—'}</td>
+                <td><span class="badge ${STOCK_BADGE[i.estado_nuevo] || 'badge-gray'}">${STOCK_LABEL[i.estado_nuevo] || i.estado_nuevo}</span></td>
+                <td style="color:var(--text-muted)">${i.alternativa_nodo || '—'}</td>
+                <td style="color:var(--text-muted)">${i.notas || '—'}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch {
+      showToast('Error al cargar incidencias de stock', 'danger');
+    }
+  }
+
+  document.getElementById('s-filtrar').addEventListener('click', cargarStock);
+  document.getElementById('s-limpiar').addEventListener('click', () => {
+    document.getElementById('s-desde').value = '';
+    document.getElementById('s-hasta').value = '';
+    document.getElementById('s-sucursal').value = '';
+    cargarStock();
+  });
+
+  // ── TAB OPERATIVAS ─────────────────────────────────────
+  let _operativasCache = [];
+
+  async function cargarOperativas() {
+    const tipo   = document.getElementById('o-tipo').value;
+    const estado = document.getElementById('o-estado').value;
+    const desde  = document.getElementById('o-desde').value;
+    const qs = [tipo && `tipo=${tipo}`, estado && `estado=${estado}`, desde && `desde=${desde}`].filter(Boolean).join('&');
+
+    document.getElementById('tbl-operativas').innerHTML = '<div class="spinner" style="margin:var(--space-6) auto"></div>';
+    try {
+      const r = await auth.apiFetch('/api/incidencias' + (qs ? '?' + qs : ''));
+      const d = await r.json();
+      if (!d.ok) throw new Error();
+      _operativasCache = d.incidencias;
+
+      document.getElementById('o-count').textContent = d.incidencias.length ? `${d.incidencias.length} registro(s)` : '';
+
+      if (!d.incidencias.length) {
+        document.getElementById('tbl-operativas').innerHTML = `
+          <div class="empty-state" style="padding:var(--space-6) 0">
+            <div class="empty-state-title">Sin incidencias operativas</div>
+            <div class="empty-state-desc">Registrá pedidos perdidos, reclamos de farmacias, demoras y otros problemas</div>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('tbl-operativas').innerHTML = `
+        <div style="overflow-x:auto">
+          <table class="inc-table">
+            <thead><tr>
+              <th>Fecha</th>
+              <th>Tipo</th>
+              <th>Pedido</th>
+              <th>Sucursal</th>
+              <th>Descripción</th>
+              <th>Estado</th>
+              <th></th>
+            </tr></thead>
+            <tbody>${d.incidencias.map(i => `
+              <tr>
+                <td style="white-space:nowrap">${fmtFecha(i.created_at)}</td>
+                <td><span class="badge ${TIPO_BADGE[i.tipo] || 'badge-gray'}">${TIPO_LABEL[i.tipo] || i.tipo}</span></td>
+                <td>${i.nro_pedido || '—'}</td>
+                <td>${i.sucursal || '—'}</td>
+                <td style="max-width:240px">
+                  <div style="font-weight:500">${i.descripcion}</div>
+                  ${i.resolucion ? `<div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">✓ ${i.resolucion}</div>` : ''}
+                </td>
+                <td><span class="badge ${i.estado === 'resuelta' ? 'badge-green' : 'badge-red'}">${i.estado === 'resuelta' ? 'Resuelta' : 'Abierta'}</span></td>
+                <td>
+                  <button class="btn btn-ghost btn-sm" onclick="editarInc(${i.id})">Editar</button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    } catch {
+      showToast('Error al cargar incidencias', 'danger');
+    }
+  }
+
+  document.getElementById('o-filtrar').addEventListener('click', cargarOperativas);
+  document.getElementById('o-limpiar').addEventListener('click', () => {
+    document.getElementById('o-tipo').value   = '';
+    document.getElementById('o-estado').value = '';
+    document.getElementById('o-desde').value  = '';
+    cargarOperativas();
+  });
+
+  // ── Modal incidencia operativa ─────────────────────────
+  let incData = null; // datos para edición
+
+  function abrirModal(inc = null) {
+    incData = inc;
+    document.getElementById('modal-inc-title').textContent = inc ? 'Editar incidencia' : 'Nueva incidencia';
+    document.getElementById('inc-id').value           = inc?.id || '';
+    document.getElementById('inc-tipo').value          = inc?.tipo || 'pedido_perdido';
+    document.getElementById('inc-pedido').value        = inc?.nro_pedido || '';
+    document.getElementById('inc-sucursal').value      = inc?.sucursal || '';
+    document.getElementById('inc-descripcion').value   = inc?.descripcion || '';
+    document.getElementById('inc-resolucion').value    = inc?.resolucion || '';
+    document.getElementById('inc-estado').value        = inc?.estado || 'abierta';
+    document.getElementById('group-resolucion').style.display = inc ? '' : 'none';
+    document.getElementById('group-estado').style.display     = inc ? '' : 'none';
+    document.getElementById('modal-inc').classList.add('open');
+  }
+
+  function cerrarModal() {
+    document.getElementById('modal-inc').classList.remove('open');
+    incData = null;
+  }
+
+  document.getElementById('btn-nueva').addEventListener('click', () => abrirModal());
+  document.getElementById('modal-inc-close').addEventListener('click', cerrarModal);
+  document.getElementById('modal-inc-cancel').addEventListener('click', cerrarModal);
+  document.getElementById('modal-inc').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-inc')) cerrarModal();
+  });
+
+  document.getElementById('modal-inc-save').addEventListener('click', async () => {
+    const descripcion = document.getElementById('inc-descripcion').value.trim();
+    if (!descripcion) { showToast('La descripción es obligatoria', 'danger'); return; }
+
+    const body = {
+      tipo:        document.getElementById('inc-tipo').value,
+      nro_pedido:  document.getElementById('inc-pedido').value.trim(),
+      sucursal:    document.getElementById('inc-sucursal').value.trim(),
+      descripcion,
+    };
+
+    const id = document.getElementById('inc-id').value;
+    if (id) {
+      body.resolucion = document.getElementById('inc-resolucion').value.trim();
+      body.estado     = document.getElementById('inc-estado').value;
+    }
+
+    try {
+      const url    = id ? `/api/incidencias/${id}` : '/api/incidencias';
+      const method = id ? 'PATCH' : 'POST';
+      const r = await auth.apiFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.motivo);
+      showToast(id ? 'Incidencia actualizada' : 'Incidencia registrada', 'success');
+      cerrarModal();
+      cargarOperativas();
+      if (tabActual !== 'operativas') {
+        document.querySelector('[data-tab="operativas"]').click();
+      }
+    } catch (e) {
+      showToast('Error al guardar: ' + (e.message || ''), 'danger');
+    }
+  });
+
+  window.editarInc = function(id) {
+    const inc = _operativasCache.find(i => i.id === id);
+    if (inc) abrirModal(inc);
+  };
+
+  // ── Carga inicial ──────────────────────────────────────
+  cargarStock();
+</script>
+</body>
+</html>

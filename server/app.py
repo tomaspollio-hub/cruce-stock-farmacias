@@ -147,6 +147,22 @@ def init_db():
         except Exception:
             pass
 
+    # Tabla de incidencias operativas (pedidos perdidos, reclamos, demoras, etc.)
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS incidencias_operativas (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            tipo        TEXT NOT NULL DEFAULT 'otro',
+            nro_pedido  TEXT DEFAULT '',
+            sucursal    TEXT DEFAULT '',
+            descripcion TEXT NOT NULL,
+            estado      TEXT DEFAULT 'abierta',
+            resolucion  TEXT DEFAULT '',
+            creado_por  TEXT,
+            created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at  TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+
     # Tablas de entregas
     db.executescript("""
         CREATE TABLE IF NOT EXISTS entregas_confirmadas (
@@ -1192,6 +1208,175 @@ def analytics_export():
         download_name=nombre,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
+
+# ── Incidencias operativas ──────────────────────────────────────────────────────
+
+TIPOS_INCIDENCIA = {'pedido_perdido', 'mal_armado', 'demora', 'reclamo', 'otro'}
+
+@app.get('/api/incidencias')
+@require_auth
+def incidencias_list():
+    db    = get_db()
+    tipo  = request.args.get('tipo', '')
+    estado = request.args.get('estado', '')
+    desde = request.args.get('desde', '')
+    hasta = request.args.get('hasta', '')
+
+    conds  = ['1=1']
+    params = []
+    if tipo:
+        conds.append('tipo = ?'); params.append(tipo)
+    if estado:
+        conds.append('estado = ?'); params.append(estado)
+    if desde:
+        conds.append('created_at >= ?'); params.append(desde)
+    if hasta:
+        conds.append('created_at <= ?'); params.append(hasta + 'T23:59:59')
+
+    rows = db.execute(
+        f'SELECT * FROM incidencias_operativas WHERE {" AND ".join(conds)} ORDER BY created_at DESC',
+        params
+    ).fetchall()
+    return jsonify({'ok': True, 'incidencias': [dict(r) for r in rows]})
+
+
+@app.post('/api/incidencias')
+@require_auth
+def incidencia_create():
+    data = request.get_json(silent=True) or {}
+    tipo        = data.get('tipo', 'otro')
+    descripcion = (data.get('descripcion') or '').strip()
+    if not descripcion:
+        return jsonify({'ok': False, 'motivo': 'descripcion_requerida'}), 400
+    if tipo not in TIPOS_INCIDENCIA:
+        return jsonify({'ok': False, 'motivo': 'tipo_invalido'}), 400
+
+    db  = get_db()
+    now = datetime.now(timezone.utc).isoformat()
+    cur = db.execute(
+        '''INSERT INTO incidencias_operativas
+           (tipo, nro_pedido, sucursal, descripcion, estado, creado_por, created_at, updated_at)
+           VALUES (?, ?, ?, ?, 'abierta', ?, ?, ?)''',
+        (tipo, data.get('nro_pedido', ''), data.get('sucursal', ''),
+         descripcion, g.usuario, now, now)
+    )
+    db.commit()
+    return jsonify({'ok': True, 'id': cur.lastrowid}), 201
+
+
+@app.patch('/api/incidencias/<int:inc_id>')
+@require_auth
+def incidencia_update(inc_id):
+    data = request.get_json(silent=True) or {}
+    db   = get_db()
+    row  = db.execute('SELECT * FROM incidencias_operativas WHERE id = ?', (inc_id,)).fetchone()
+    if not row:
+        return jsonify({'ok': False, 'motivo': 'no_encontrado'}), 404
+
+    updates = {}
+    if 'estado' in data and data['estado'] in ('abierta', 'resuelta'):
+        updates['estado'] = data['estado']
+    if 'resolucion' in data:
+        updates['resolucion'] = data['resolucion']
+    if 'descripcion' in data and data['descripcion'].strip():
+        updates['descripcion'] = data['descripcion'].strip()
+    if 'sucursal' in data:
+        updates['sucursal'] = data['sucursal']
+    if 'nro_pedido' in data:
+        updates['nro_pedido'] = data['nro_pedido']
+
+    if updates:
+        updates['updated_at'] = datetime.now(timezone.utc).isoformat()
+        set_clause = ', '.join(f'{k} = ?' for k in updates)
+        db.execute(
+            f'UPDATE incidencias_operativas SET {set_clause} WHERE id = ?',
+            list(updates.values()) + [inc_id]
+        )
+        db.commit()
+    return jsonify({'ok': True})
+
+
+@app.delete('/api/incidencias/<int:inc_id>')
+@require_auth
+def incidencia_delete(inc_id):
+    if g.rol not in ('admin', 'operador'):
+        return jsonify({'ok': False, 'motivo': 'sin_permiso'}), 403
+    db = get_db()
+    db.execute('DELETE FROM incidencias_operativas WHERE id = ?', (inc_id,))
+    db.commit()
+    return jsonify({'ok': True})
+
+
+@app.get('/api/incidencias/stock')
+@require_auth
+def incidencias_stock():
+    """Incidencias de stock (MAL_STOCK/NO_ENCONTRADO) desde eventos_estado con filtros."""
+    db      = get_db()
+    desde   = request.args.get('desde', '')
+    hasta   = request.args.get('hasta', '')
+    sucursal = request.args.get('sucursal', '')
+
+    conds  = ["e.estado_nuevo IN ('MAL_STOCK','NO_ENCONTRADO')"]
+    params = []
+    if desde:
+        conds.append('e.created_at >= ?'); params.append(desde)
+    if hasta:
+        conds.append('e.created_at <= ?'); params.append(hasta + 'T23:59:59')
+    if sucursal:
+        conds.append('e.nodo_asignado = ?'); params.append(sucursal)
+
+    rows = db.execute(
+        f'''SELECT e.id, e.estado_nuevo, e.nodo_asignado, e.created_at,
+                   l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
+                   l.unidades, l.alternativa_nodo, l.notas, l.cruce_id
+            FROM eventos_estado e
+            JOIN lineas l ON l.id = e.linea_id
+            WHERE {" AND ".join(conds)}
+            ORDER BY e.created_at DESC''',
+        params
+    ).fetchall()
+
+    sucursales = db.execute(
+        '''SELECT DISTINCT nodo_asignado FROM eventos_estado
+           WHERE estado_nuevo IN ('MAL_STOCK','NO_ENCONTRADO')
+             AND nodo_asignado IS NOT NULL AND nodo_asignado != ''
+           ORDER BY nodo_asignado'''
+    ).fetchall()
+
+    return jsonify({
+        'ok': True,
+        'incidencias': [dict(r) for r in rows],
+        'sucursales': [r['nodo_asignado'] for r in sucursales],
+    })
+
+
+@app.get('/api/incidencias/stock/farmacia/<path:nombre>')
+@require_auth
+def incidencias_stock_farmacia(nombre):
+    """Detalle de productos con MAL_STOCK/NO_ENCONTRADO para una sucursal."""
+    db     = get_db()
+    desde  = request.args.get('desde', '')
+    hasta  = request.args.get('hasta', '')
+
+    conds  = ["e.estado_nuevo IN ('MAL_STOCK','NO_ENCONTRADO')", 'e.nodo_asignado = ?']
+    params = [nombre]
+    if desde:
+        conds.append('e.created_at >= ?'); params.append(desde)
+    if hasta:
+        conds.append('e.created_at <= ?'); params.append(hasta + 'T23:59:59')
+
+    rows = db.execute(
+        f'''SELECT e.estado_nuevo, e.created_at,
+                   l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
+                   l.unidades, l.alternativa_nodo, l.notas
+            FROM eventos_estado e
+            JOIN lineas l ON l.id = e.linea_id
+            WHERE {" AND ".join(conds)}
+            ORDER BY e.created_at DESC''',
+        params
+    ).fetchall()
+    return jsonify({'ok': True, 'productos': [dict(r) for r in rows], 'farmacia': nombre})
+
 
 # ── Procesamiento ───────────────────────────────────────────────────────────────
 

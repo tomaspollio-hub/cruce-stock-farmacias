@@ -167,6 +167,7 @@
     <a href="nuevo-cruce.html">Nuevo cruce</a>
     <a href="operador.html">Operador</a>
     <a href="cadete.html">Ruta del día</a>
+    <a href="incidencias.html">Incidencias</a>
     <a href="historial.html">Historial</a>
     <a href="usuarios.html">Usuarios</a>
     <a href="config.html">Config</a>
@@ -297,7 +298,7 @@
     <div class="card">
       <div class="card-header">
         <h2 class="card-title">Farmacias con incidencias</h2>
-        <span style="font-size:var(--text-xs);color:var(--danger)">mal stock / no encontrado</span>
+        <span style="font-size:var(--text-xs);color:var(--danger)">mal stock / no encontrado · click para detalle</span>
       </div>
       <div class="card-body" id="tbl-farmacias-problema">
         <div class="spinner" style="margin:var(--space-6) auto"></div>
@@ -340,6 +341,17 @@
 
 <div id="toast-container"></div>
 
+<!-- Modal detalle farmacia -->
+<div id="modal-farmacia" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:var(--space-4)">
+  <div style="background:var(--bg-card);border-radius:var(--radius-xl);width:100%;max-width:680px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--space-5) var(--space-6);border-bottom:1px solid var(--border)">
+      <h3 id="modal-farmacia-title" style="font-size:var(--text-base);font-weight:var(--font-semibold);margin:0"></h3>
+      <button id="modal-farmacia-close" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);line-height:1">✕</button>
+    </div>
+    <div id="modal-farmacia-body" style="overflow-y:auto;padding:var(--space-4) var(--space-6) var(--space-6)"></div>
+  </div>
+</div>
+
 <script type="module">
   import auth    from './js/auth.js';
   import { showToast } from './js/toast.js';
@@ -381,15 +393,16 @@
   initMobileNav('dashboard', session.rol);
 
   // ── Helpers ────────────────────────────────────────────────
-  function topList(rows, nameKey, valKey, colorClass = '') {
+  function topList(rows, nameKey, valKey, colorClass = '', onClick = null) {
     if (!rows || rows.length === 0)
       return `<div class="empty-state" style="padding:var(--space-4) 0">
                 <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
                 <div class="empty-state-title">Sin datos</div>
               </div>`;
     const max = rows[0][valKey] || 1;
-    return rows.map((r, i) => `
-      <div class="top-row">
+    const clickable = onClick ? 'style="cursor:pointer" class="top-row top-row-clickable"' : 'class="top-row"';
+    const html = rows.map((r, i) => `
+      <div ${clickable} data-name="${(r[nameKey] || '').replace(/"/g, '&quot;')}">
         <div class="top-rank">${i + 1}</div>
         <div class="top-name" title="${r[nameKey]}">${r[nameKey] || '—'}</div>
         <div class="top-bar-bg">
@@ -397,6 +410,70 @@
         </div>
         <div class="top-val">${r[valKey]}</div>
       </div>`).join('');
+
+    if (onClick) {
+      // attach listeners after render via event delegation on parent
+      setTimeout(() => {
+        document.querySelectorAll('.top-row-clickable').forEach(el => {
+          el.addEventListener('click', () => onClick(el.dataset.name));
+        });
+      }, 0);
+    }
+    return html;
+  }
+
+  // ── Modal detalle farmacia ──────────────────────────────
+  const modalFarmacia = document.getElementById('modal-farmacia');
+  document.getElementById('modal-farmacia-close').addEventListener('click', () => {
+    modalFarmacia.style.display = 'none';
+  });
+  modalFarmacia.addEventListener('click', e => {
+    if (e.target === modalFarmacia) modalFarmacia.style.display = 'none';
+  });
+
+  async function abrirDetalleFarmacia(nombre) {
+    document.getElementById('modal-farmacia-title').textContent = nombre;
+    document.getElementById('modal-farmacia-body').innerHTML =
+      '<div class="spinner" style="margin:var(--space-6) auto"></div>';
+    modalFarmacia.style.display = 'flex';
+
+    const desde = document.getElementById('f-desde').value;
+    const hasta = document.getElementById('f-hasta').value;
+    const qs = [desde && `desde=${desde}`, hasta && `hasta=${hasta}`].filter(Boolean).join('&');
+
+    try {
+      const r  = await auth.apiFetch(`/api/incidencias/stock/farmacia/${encodeURIComponent(nombre)}${qs ? '?' + qs : ''}`);
+      const d  = await r.json();
+      if (!d.ok || !d.productos.length) {
+        document.getElementById('modal-farmacia-body').innerHTML =
+          '<div class="empty-state" style="padding:var(--space-6) 0"><div class="empty-state-title">Sin incidencias en el período</div></div>';
+        return;
+      }
+      const LABEL = { MAL_STOCK: 'Mal stock', NO_ENCONTRADO: 'No encontrado' };
+      const COLOR = { MAL_STOCK: 'var(--warning,#f59e0b)', NO_ENCONTRADO: 'var(--danger)' };
+      document.getElementById('modal-farmacia-body').innerHTML = `
+        <p style="font-size:var(--text-sm);color:var(--text-muted);margin:var(--space-3) 0 var(--space-4)">${d.productos.length} incidencia(s) registradas</p>
+        <table style="width:100%;border-collapse:collapse;font-size:var(--text-sm)">
+          <thead><tr style="border-bottom:2px solid var(--border)">
+            <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">Fecha</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">Pedido</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">Producto</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">Estado</th>
+            <th style="text-align:left;padding:6px 8px;color:var(--text-muted);font-weight:500">Alternativa</th>
+          </tr></thead>
+          <tbody>${d.productos.map(p => `
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:6px 8px;white-space:nowrap">${new Date(p.created_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</td>
+              <td style="padding:6px 8px">${p.nro_pedido || '—'}</td>
+              <td style="padding:6px 8px;font-weight:500">${p.producto || '—'}</td>
+              <td style="padding:6px 8px"><span style="color:${COLOR[p.estado_nuevo]};font-weight:600">${LABEL[p.estado_nuevo] || p.estado_nuevo}</span></td>
+              <td style="padding:6px 8px;color:var(--text-muted)">${p.alternativa_nodo || '—'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+    } catch {
+      document.getElementById('modal-farmacia-body').innerHTML = '<p style="color:var(--danger)">Error al cargar datos</p>';
+    }
   }
 
   function buildEvoChart(evolucion) {
@@ -521,7 +598,7 @@
       document.getElementById('tbl-top-farmacias').innerHTML =
         topList(analytics.top_farmacias, 'farmacia', 'lineas', 'green');
       document.getElementById('tbl-farmacias-problema').innerHTML =
-        topList(analytics.farmacias_problema, 'farmacia', 'incidencias', 'red');
+        topList(analytics.farmacias_problema, 'farmacia', 'incidencias', 'red', abrirDetalleFarmacia);
       document.getElementById('tbl-puntos-retiro').innerHTML =
         topList(analytics.top_puntos_retiro, 'punto_retiro', 'pedidos');
     }
