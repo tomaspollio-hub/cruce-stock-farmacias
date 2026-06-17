@@ -6,12 +6,14 @@ import { icons } from './icons.js';
 
 export function initMobileNav(active, rol = '') {
   const defs = [
-    { href: 'index.html',       icon: icons.home,      label: 'Inicio',      key: 'dashboard', adminOnly: false },
-    { href: 'nuevo-cruce.html', icon: icons.bolt,      label: 'Nuevo cruce', key: 'nuevo',     adminOnly: false },
-    { href: 'operador.html',    icon: icons.signal,    label: 'Operador',    key: 'operador',  adminOnly: false },
-    { href: 'historial.html',   icon: icons.clipboard, label: 'Historial',   key: 'historial', adminOnly: false },
-    { href: 'usuarios.html',    icon: icons.users,     label: 'Usuarios',    key: 'usuarios',  adminOnly: true  },
-    { href: 'config.html',      icon: icons.settings,  label: 'Config',      key: 'config',    adminOnly: true  },
+    { href: 'index.html',       icon: icons.home,      label: 'Inicio',       key: 'dashboard',   adminOnly: false },
+    { href: 'nuevo-cruce.html', icon: icons.bolt,      label: 'Nuevo cruce',  key: 'nuevo',       adminOnly: false },
+    { href: 'operador.html',    icon: icons.signal,    label: 'Operador',     key: 'operador',    adminOnly: false },
+    { href: 'cadete.html',      icon: icons.map,       label: 'Ruta del día', key: 'cadete',      adminOnly: false },
+    { href: 'incidencias.html', icon: icons.warning,   label: 'Incidencias',  key: 'incidencias', adminOnly: false },
+    { href: 'historial.html',   icon: icons.clipboard, label: 'Historial',    key: 'historial',   adminOnly: false },
+    { href: 'usuarios.html',    icon: icons.users,     label: 'Usuarios',     key: 'usuarios',    adminOnly: true  },
+    { href: 'config.html',      icon: icons.settings,  label: 'Config',       key: 'config',      adminOnly: true  },
   ];
 
   if (rol) document.body.dataset.rol = rol;
