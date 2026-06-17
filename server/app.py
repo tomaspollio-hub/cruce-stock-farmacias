@@ -139,6 +139,7 @@ def init_db():
         "ALTER TABLE lineas ADD COLUMN alternativa_nodo TEXT DEFAULT ''",
         "ALTER TABLE lineas ADD COLUMN punto_retiro TEXT DEFAULT ''",
         "ALTER TABLE entregas_habilitadas ADD COLUMN nro_pedidos TEXT DEFAULT '[]'",
+        "ALTER TABLE eventos_estado ADD COLUMN nodo_asignado TEXT",
     ]:
         try:
             db.execute(col_sql)
@@ -590,23 +591,35 @@ def cruce_export(cruce_id):
     ws2.freeze_panes = 'A2'
 
     # ── Hoja 3: Incidencias (NO_ENCONTRADO + MAL_STOCK) ──────────
+    # Leemos desde eventos_estado para preservar la sucursal donde ocurrió cada
+    # incidencia aunque la línea haya sido reasignada y resuelta después.
     ws3 = wb.create_sheet('Incidencias')
 
-    h3 = ['N° Pedido', 'Punto de Retiro', 'Sucursal Asignada', 'Producto',
+    h3 = ['N° Pedido', 'Punto de Retiro', 'Sucursal donde ocurrió', 'Producto',
           'GTIN', 'Unidades', 'Incidencia', 'Alternativa Propuesta', 'Notas']
     write_header(ws3, h3)
 
-    incidencias = [l for l in lineas if l['estado'] in ('NO_ENCONTRADO', 'MAL_STOCK')]
-    if incidencias:
-        for row_i, l in enumerate(incidencias, 2):
-            estado = l['estado']
+    eventos_inc = db.execute(
+        '''SELECT e.estado_nuevo, e.nodo_asignado, e.created_at,
+                  l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
+                  l.unidades, l.alternativa_nodo, l.notas
+           FROM eventos_estado e
+           JOIN lineas l ON l.id = e.linea_id
+           WHERE l.cruce_id = ? AND e.estado_nuevo IN ('NO_ENCONTRADO', 'MAL_STOCK')
+           ORDER BY e.created_at''',
+        (cruce_id,)
+    ).fetchall()
+
+    if eventos_inc:
+        for row_i, ev in enumerate(eventos_inc, 2):
+            estado = ev['estado_nuevo']
             fill   = PatternFill(fill_type='solid', fgColor=ESTADO_COLOR[estado])
             apply_row(ws3, row_i, [
-                l['nro_pedido'], l['punto_retiro'], l['nodo_asignado'],
-                l['producto'], l['gtin'], l['unidades'],
+                ev['nro_pedido'], ev['punto_retiro'], ev['nodo_asignado'],
+                ev['producto'], ev['gtin'], ev['unidades'],
                 ESTADO_LABEL[estado],
-                l['alternativa_nodo'] or '',
-                l['notas'] or '',
+                ev['alternativa_nodo'] or '',
+                ev['notas'] or '',
             ], len(h3), fill=fill)
     else:
         ws3.cell(row=2, column=1, value='Sin incidencias registradas').font = Font(italic=True, color='888888')
@@ -689,9 +702,9 @@ def linea_update(cruce_id, linea_id):
     if nuevo_estado and nuevo_estado != row['estado']:
         db.execute(
             '''INSERT INTO eventos_estado
-               (linea_id, estado_anterior, estado_nuevo, motivo, origen)
-               VALUES (?, ?, ?, ?, ?)''',
-            (linea_id, row['estado'], nuevo_estado, motivo, g.rol)
+               (linea_id, estado_anterior, estado_nuevo, motivo, origen, nodo_asignado)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (linea_id, row['estado'], nuevo_estado, motivo, g.rol, row['nodo_asignado'])
         )
 
     db.commit()
