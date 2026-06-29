@@ -236,36 +236,33 @@
     </div>
   </div>
 
-  <!-- Evolución + último cruce -->
-  <div class="grid-2 grid-2-evo" style="margin-bottom:var(--space-6)">
-
-    <div class="card">
-      <div class="card-header">
-        <h2 class="card-title">Evolución de cobertura</h2>
-        <span id="evo-range" style="font-size:var(--text-xs);color:var(--text-muted)"></span>
+  <!-- Evolución de cobertura -->
+  <div class="card" style="margin-bottom:var(--space-6)">
+    <div class="card-header">
+      <h2 class="card-title">Evolución de cobertura</h2>
+      <span id="evo-range" style="font-size:var(--text-xs);color:var(--text-muted)"></span>
+    </div>
+    <div class="card-body">
+      <div id="evo-chart-wrap">
+        <div class="evo-chart" id="evo-chart"></div>
+        <div class="evo-labels" id="evo-labels"></div>
       </div>
-      <div class="card-body">
-        <div id="evo-chart-wrap">
-          <div class="evo-chart" id="evo-chart"></div>
-          <div class="evo-labels" id="evo-labels"></div>
-        </div>
-        <div id="evo-empty" class="empty-state" style="display:none;padding:var(--space-6) 0">
-          <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
-          <div class="empty-state-title">Sin datos en el período</div>
-        </div>
+      <div id="evo-empty" class="empty-state" style="display:none;padding:var(--space-6) 0">
+        <div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <div class="empty-state-title">Sin datos en el período</div>
       </div>
     </div>
+  </div>
 
-    <div class="card" id="ultimo-cruce-card">
-      <div class="card-header">
-        <h2 class="card-title">Último cruce</h2>
-        <a href="nuevo-cruce.html" class="btn btn-primary btn-sm">+ Nuevo cruce</a>
-      </div>
-      <div class="card-body" id="ultimo-cruce-body">
-        <div class="spinner" style="margin:var(--space-6) auto"></div>
-      </div>
+  <!-- Último cruce -->
+  <div class="card" id="ultimo-cruce-card" style="margin-bottom:var(--space-6)">
+    <div class="card-header">
+      <h2 class="card-title">Último cruce</h2>
+      <a href="nuevo-cruce.html" class="btn btn-primary btn-sm">+ Nuevo cruce</a>
     </div>
-
+    <div class="card-body" id="ultimo-cruce-body">
+      <div class="spinner" style="margin:var(--space-6) auto"></div>
+    </div>
   </div>
 
   <!-- Tablas analíticas -->
