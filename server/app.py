@@ -612,13 +612,13 @@ def cruce_export(cruce_id):
     ws3 = wb.create_sheet('Incidencias')
 
     h3 = ['N° Pedido', 'Punto de Retiro', 'Sucursal donde ocurrió', 'Producto',
-          'GTIN', 'Unidades', 'Incidencia', 'Alternativa Propuesta', 'Notas']
+          'GTIN', 'Unidades', 'Stock en sistema', 'Incidencia', 'Alternativa Propuesta', 'Notas']
     write_header(ws3, h3)
 
     eventos_inc = db.execute(
         '''SELECT e.estado_nuevo, e.nodo_asignado, e.created_at,
                   l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
-                  l.unidades, l.alternativa_nodo, l.notas
+                  l.unidades, l.stock_disponible, l.alternativa_nodo, l.notas
            FROM eventos_estado e
            JOIN lineas l ON l.id = e.linea_id
            WHERE l.cruce_id = ? AND e.estado_nuevo IN ('NO_ENCONTRADO', 'MAL_STOCK')
@@ -633,6 +633,7 @@ def cruce_export(cruce_id):
             apply_row(ws3, row_i, [
                 ev['nro_pedido'], ev['punto_retiro'], ev['nodo_asignado'],
                 ev['producto'], ev['gtin'], ev['unidades'],
+                ev['stock_disponible'],
                 ESTADO_LABEL[estado],
                 ev['alternativa_nodo'] or '',
                 ev['notas'] or '',
@@ -640,7 +641,7 @@ def cruce_export(cruce_id):
     else:
         ws3.cell(row=2, column=1, value='Sin incidencias registradas').font = Font(italic=True, color='888888')
 
-    set_widths(ws3, [14, 28, 28, 36, 16, 9, 16, 22, 24])
+    set_widths(ws3, [14, 28, 28, 36, 16, 9, 16, 16, 22, 24])
     ws3.freeze_panes = 'A2'
 
     buf = io.BytesIO()
