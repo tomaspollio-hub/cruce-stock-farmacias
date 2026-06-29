@@ -210,4 +210,25 @@ nodos_geo: {}
 # Sucursales que siempre aparecen en las tiles de Entregas del día,
 # aunque no estén en el archivo de stock del cruce actual.
 sucursales_fijas:
+- ALPINA BELGRANO 2715
+- ALPINA FOTHERINGHAM 150
+- ALPINA SAN MARTIN 4305
+- GLOBAL ALDERETE 145
+- GLOBAL AV. OLASCOAGA 717 - CUTRAL CO
+- GLOBAL AV.SAN MARTIN 340 ZAPALA
+- GLOBAL BURATOVICH 196, PLOTTIER
+- GLOBAL CENTENARIO HONDURAS 1195
+- GLOBAL DIAGONAL ESPAÑA 91
 - GLOBAL RIVADAVIA 280
+- GLOBAL RIO SENGUER 1553
+- GLOBAL SAN MARTIN 2141
+- GLOBAL SAN MARTIN 3069
+- GLOBAL SAN MARTIN 3087
+- GLOBAL SAN MARTIN 3581
+- GLOBAL SARMIENTO 346
+- Global Añelo
+- Global Cabellera Del frío
+- Global Combate de San Lorenzo 712
+- Global Illia 774
+- Global Mitre 357 Puerto Madryn
+- Locker Farmacias Global
