@@ -379,25 +379,10 @@
 
   // ── Acordeón ──────────────────────────────────────────────────────────────────
 
-  const ACC_KEY = 'config_accordion_v2';
-
-  function getOpenSections() {
-    try { return new Set(JSON.parse(localStorage.getItem(ACC_KEY) || '["acc-tiers","acc-params"]')); }
-    catch { return new Set(['acc-tiers', 'acc-params']); }
-  }
-
-  function saveOpenSections() {
-    const open = [...document.querySelectorAll('.acc-item.open')].map(el => el.id);
-    localStorage.setItem(ACC_KEY, JSON.stringify(open));
-  }
-
   function initAccordion() {
-    const open = getOpenSections();
     document.querySelectorAll('.acc-item').forEach(item => {
-      if (open.has(item.id)) item.classList.add('open');
       item.querySelector('.acc-header').addEventListener('click', () => {
         item.classList.toggle('open');
-        saveOpenSections();
         if (item.id === 'acc-usuarios' && item.classList.contains('open')) {
           cargarUsuarios();
         }
