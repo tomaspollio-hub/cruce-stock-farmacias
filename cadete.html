@@ -210,6 +210,96 @@
       cursor: crosshair;
     }
 
+    /* ── Sucursal chips bar ───────────────────────────────────── */
+    .sucursal-chips-bar {
+      display: flex;
+      gap: var(--space-2);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+      margin-bottom: var(--space-4);
+    }
+    .sucursal-chips-bar::-webkit-scrollbar { display: none; }
+    .suc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0 var(--space-4);
+      height: 44px;
+      border-radius: var(--radius-full);
+      font-size: var(--text-sm);
+      font-weight: var(--font-semibold);
+      cursor: pointer;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .suc-chip.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+    .suc-chip-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 5px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(0,0,0,.12);
+    }
+    .suc-chip.active .suc-chip-count { background: rgba(255,255,255,.3); }
+
+    /* ── Quick-check: bigger circular button ─────────────────── */
+    .btn-quick-check {
+      width: 52px !important;
+      height: 52px !important;
+      border-radius: 50% !important;
+    }
+    .btn-quick-check svg { width: 22px !important; height: 22px !important; }
+
+    /* ── Linea-acciones-sec: 2-col grid on tablet ────────────── */
+    .linea-acciones-sec {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr;
+    }
+    .linea-acciones-sec .btn { min-height: 44px; justify-content: center; }
+    .linea-acciones > .btn-block { min-height: 52px; font-size: var(--text-base); }
+
+    /* ── Alternativas toggle ─────────────────────────────────── */
+    .alts-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      width: 100%;
+      padding: var(--space-3) var(--space-4);
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      font-size: var(--text-xs);
+      font-weight: var(--font-semibold);
+      color: var(--text-secondary);
+      cursor: pointer;
+      text-align: left;
+      margin-top: var(--space-3);
+      transition: background var(--transition-fast);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .alts-toggle-btn .alts-chevron {
+      margin-left: auto;
+      transition: transform var(--transition-fast);
+    }
+    .alts-toggle-btn.alts-open .alts-chevron { transform: rotate(180deg); }
+    .alts-body { margin-top: var(--space-2); }
+
     /* ── Bottom tab bar (mobile ≤600px) ───────────────────────── */
     #cadete-tab-bar { display: none; }
 
@@ -345,22 +435,20 @@
   <!-- ── MODO BÚSQUEDA ─────────────────────────────────────── -->
   <div id="seccion-busqueda">
 
-    <div class="filtros-wrap">
-      <!-- Filtro por sucursal -->
-      <div class="filtro-sucursal">
-        <label for="select-sucursal">Sucursal</label>
-        <select class="form-select" id="select-sucursal" style="min-width:220px;max-width:340px">
-          <option value="">Todas las sucursales</option>
-        </select>
-      </div>
-      <!-- Filtro por estado -->
+    <!-- Sucursal chips -->
+    <div id="sucursal-chips-bar" class="sucursal-chips-bar">
+      <button class="suc-chip active" data-suc=""><span class="suc-chip-name">Todas</span></button>
+    </div>
+
+    <div class="filtros-wrap" style="margin-bottom:var(--space-4)">
+      <!-- Filtro por estado (con conteos actualizados en JS) -->
       <div class="filtros-bar" id="filtros-bar">
         <button class="filtro-btn active" data-filtro="todos">Todos</button>
         <button class="filtro-btn" data-filtro="PENDIENTE">Pendientes</button>
         <button class="filtro-btn" data-filtro="ENCONTRADO">Encontrados</button>
-        <button class="filtro-btn" data-filtro="NO_ENCONTRADO">No encontrados</button>
+        <button class="filtro-btn" data-filtro="NO_ENCONTRADO">No enc.</button>
         <button class="filtro-btn" data-filtro="MAL_STOCK">Mal stock</button>
-        <button class="filtro-btn" data-filtro="SIN_COBERTURA">Sin cobertura</button>
+        <button class="filtro-btn" data-filtro="SIN_COBERTURA">Sin cob.</button>
       </div>
     </div>
 
@@ -700,25 +788,61 @@
 
     lineasCargadas = true;
     lineas = dataLineas.lineas;
-    poblarSelectorSucursal();
+    renderSucursalChips();
     renderLineas();
     await actualizarProgreso();
   }
 
-  function poblarSelectorSucursal() {
+  function renderSucursalChips() {
     const nodos = [...new Set(
-      lineas
-        .filter(l => l.nodo_asignado)
-        .map(l => l.nodo_asignado)
+      lineas.filter(l => l.nodo_asignado).map(l => l.nodo_asignado)
     )].sort();
 
-    const sel = document.getElementById('select-sucursal');
-    sel.innerHTML = '<option value="">Todas las sucursales</option>' +
-      nodos.map(n => `<option value="${n}">${n}</option>`).join('');
+    const pendPorNodo = {};
+    for (const l of lineas) {
+      if (l.nodo_asignado && l.estado === 'PENDIENTE') {
+        pendPorNodo[l.nodo_asignado] = (pendPorNodo[l.nodo_asignado] || 0) + 1;
+      }
+    }
+    const totalPend = lineas.filter(l => l.estado === 'PENDIENTE').length;
 
-    sel.addEventListener('change', () => {
-      sucursalFiltro = sel.value;
-      renderLineas();
+    const bar = document.getElementById('sucursal-chips-bar');
+    bar.innerHTML = [
+      { suc: '', label: 'Todas', count: totalPend },
+      ...nodos.map(n => ({ suc: n, label: n, count: pendPorNodo[n] || 0 }))
+    ].map(({ suc, label, count }) =>
+      `<button class="suc-chip${sucursalFiltro === suc ? ' active' : ''}" data-suc="${suc}">
+        <span class="suc-chip-name">${label}</span>
+        ${count > 0 ? `<span class="suc-chip-count">${count}</span>` : ''}
+      </button>`
+    ).join('');
+
+    bar.querySelectorAll('.suc-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        sucursalFiltro = chip.dataset.suc;
+        renderLineas();
+      });
+    });
+  }
+
+  function actualizarFiltrosBar() {
+    const FILTRO_LABEL = {
+      todos: 'Todos', PENDIENTE: 'Pendientes', ENCONTRADO: 'Encontrados',
+      NO_ENCONTRADO: 'No enc.', MAL_STOCK: 'Mal stock', SIN_COBERTURA: 'Sin cob.',
+    };
+    const counts = {
+      todos:         lineas.length,
+      PENDIENTE:     lineas.filter(l => l.estado === 'PENDIENTE').length,
+      ENCONTRADO:    lineas.filter(l => l.estado === 'ENCONTRADO').length,
+      NO_ENCONTRADO: lineas.filter(l => l.estado === 'NO_ENCONTRADO').length,
+      MAL_STOCK:     lineas.filter(l => l.estado === 'MAL_STOCK').length,
+      SIN_COBERTURA: lineas.filter(l => !l.nodo_asignado).length,
+    };
+    document.querySelectorAll('#filtros-bar .filtro-btn').forEach(btn => {
+      const f = btn.dataset.filtro;
+      const n = counts[f] ?? 0;
+      const label = FILTRO_LABEL[f] || f;
+      btn.textContent = n > 0 ? `${label} (${n})` : label;
     });
   }
 
@@ -822,6 +946,20 @@
       });
     });
 
+    renderSucursalChips();
+    actualizarFiltrosBar();
+
+    document.querySelectorAll('.alts-toggle-btn').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const body = document.getElementById(`alts-${btn.dataset.alts}`);
+        if (!body) return;
+        const open = body.style.display !== 'none';
+        body.style.display = open ? 'none' : '';
+        btn.classList.toggle('alts-open', !open);
+      });
+    });
+
     document.querySelectorAll('.sincob-asignar').forEach(btn => {
       btn.addEventListener('click', async e => {
         e.stopPropagation();
@@ -862,7 +1000,7 @@
             document.getElementById('reas-nodos-list').innerHTML =
               nodosDisponibles.map(n => `<option value="${n}">`).join('');
           }
-          poblarSelectorSucursal();
+          renderSucursalChips();
           renderLineas();
           await actualizarProgreso();
           showToast(`Asignado a ${nodo} — ahora el cadete puede buscarlo`, 'success');
@@ -994,8 +1132,12 @@
               </div>`
           }
           ${alts.length > 0 ? `
-            <div class="alternativas-list">
-              <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2)">ALTERNATIVAS (${alts.length}) — tocá para seleccionar</div>
+            <button class="alts-toggle-btn" data-alts="${l.id}">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px;flex-shrink:0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              Alternativas disponibles (${alts.length})
+              <svg class="alts-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="alternativas-list alts-body" id="alts-${l.id}" style="display:none">
               ${alts.map(a => `
                 <div class="alternativa-item seleccionable"
                      data-alt-accion="${isSinCob ? 'sincob' : 'reas'}"
@@ -1232,7 +1374,7 @@
                   ${pedidosMostrar.length} pedido${pedidosMostrar.length !== 1 ? 's' : ''} · Pendiente de entrega
                 </div>
               </div>
-              <button class="btn btn-success btn-sm" data-punto="${encodeURIComponent(e.punto_retiro)}">
+              <button class="btn btn-success" data-punto="${encodeURIComponent(e.punto_retiro)}" style="min-height:48px;padding:0 var(--space-5)">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Confirmar entrega
               </button>
             </div>
@@ -1300,11 +1442,16 @@
     } catch { return; }
     if (!data.ok) return;
     const p = data.progreso;
+    const enc = p.encontrado ?? 0, noEnc = p.no_encontrado ?? 0,
+          ms  = p.mal_stock  ?? 0, pend  = p.pendiente    ?? 0;
     document.getElementById('progress-fixed').style.display = 'flex';
     document.getElementById('progress-fill').style.width    = `${p.pct_completado}%`;
     document.getElementById('progress-label').textContent   = `${p.pct_completado}%`;
-    document.getElementById('progress-detalle').textContent =
-      `✓ ${p.encontrado ?? 0}  ✕ ${p.no_encontrado ?? 0}  ⚠ ${p.mal_stock ?? 0}  ⏳ ${p.pendiente ?? 0}`;
+    document.getElementById('progress-detalle').innerHTML   =
+      `<span style="color:var(--success);font-weight:600">✓ ${enc}</span>&ensp;` +
+      `<span style="color:var(--danger);font-weight:600">✕ ${noEnc}</span>&ensp;` +
+      `<span style="color:var(--warning);font-weight:600">⚠ ${ms}</span>&ensp;` +
+      `<span style="color:var(--text-muted)">⏳ ${pend}</span>`;
   }
 
   // ── Filtros búsqueda ─────────────────────────────────────────
@@ -1436,7 +1583,7 @@
       const linea = lineas.find(l => l.id === reasLineaId);
       if (linea) linea.nodo_asignado = nuevoNodo;
       document.getElementById('modal-reasignar').style.display = 'none';
-      poblarSelectorSucursal();
+      renderSucursalChips();
       renderLineas();
       // Refrescar datalist con nodos actualizados (puede haber uno nuevo)
       if (!nodosDisponibles.includes(nuevoNodo)) {
