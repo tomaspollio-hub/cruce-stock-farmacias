@@ -847,18 +847,36 @@ def cruces_entregas_list(cruce_id):
         if sf not in grupos:
             grupos[sf] = set()
 
-    # Teléfonos con fuzzy match
+    # Mapeo punto_retiro → nodo_asignado más frecuente (para nombre_display)
+    nodo_nombre_rows = db.execute(
+        '''SELECT punto_retiro, nodo_asignado, COUNT(*) as cnt
+           FROM lineas
+           WHERE cruce_id = ?
+             AND punto_retiro  != '' AND punto_retiro  IS NOT NULL
+             AND nodo_asignado != '' AND nodo_asignado IS NOT NULL
+           GROUP BY punto_retiro, nodo_asignado
+           ORDER BY punto_retiro, cnt DESC''',
+        (cruce_id,)
+    ).fetchall()
+    nombre_display_map = {}
+    for r in nodo_nombre_rows:
+        if r['punto_retiro'] not in nombre_display_map:
+            nombre_display_map[r['punto_retiro']] = r['nodo_asignado']
+
+    # Teléfonos — match exacto por nombre_display (nombre de nodo)
     tel_rows  = db.execute('SELECT nombre, telefono FROM nodos_config WHERE telefono != ""').fetchall()
     nodos_map = {r['nombre']: r['telefono'] for r in tel_rows}
 
     result = []
     for pt, pedidos in sorted(grupos.items()):
-        conf = conf_map.get(pt)
-        todos_sorted      = sorted(list(pedidos))
-        pedidos_activos   = hab_map.get(pt, [])
-        pedidos_enc       = sorted(list(enc_map.get(pt, set())))
+        conf            = conf_map.get(pt)
+        nombre_display  = nombre_display_map.get(pt, pt)
+        todos_sorted    = sorted(list(pedidos))
+        pedidos_activos = hab_map.get(pt, [])
+        pedidos_enc     = sorted(list(enc_map.get(pt, set())))
         result.append({
             'punto_retiro':        pt,
+            'nombre_display':      nombre_display,
             'nro_pedidos':         todos_sorted,
             'total_pedidos':       len(pedidos),
             'tiene_pedidos':       len(pedidos) > 0,
@@ -870,7 +888,7 @@ def cruces_entregas_list(cruce_id):
             'entregado_at':        conf['entregado_at'] if conf else None,
             'firma_base64':        conf['firma_base64'] if conf else None,
             'entrega_id':          conf['id']           if conf else None,
-            'telefono':            _match_telefono(pt, nodos_map),
+            'telefono':            _match_telefono(nombre_display, nodos_map),
         })
 
     return jsonify({'ok': True, 'entregas': result, 'total': len(result)})
@@ -950,13 +968,11 @@ def nodos_config_list():
     db = get_db()
     # Teléfonos guardados
     rows = db.execute('SELECT nombre, telefono FROM nodos_config ORDER BY nombre').fetchall()
-    # Nombres reales usados en tiles (punto_retiro + nodo_asignado de lineas)
+    # Nombres reales de nodos (nodo_asignado) — son los que aparecen en las tiles
     conocidos = db.execute(
-        '''SELECT DISTINCT nombre FROM (
-               SELECT punto_retiro  AS nombre FROM lineas WHERE punto_retiro  != '' AND punto_retiro  IS NOT NULL
-               UNION
-               SELECT nodo_asignado AS nombre FROM lineas WHERE nodo_asignado != '' AND nodo_asignado IS NOT NULL
-           ) ORDER BY nombre'''
+        '''SELECT DISTINCT nodo_asignado AS nombre FROM lineas
+           WHERE nodo_asignado IS NOT NULL AND nodo_asignado != ''
+           ORDER BY nombre'''
     ).fetchall()
     return jsonify({
         'ok':     True,
