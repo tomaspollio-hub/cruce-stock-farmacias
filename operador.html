@@ -161,6 +161,23 @@
       border: none;
       padding: 0;
     }
+    .entrega-tile .et-wa-btn {
+      margin-top: var(--space-2);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: var(--text-xs);
+      font-weight: var(--font-medium);
+      color: #ffffff;
+      background: #25d366;
+      border: none;
+      border-radius: var(--radius);
+      padding: 4px 10px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background var(--transition-fast);
+    }
+    .entrega-tile .et-wa-btn:hover { background: #1ebe5d; }
     .entrega-tile.activa { border-color: #93c5fd; background: #eff6ff; }
     .entrega-tile.sin-pedidos { opacity: .65; border-style: dashed; }
     .et-eta {
@@ -754,6 +771,26 @@
     document.getElementById('s-sincob').textContent = p.sin_cobertura ?? 0;
   }
 
+  // ── Teléfonos de farmacias para WhatsApp ──────────────────
+  let phoneMap = {};  // punto_retiro → telefono
+
+  async function loadPhoneMap() {
+    try {
+      const res  = await auth.apiFetch('/api/nodos-config');
+      const data = await res.json();
+      if (data.ok) phoneMap = Object.fromEntries(data.nodos.map(n => [n.nombre, n.telefono]));
+    } catch { /* no crítico */ }
+  }
+
+  function buildWaUrl(puntoRetiro, pedidosEncontrados, fecha) {
+    const tel = phoneMap[puntoRetiro] || '';
+    const lista = (pedidosEncontrados || []).map(p => `  #${p}`).join('\n');
+    const count  = (pedidosEncontrados || []).length;
+    const texto  = `${puntoRetiro}\n${fecha}\n\nPedidos entregados (${count}):\n${lista}`;
+    const base   = tel ? `https://wa.me/${tel.replace(/\D/g, '')}` : 'https://wa.me/';
+    return `${base}?text=${encodeURIComponent(texto)}`;
+  }
+
   // ── Firmas (modal lectura) ─────────────────────────────────
   const firmasCache = {};  // punto_retiro → firma_base64
 
@@ -872,16 +909,28 @@
       const ptEnc = encodeURIComponent(e.punto_retiro);
       if (e.confirmada) {
         const hora = new Date(e.entregado_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+        const fecha = new Date(e.entregado_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
         const firma = e.firma_base64
           ? `<button class="et-firma-btn" data-pt="${ptEnc}">Ver firma →</button>`
           : `<span style="font-size:var(--text-xs);color:var(--text-muted)">Sin firma</span>`;
+        const tieneTel = !!phoneMap[e.punto_retiro];
+        const pedEnc   = encodeURIComponent(JSON.stringify(e.pedidos_encontrados || []));
+        const waBtn = tieneTel
+          ? `<a class="et-wa-btn" href="${buildWaUrl(e.punto_retiro, e.pedidos_encontrados, fecha)}" target="_blank" rel="noopener">
+               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width:12px;height:12px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.5 0C5.149 0 0 5.149 0 11.5c0 2.01.524 3.896 1.437 5.527L0 23l6.156-1.414A11.45 11.45 0 0 0 11.5 23C17.851 23 23 17.851 23 11.5S17.851 0 11.5 0zm0 21.087a9.57 9.57 0 0 1-4.879-1.334l-.35-.208-3.654.839.874-3.544-.227-.365A9.544 9.544 0 0 1 1.913 11.5C1.913 6.193 6.193 1.913 11.5 1.913S21.087 6.193 21.087 11.5 16.807 21.087 11.5 21.087z"/></svg>
+               Avisar farmacia
+             </a>`
+          : '';
         return `
           <div class="entrega-tile confirmada">
             <div class="et-farmacia" title="${e.punto_retiro}" style="color:var(--success)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:13px;height:13px;vertical-align:-0.1em;flex-shrink:0"><polyline points="20 6 9 17 4 12"/></svg> ${e.punto_retiro}</div>
             <div class="et-pedidos">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
             <div class="et-receptor"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${e.receptor}</div>
             <div class="et-hora"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${hora}</div>
-            ${firma}
+            <div style="display:flex;gap:var(--space-2);align-items:center;margin-top:var(--space-2)">
+              ${firma}
+              ${waBtn}
+            </div>
           </div>`;
       } else if (e.tiene_pedidos) {
         const pedStr    = e.nro_pedidos.slice(0, 3).join(', ') + (e.nro_pedidos.length > 3 ? '…' : '');
@@ -1234,7 +1283,7 @@
   // ── Arranque ─────────────────────────────────────────────────
 
   await cargarSelector();
-  await cargarDatos();
+  await Promise.all([cargarDatos(), loadPhoneMap()]);
 
   // Cargar nodos conocidos del cruce para el datalist
   auth.apiFetch(`/api/cruces/${cruceId}/nodos`).then(r => r.json())

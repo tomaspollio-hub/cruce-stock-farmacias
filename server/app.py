@@ -163,6 +163,14 @@ def init_db():
         );
     """)
 
+    # Teléfonos de nodos/farmacias
+    db.executescript("""
+        CREATE TABLE IF NOT EXISTS nodos_config (
+            nombre   TEXT PRIMARY KEY,
+            telefono TEXT DEFAULT ''
+        );
+    """)
+
     # Tablas de entregas
     db.executescript("""
         CREATE TABLE IF NOT EXISTS entregas_confirmadas (
@@ -912,6 +920,32 @@ def cruces_entregas_confirmar(cruce_id):
             (cruce_id, punto_retiro, receptor, firma_b64, now, g.user_id)
         )
 
+    db.commit()
+    return jsonify({'ok': True})
+
+# ── Nodos config (teléfonos de farmacias) ───────────────────────────────────────
+
+@app.get('/api/nodos-config')
+@require_auth
+def nodos_config_list():
+    db = get_db()
+    rows = db.execute('SELECT nombre, telefono FROM nodos_config ORDER BY nombre').fetchall()
+    return jsonify({'ok': True, 'nodos': [dict(r) for r in rows]})
+
+@app.put('/api/nodos-config')
+@require_admin
+def nodos_config_upsert():
+    data     = request.get_json(silent=True) or {}
+    nombre   = (data.get('nombre') or '').strip()
+    telefono = (data.get('telefono') or '').strip()
+    if not nombre:
+        return jsonify({'ok': False, 'motivo': 'nombre_requerido'}), 400
+    db = get_db()
+    db.execute(
+        '''INSERT INTO nodos_config (nombre, telefono) VALUES (?, ?)
+           ON CONFLICT(nombre) DO UPDATE SET telefono = excluded.telefono''',
+        (nombre, telefono)
+    )
     db.commit()
     return jsonify({'ok': True})
 
