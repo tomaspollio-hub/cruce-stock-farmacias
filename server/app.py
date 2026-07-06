@@ -21,6 +21,7 @@ import jwt
 import yaml
 from flask import Flask, Response, g, jsonify, request, send_from_directory, send_file, stream_with_context
 from werkzeug.security import check_password_hash, generate_password_hash
+from rapidfuzz import process as fuzz_process, fuzz
 
 BASE_DIR    = Path(__file__).parent.parent
 SERVER_DIR  = Path(__file__).parent
@@ -230,6 +231,19 @@ def _make_token(user_id, usuario, rol):
 
 def _decode_token(token):
     return jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+
+def _match_telefono(nombre: str, nodos_map: dict) -> str:
+    """Fuzzy-match nombre contra nodos_config y devuelve el teléfono o ''."""
+    if not nodos_map:
+        return ''
+    if nombre in nodos_map:
+        return nodos_map[nombre]
+    result = fuzz_process.extractOne(
+        nombre, nodos_map.keys(),
+        scorer=fuzz.token_sort_ratio,
+        score_cutoff=75,
+    )
+    return nodos_map[result[0]] if result else ''
 
 def require_auth(f):
     @wraps(f)
@@ -833,6 +847,10 @@ def cruces_entregas_list(cruce_id):
         if sf not in grupos:
             grupos[sf] = set()
 
+    # Teléfonos con fuzzy match
+    tel_rows  = db.execute('SELECT nombre, telefono FROM nodos_config WHERE telefono != ""').fetchall()
+    nodos_map = {r['nombre']: r['telefono'] for r in tel_rows}
+
     result = []
     for pt, pedidos in sorted(grupos.items()):
         conf = conf_map.get(pt)
@@ -852,6 +870,7 @@ def cruces_entregas_list(cruce_id):
             'entregado_at':        conf['entregado_at'] if conf else None,
             'firma_base64':        conf['firma_base64'] if conf else None,
             'entrega_id':          conf['id']           if conf else None,
+            'telefono':            _match_telefono(pt, nodos_map),
         })
 
     return jsonify({'ok': True, 'entregas': result, 'total': len(result)})
