@@ -660,23 +660,26 @@
     setRefreshBadge('actualizando');
 
     try {
-      const [rProg, rInc, rEnt, rJor, rTiming, rHistorico] = await Promise.all([
+      const [rProg, rInc, rEnt, rJor, rTiming, rHistorico, rTel] = await Promise.all([
         auth.apiFetch(`/api/cruces/${cruceId}/progreso`),
         auth.apiFetch(`/api/cruces/${cruceId}/incidencias`),
         auth.apiFetch(`/api/cruces/${cruceId}/entregas`),
         auth.apiFetch(`/api/cruces/${cruceId}/jornadas`),
         auth.apiFetch(`/api/cruces/${cruceId}/timing`),
         auth.apiFetch('/api/analytics/tiempos-farmacia'),
+        auth.apiFetch('/api/nodos-config'),
       ]);
 
-      const [dProg, dInc, dEnt, dJor, dTiming, dHistorico] = await Promise.all([
+      const [dProg, dInc, dEnt, dJor, dTiming, dHistorico, dTel] = await Promise.all([
         rProg.json().catch(() => null),
         rInc.json().catch(() => null),
         rEnt.json().catch(() => null),
         rJor.json().catch(() => null),
         rTiming.json().catch(() => null),
         rHistorico.json().catch(() => null),
+        rTel.json().catch(() => null),
       ]);
+      if (dTel?.ok) phoneMap = Object.fromEntries(dTel.nodos.map(n => [n.nombre, n.telefono]));
 
       if (dTiming?.ok)    timingFarmacias = dTiming.farmacias ?? {};
       if (dHistorico?.ok) {
