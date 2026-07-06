@@ -861,7 +861,11 @@
     if (dataTel?.ok) {
       phoneMap = Object.fromEntries(dataTel.nodos.map(n => [n.nombre, n.telefono]));
     }
-    const todasSucursales = [...new Set([...state.sucursales_fijas, ...Object.keys(phoneMap)])].sort();
+    // Prioridad: nombres reales de tiles > sucursales_fijas > entradas de phoneMap
+    const conocidos = dataTel?.conocidos || [];
+    const todasSucursales = conocidos.length
+      ? [...new Set([...conocidos, ...Object.keys(phoneMap)])].sort()
+      : [...new Set([...state.sucursales_fijas, ...Object.keys(phoneMap)])].sort();
     renderTelefonos(todasSucursales);
     document.getElementById('tel-search').addEventListener('input', () => renderTelefonos(todasSucursales));
 

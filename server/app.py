@@ -948,8 +948,21 @@ def cruces_entregas_confirmar(cruce_id):
 @require_auth
 def nodos_config_list():
     db = get_db()
+    # Teléfonos guardados
     rows = db.execute('SELECT nombre, telefono FROM nodos_config ORDER BY nombre').fetchall()
-    return jsonify({'ok': True, 'nodos': [dict(r) for r in rows]})
+    # Nombres reales usados en tiles (punto_retiro + nodo_asignado de lineas)
+    conocidos = db.execute(
+        '''SELECT DISTINCT nombre FROM (
+               SELECT punto_retiro  AS nombre FROM lineas WHERE punto_retiro  != '' AND punto_retiro  IS NOT NULL
+               UNION
+               SELECT nodo_asignado AS nombre FROM lineas WHERE nodo_asignado != '' AND nodo_asignado IS NOT NULL
+           ) ORDER BY nombre'''
+    ).fetchall()
+    return jsonify({
+        'ok':     True,
+        'nodos':  [dict(r) for r in rows],
+        'conocidos': [r['nombre'] for r in conocidos],
+    })
 
 @app.put('/api/nodos-config')
 @require_admin
