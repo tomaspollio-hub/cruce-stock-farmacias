@@ -868,6 +868,12 @@ def cruces_entregas_list(cruce_id):
             grupos[sf] = set()
 
     # Mapeo punto_retiro → nodo_asignado más frecuente (para nombre_display)
+    # Sólo se usa el nombre del nodo si comparte el número de calle con el
+    # punto_retiro: si el pedido se fulfillea con stock de OTRA sucursal
+    # (algo normal en este sistema), el nodo más frecuente puede ser una
+    # sucursal completamente distinta — mostrar su nombre pisaría la
+    # identidad real del punto de retiro y haría ver "duplicada" una
+    # entrega que en realidad es otro destino.
     nodo_nombre_rows = db.execute(
         '''SELECT punto_retiro, nodo_asignado, COUNT(*) as cnt
            FROM lineas
@@ -878,10 +884,17 @@ def cruces_entregas_list(cruce_id):
            ORDER BY punto_retiro, cnt DESC''',
         (cruce_id,)
     ).fetchall()
+
+    def _mismo_lugar(punto_retiro, nodo_asignado):
+        nums_pt   = set(re.findall(r'\d{2,}', punto_retiro))
+        nums_nodo = set(re.findall(r'\d{2,}', nodo_asignado))
+        return bool(nums_pt & nums_nodo)
+
     nombre_display_map = {}
     for r in nodo_nombre_rows:
-        if r['punto_retiro'] not in nombre_display_map:
-            nombre_display_map[r['punto_retiro']] = r['nodo_asignado']
+        pt = r['punto_retiro']
+        if pt not in nombre_display_map:
+            nombre_display_map[pt] = r['nodo_asignado'] if _mismo_lugar(pt, r['nodo_asignado']) else pt
 
     # Teléfonos — match exacto por nombre_display (nombre de nodo)
     tel_rows  = db.execute('SELECT nombre, telefono FROM nodos_config WHERE telefono != ""').fetchall()

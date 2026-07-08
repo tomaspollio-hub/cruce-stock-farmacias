@@ -210,54 +210,6 @@
       cursor: crosshair;
     }
 
-    /* ── Sucursal chips bar ───────────────────────────────────── */
-    .sucursal-chips-bar {
-      display: flex;
-      gap: var(--space-2);
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-      padding-bottom: 4px;
-      margin-bottom: var(--space-4);
-    }
-    .sucursal-chips-bar::-webkit-scrollbar { display: none; }
-    .suc-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      padding: 0 var(--space-4);
-      height: 44px;
-      border-radius: var(--radius-full);
-      font-size: var(--text-sm);
-      font-weight: var(--font-semibold);
-      cursor: pointer;
-      border: 1.5px solid var(--border);
-      background: var(--surface);
-      color: var(--text-secondary);
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: all var(--transition-fast);
-      -webkit-tap-highlight-color: transparent;
-    }
-    .suc-chip.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: white;
-    }
-    .suc-chip-count {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 22px;
-      height: 22px;
-      padding: 0 5px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      background: rgba(0,0,0,.12);
-    }
-    .suc-chip.active .suc-chip-count { background: rgba(255,255,255,.3); }
-
     /* ── Quick-check: bigger circular button ─────────────────── */
     .btn-quick-check {
       width: 52px !important;
@@ -273,32 +225,6 @@
     }
     .linea-acciones-sec .btn { min-height: 44px; justify-content: center; }
     .linea-acciones > .btn-block { min-height: 52px; font-size: var(--text-base); }
-
-    /* ── Alternativas toggle ─────────────────────────────────── */
-    .alts-toggle-btn {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      width: 100%;
-      padding: var(--space-3) var(--space-4);
-      background: var(--bg-subtle);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      font-size: var(--text-xs);
-      font-weight: var(--font-semibold);
-      color: var(--text-secondary);
-      cursor: pointer;
-      text-align: left;
-      margin-top: var(--space-3);
-      transition: background var(--transition-fast);
-      -webkit-tap-highlight-color: transparent;
-    }
-    .alts-toggle-btn .alts-chevron {
-      margin-left: auto;
-      transition: transform var(--transition-fast);
-    }
-    .alts-toggle-btn.alts-open .alts-chevron { transform: rotate(180deg); }
-    .alts-body { margin-top: var(--space-2); }
 
     /* ── Bottom tab bar (mobile ≤600px) ───────────────────────── */
     #cadete-tab-bar { display: none; }
@@ -435,12 +361,14 @@
   <!-- ── MODO BÚSQUEDA ─────────────────────────────────────── -->
   <div id="seccion-busqueda">
 
-    <!-- Sucursal chips -->
-    <div id="sucursal-chips-bar" class="sucursal-chips-bar">
-      <button class="suc-chip active" data-suc=""><span class="suc-chip-name">Todas</span></button>
-    </div>
-
     <div class="filtros-wrap" style="margin-bottom:var(--space-4)">
+      <!-- Filtro por sucursal -->
+      <div class="filtro-sucursal">
+        <label for="select-sucursal">Sucursal</label>
+        <select class="form-select" id="select-sucursal" style="min-width:220px;max-width:340px">
+          <option value="">Todas las sucursales</option>
+        </select>
+      </div>
       <!-- Filtro por estado (con conteos actualizados en JS) -->
       <div class="filtros-bar" id="filtros-bar">
         <button class="filtro-btn active" data-filtro="todos">Todos</button>
@@ -788,41 +716,25 @@
 
     lineasCargadas = true;
     lineas = dataLineas.lineas;
-    renderSucursalChips();
+    poblarSelectorSucursal();
     renderLineas();
     await actualizarProgreso();
   }
 
-  function renderSucursalChips() {
+  function poblarSelectorSucursal() {
     const nodos = [...new Set(
       lineas.filter(l => l.nodo_asignado).map(l => l.nodo_asignado)
     )].sort();
 
-    const pendPorNodo = {};
-    for (const l of lineas) {
-      if (l.nodo_asignado && l.estado === 'PENDIENTE') {
-        pendPorNodo[l.nodo_asignado] = (pendPorNodo[l.nodo_asignado] || 0) + 1;
-      }
-    }
-    const totalPend = lineas.filter(l => l.estado === 'PENDIENTE').length;
+    const sel = document.getElementById('select-sucursal');
+    sel.innerHTML = '<option value="">Todas las sucursales</option>' +
+      nodos.map(n => `<option value="${n}">${n}</option>`).join('');
+    sel.value = sucursalFiltro;
 
-    const bar = document.getElementById('sucursal-chips-bar');
-    bar.innerHTML = [
-      { suc: '', label: 'Todas', count: totalPend },
-      ...nodos.map(n => ({ suc: n, label: n, count: pendPorNodo[n] || 0 }))
-    ].map(({ suc, label, count }) =>
-      `<button class="suc-chip${sucursalFiltro === suc ? ' active' : ''}" data-suc="${suc}">
-        <span class="suc-chip-name">${label}</span>
-        ${count > 0 ? `<span class="suc-chip-count">${count}</span>` : ''}
-      </button>`
-    ).join('');
-
-    bar.querySelectorAll('.suc-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        sucursalFiltro = chip.dataset.suc;
-        renderLineas();
-      });
-    });
+    sel.onchange = () => {
+      sucursalFiltro = sel.value;
+      renderLineas();
+    };
   }
 
   function actualizarFiltrosBar() {
@@ -946,19 +858,8 @@
       });
     });
 
-    renderSucursalChips();
+    poblarSelectorSucursal();
     actualizarFiltrosBar();
-
-    document.querySelectorAll('.alts-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', e => {
-        e.stopPropagation();
-        const body = document.getElementById(`alts-${btn.dataset.alts}`);
-        if (!body) return;
-        const open = body.style.display !== 'none';
-        body.style.display = open ? 'none' : '';
-        btn.classList.toggle('alts-open', !open);
-      });
-    });
 
     document.querySelectorAll('.sincob-asignar').forEach(btn => {
       btn.addEventListener('click', async e => {
@@ -1000,7 +901,7 @@
             document.getElementById('reas-nodos-list').innerHTML =
               nodosDisponibles.map(n => `<option value="${n}">`).join('');
           }
-          renderSucursalChips();
+          poblarSelectorSucursal();
           renderLineas();
           await actualizarProgreso();
           showToast(`Asignado a ${nodo} — ahora el cadete puede buscarlo`, 'success');
@@ -1132,12 +1033,8 @@
               </div>`
           }
           ${alts.length > 0 ? `
-            <button class="alts-toggle-btn" data-alts="${l.id}">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px;flex-shrink:0"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-              Alternativas disponibles (${alts.length})
-              <svg class="alts-chevron" width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <div class="alternativas-list alts-body" id="alts-${l.id}" style="display:none">
+            <div class="alternativas-list">
+              <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);margin-bottom:var(--space-2)">ALTERNATIVAS (${alts.length}) — tocá para seleccionar</div>
               ${alts.map(a => `
                 <div class="alternativa-item seleccionable"
                      data-alt-accion="${isSinCob ? 'sincob' : 'reas'}"
@@ -1583,7 +1480,7 @@
       const linea = lineas.find(l => l.id === reasLineaId);
       if (linea) linea.nodo_asignado = nuevoNodo;
       document.getElementById('modal-reasignar').style.display = 'none';
-      renderSucursalChips();
+      poblarSelectorSucursal();
       renderLineas();
       // Refrescar datalist con nodos actualizados (puede haber uno nuevo)
       if (!nodosDisponibles.includes(nuevoNodo)) {

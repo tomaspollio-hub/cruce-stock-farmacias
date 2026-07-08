@@ -212,22 +212,25 @@
         const firmaBtn = e.firma_base64
           ? `<button class="btn btn-ghost btn-sm" data-firma="${encodeURIComponent(e.firma_base64)}" data-pt="${encodeURIComponent(e.punto_retiro)}">Ver firma</button>`
           : `<span style="font-size:var(--text-xs);color:var(--text-muted)">Sin firma</span>`;
+        // Pedidos activados a mano (farmacia sin match automático) priman sobre el conteo del cruce
+        const pedidosReales = (e.pedidos_activos && e.pedidos_activos.length > 0) ? e.pedidos_activos : e.nro_pedidos;
         return `
           <div class="ent-row conf">
             <div>
               <div style="font-weight:var(--font-medium);color:var(--success)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:13px;height:13px;vertical-align:-0.1em"><polyline points="20 6 9 17 4 12"/></svg> ${e.punto_retiro}</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted)">${pedidosReales.length} pedido${pedidosReales.length !== 1 ? 's' : ''}</div>
             </div>
             <div style="font-size:var(--text-sm)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> ${e.receptor}</div>
             <div style="font-size:var(--text-xs);color:var(--text-muted)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:12px;height:12px;vertical-align:-0.1em"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ${hora}</div>
             <div>${firmaBtn}</div>
           </div>`;
       } else {
+        const pedidosReales = (e.pedidos_activos && e.pedidos_activos.length > 0) ? e.pedidos_activos : e.nro_pedidos;
         return `
           <div class="ent-row">
             <div>
               <div style="color:var(--text-secondary)">⏳ ${e.punto_retiro}</div>
-              <div style="font-size:var(--text-xs);color:var(--text-muted)">${e.total_pedidos} pedido${e.total_pedidos !== 1 ? 's' : ''}</div>
+              <div style="font-size:var(--text-xs);color:var(--text-muted)">${pedidosReales.length} pedido${pedidosReales.length !== 1 ? 's' : ''}</div>
             </div>
             <div>—</div>
             <div>—</div>
