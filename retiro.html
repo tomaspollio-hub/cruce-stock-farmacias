@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Pedidos para retirar</title>
+  <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    body { max-width: 720px; margin: 0 auto; padding: var(--space-5) var(--space-4) var(--space-10); }
+    .retiro-header { margin-bottom: var(--space-6); }
+    .retiro-header h1 { font-size: var(--text-xl); font-weight: var(--font-semibold); margin-bottom: var(--space-1); }
+    .retiro-header p { color: var(--text-muted); font-size: var(--text-sm); }
+    .pedido-card { margin-bottom: var(--space-3); }
+    .pedido-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); }
+    .pedido-nro { font-weight: var(--font-semibold); font-size: var(--text-base); }
+    .pedido-sub { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
+    .pedido-productos { padding: 0 var(--space-5) var(--space-4); display: flex; flex-direction: column; gap: var(--space-1); }
+    .pedido-producto { font-size: var(--text-sm); color: var(--text-muted); display: flex; justify-content: space-between; gap: var(--space-3); }
+    .pedido-cliente { padding: 0 var(--space-5) var(--space-4); font-size: var(--text-sm); border-top: 1px solid var(--border); padding-top: var(--space-3) }
+    .pedido-cliente-nombre { font-weight: var(--font-medium) }
+    .pedido-cliente-detalle { color: var(--text-muted); font-size: var(--text-xs) }
+    .pedido-footer { padding: 0 var(--space-5) var(--space-4); display: flex; justify-content: flex-end; }
+    #retiro-search { width: 100%; margin-bottom: var(--space-5); font-size: var(--text-base); padding: var(--space-3) var(--space-4); }
+  </style>
+</head>
+<body>
+
+  <div class="retiro-header">
+    <h1 id="retiro-titulo">Pedidos para retirar</h1>
+    <p>Verde = ya llegó y está en la góndola. Amarillo = todavía no lo bajó el cadete.</p>
+  </div>
+
+  <input class="form-input" id="retiro-search" placeholder="Buscar por número de pedido o producto...">
+
+  <div id="retiro-content">
+    <div class="empty-state" style="padding:var(--space-8)">
+      <div class="spinner" style="margin:0 auto var(--space-3)"></div>
+      <div>Cargando pedidos...</div>
+    </div>
+  </div>
+
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token') || '';
+  const cont   = document.getElementById('retiro-content');
+
+  function badgeFor(pedido) {
+    return pedido.confirmado
+      ? '<span class="badge badge-green">En góndola</span>'
+      : '<span class="badge badge-yellow">Todavía no llegó</span>';
+  }
+
+  function subtituloFor(pedido) {
+    if (!pedido.confirmado) return '';
+    const fecha = pedido.confirmado_en
+      ? new Date(pedido.confirmado_en).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' })
+      : '';
+    const partes = [fecha && `recibido el ${fecha}`, pedido.receptor && `por ${pedido.receptor}`].filter(Boolean);
+    return partes.length ? `<div class="pedido-sub">${partes.join(' ')}</div>` : '';
+  }
+
+  function clienteBlockFor(pedido) {
+    const c = pedido.cliente;
+    if (!c || !c.nombre) return '';
+    const detalle = [c.dni && `DNI ${c.dni}`, c.telefono].filter(Boolean).join(' · ');
+    return `
+      <div class="pedido-cliente">
+        <div class="pedido-cliente-nombre">${c.nombre}</div>
+        ${detalle ? `<div class="pedido-cliente-detalle">${detalle}</div>` : ''}
+      </div>`;
+  }
+
+  function render(pedidos) {
+    const q = document.getElementById('retiro-search').value.trim().toLowerCase();
+    const filtrados = !q ? pedidos : pedidos.filter(p =>
+      p.nro_pedido.toLowerCase().includes(q) ||
+      (p.cliente?.nombre || '').toLowerCase().includes(q) ||
+      p.productos.some(pr => (pr.producto || '').toLowerCase().includes(q) || (pr.marca || '').toLowerCase().includes(q))
+    );
+
+    if (filtrados.length === 0) {
+      cont.innerHTML = `
+        <div class="empty-state" style="padding:var(--space-8)">
+          <div class="empty-state-title">${pedidos.length === 0 ? 'No hay pedidos pendientes de retiro' : 'Sin resultados'}</div>
+        </div>`;
+      return;
+    }
+
+    cont.innerHTML = filtrados.map(p => `
+      <div class="card pedido-card" data-nro-pedido="${encodeURIComponent(p.nro_pedido)}">
+        <div class="pedido-head">
+          <div>
+            <span class="pedido-nro">Pedido ${p.nro_pedido}</span>
+            ${subtituloFor(p)}
+          </div>
+          ${badgeFor(p)}
+        </div>
+        ${clienteBlockFor(p)}
+        <div class="pedido-productos">
+          ${p.productos.map(pr => `
+            <div class="pedido-producto">
+              <span>${pr.producto || ''}${pr.marca ? ' · ' + pr.marca : ''}</span>
+              <span>x${pr.unidades ?? 1}</span>
+            </div>`).join('')}
+        </div>
+        ${p.confirmado ? `
+          <div class="pedido-footer">
+            <button class="btn btn-ghost btn-sm marcar-retirado-btn">Marcar como retirado</button>
+          </div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  let pedidosData = [];
+
+  async function cargar() {
+    if (!token) {
+      cont.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><div class="empty-state-title">Link inválido</div><div class="empty-state-desc">Falta el token en la URL.</div></div>';
+      return;
+    }
+    try {
+      const res  = await fetch(`/api/retiro/${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (!data.ok) {
+        cont.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><div class="empty-state-title">Link vencido o inválido</div><div class="empty-state-desc">Pedile a la administración un link nuevo.</div></div>';
+        return;
+      }
+      document.getElementById('retiro-titulo').textContent = data.punto_retiro || 'Pedidos para retirar';
+      pedidosData = data.pedidos || [];
+      render(pedidosData);
+    } catch (err) {
+      cont.innerHTML = '<div class="empty-state" style="padding:var(--space-8)"><div class="empty-state-title">Error de conexión</div><div class="empty-state-desc">Volvé a intentar en unos segundos.</div></div>';
+    }
+  }
+
+  document.getElementById('retiro-search').addEventListener('input', () => render(pedidosData));
+
+  cont.addEventListener('click', async e => {
+    const btn = e.target.closest('.marcar-retirado-btn');
+    if (!btn) return;
+    const card = btn.closest('[data-nro-pedido]');
+    const nroPedido = decodeURIComponent(card.dataset.nroPedido);
+    if (!confirm(`¿Confirmás que el cliente retiró el pedido ${nroPedido}?`)) return;
+
+    btn.disabled = true; btn.textContent = '...';
+    try {
+      const res  = await fetch(`/api/retiro/${encodeURIComponent(token)}/marcar-retirado`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nro_pedido: nroPedido }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.motivo || 'Error');
+      pedidosData = pedidosData.filter(p => p.nro_pedido !== nroPedido);
+      render(pedidosData);
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Marcar como retirado';
+    }
+  });
+
+  cargar();
+</script>
+
+</body>
+</html>

@@ -71,6 +71,9 @@ def mapear_columnas_pedidos(df: pd.DataFrame, cfg: dict) -> dict:
         "fecha":         detectar_columna(df, c.get("col_fecha",        []), obligatoria=False),
         "hora":          detectar_columna(df, c.get("col_hora",         []), obligatoria=False),
         "punto_retiro":  detectar_columna(df, c.get("col_punto_retiro", []), obligatoria=False),
+        "cliente_nombre":   detectar_columna(df, c.get("col_cliente_nombre",   []), obligatoria=False),
+        "cliente_dni":      detectar_columna(df, c.get("col_cliente_dni",      []), obligatoria=False),
+        "cliente_telefono": detectar_columna(df, c.get("col_cliente_telefono", []), obligatoria=False),
     }
 
 

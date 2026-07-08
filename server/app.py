@@ -6,6 +6,8 @@ Backend: auth JWT, cruces, lineas, estados cadete, analytics, descarga Excel.
 import io
 import json
 import os
+import re
+import secrets
 import sys
 import threading
 import time
@@ -141,6 +143,9 @@ def init_db():
         "ALTER TABLE lineas ADD COLUMN punto_retiro TEXT DEFAULT ''",
         "ALTER TABLE entregas_habilitadas ADD COLUMN nro_pedidos TEXT DEFAULT '[]'",
         "ALTER TABLE eventos_estado ADD COLUMN nodo_asignado TEXT",
+        "ALTER TABLE lineas ADD COLUMN cliente_nombre TEXT DEFAULT ''",
+        "ALTER TABLE lineas ADD COLUMN cliente_dni TEXT DEFAULT ''",
+        "ALTER TABLE lineas ADD COLUMN cliente_telefono TEXT DEFAULT ''",
     ]:
         try:
             db.execute(col_sql)
@@ -201,6 +206,19 @@ def init_db():
             puntos     TEXT    NOT NULL DEFAULT '[]',
             created_at TEXT    DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(fecha, cadete_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS puntos_retiro_tokens (
+            punto_retiro TEXT PRIMARY KEY,
+            token        TEXT UNIQUE NOT NULL,
+            created_at   TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS pedidos_retirados (
+            punto_retiro TEXT NOT NULL,
+            nro_pedido   TEXT NOT NULL,
+            retirado_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (punto_retiro, nro_pedido)
         );
     """)
 
@@ -402,8 +420,9 @@ def _run_job(job_id, path_pedidos, path_stock, run_dir, nombre_pedidos, nombre_s
                 db.execute(
                     '''INSERT INTO lineas
                        (cruce_id, nro_pedido, gtin, sku, producto, marca, unidades,
-                        nodo_asignado, zona, tier, stock_disponible, alternativas, estado, punto_retiro)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        nodo_asignado, zona, tier, stock_disponible, alternativas, estado, punto_retiro,
+                        cliente_nombre, cliente_dni, cliente_telefono)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
                     (
                         cruce_id,
                         linea.get('nro_pedido'), linea.get('gtin'), linea.get('sku'),
@@ -413,6 +432,7 @@ def _run_job(job_id, path_pedidos, path_stock, run_dir, nombre_pedidos, nombre_s
                         json.dumps(linea.get('alternativas', []), ensure_ascii=False),
                         'SIN_COBERTURA' if not linea.get('nodo_asignado') else 'PENDIENTE',
                         linea.get('punto_retiro', ''),
+                        linea.get('cliente_nombre', ''), linea.get('cliente_dni', ''), linea.get('cliente_telefono', ''),
                     )
                 )
             db.commit()
@@ -997,6 +1017,186 @@ def nodos_config_upsert():
     db.commit()
     return jsonify({'ok': True})
 
+# ── Puntos de retiro: links públicos para que la farmacia vea sus pedidos ────────
+# El token identifica un punto_retiro exacto (nunca nombre_display — ver CLAUDE.md),
+# así que dos entregas que muestran el mismo nombre por coincidencia no pueden
+# pisarse el link.
+
+@app.get('/api/config/puntos-retiro')
+@require_admin
+def puntos_retiro_list():
+    db = get_db()
+    try:
+        with open(CONFIG_PATH) as f:
+            _cfg = yaml.safe_load(f)
+        sucursales_fijas = set(_cfg.get('sucursales_fijas', []))
+    except Exception:
+        sucursales_fijas = set()
+
+    conocidos = db.execute(
+        '''SELECT DISTINCT punto_retiro FROM lineas
+           WHERE punto_retiro IS NOT NULL AND punto_retiro != ''
+           ORDER BY punto_retiro'''
+    ).fetchall()
+    puntos = sorted(sucursales_fijas | {r['punto_retiro'] for r in conocidos})
+
+    tok_rows = db.execute('SELECT punto_retiro, token FROM puntos_retiro_tokens').fetchall()
+    tok_map  = {r['punto_retiro']: r['token'] for r in tok_rows}
+
+    return jsonify({
+        'ok': True,
+        'puntos': [{'punto_retiro': p, 'token': tok_map.get(p)} for p in puntos],
+    })
+
+@app.post('/api/config/puntos-retiro/token')
+@require_admin
+def puntos_retiro_generar_token():
+    data         = request.get_json(silent=True) or {}
+    punto_retiro = (data.get('punto_retiro') or '').strip()
+    if not punto_retiro:
+        return jsonify({'ok': False, 'motivo': 'punto_retiro_requerido'}), 400
+
+    token = secrets.token_urlsafe(16)
+    db = get_db()
+    db.execute(
+        '''INSERT INTO puntos_retiro_tokens (punto_retiro, token) VALUES (?, ?)
+           ON CONFLICT(punto_retiro)
+           DO UPDATE SET token = excluded.token, created_at = CURRENT_TIMESTAMP''',
+        (punto_retiro, token)
+    )
+    db.commit()
+    return jsonify({'ok': True, 'token': token})
+
+RETIRO_VENTANA_DIAS = 15
+
+def _mask_dni(dni: str) -> str:
+    """Oculta todo salvo los últimos 3 dígitos: '30123456' → '*****456'."""
+    dni = (dni or '').strip()
+    if len(dni) <= 3:
+        return dni
+    return '*' * (len(dni) - 3) + dni[-3:]
+
+def _resolver_token_retiro(token):
+    db  = get_db()
+    row = db.execute(
+        'SELECT punto_retiro FROM puntos_retiro_tokens WHERE token = ?', (token,)
+    ).fetchone()
+    return row['punto_retiro'] if row else None
+
+@app.get('/api/retiro/<token>')
+def retiro_publico(token):
+    """Vista pública (sin auth): qué pedidos de SU punto_retiro exacto ya bajó
+    y firmó el cadete (están en la góndola) en los últimos RETIRO_VENTANA_DIAS,
+    más los del cruce más reciente si todavía no se confirmó esa entrega."""
+    db = get_db()
+    punto_retiro = _resolver_token_retiro(token)
+    if not punto_retiro:
+        return jsonify({'ok': False, 'motivo': 'token_invalido'}), 404
+
+    def _pedidos_del_cruce(cruce_id):
+        """Pedidos activos (con fallback a los del cruce — regla dura del
+        proyecto, ver CLAUDE.md) de este punto_retiro, con sus productos y cliente."""
+        hab_row = db.execute(
+            'SELECT nro_pedidos FROM entregas_habilitadas WHERE cruce_id = ? AND punto_retiro = ?',
+            (cruce_id, punto_retiro)
+        ).fetchone()
+        activos = json.loads(hab_row['nro_pedidos']) if hab_row and hab_row['nro_pedidos'] else []
+
+        lineas = db.execute(
+            '''SELECT nro_pedido, producto, marca, unidades,
+                      cliente_nombre, cliente_dni, cliente_telefono
+               FROM lineas
+               WHERE cruce_id = ? AND punto_retiro = ?
+                 AND nro_pedido IS NOT NULL AND nro_pedido != ''
+               ORDER BY nro_pedido''',
+            (cruce_id, punto_retiro)
+        ).fetchall()
+        por_pedido: dict = {}
+        cliente_por_pedido: dict = {}
+        for l in lineas:
+            por_pedido.setdefault(l['nro_pedido'], []).append({
+                'producto': l['producto'], 'marca': l['marca'], 'unidades': l['unidades'],
+            })
+            if l['nro_pedido'] not in cliente_por_pedido and l['cliente_nombre']:
+                cliente_por_pedido[l['nro_pedido']] = {
+                    'nombre':   l['cliente_nombre'],
+                    'dni':      _mask_dni(l['cliente_dni']),
+                    'telefono': l['cliente_telefono'],
+                }
+        mostrar = activos if activos else sorted(por_pedido.keys())
+        return {
+            np: (por_pedido.get(np, []), cliente_por_pedido.get(np))
+            for np in mostrar
+        }
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=RETIRO_VENTANA_DIAS)).isoformat()
+    confs = db.execute(
+        '''SELECT cruce_id, receptor, entregado_at FROM entregas_confirmadas
+           WHERE punto_retiro = ? AND entregado_at >= ?
+           ORDER BY entregado_at DESC''',
+        (punto_retiro, cutoff)
+    ).fetchall()
+
+    retirados = {
+        r['nro_pedido'] for r in db.execute(
+            'SELECT nro_pedido FROM pedidos_retirados WHERE punto_retiro = ?', (punto_retiro,)
+        ).fetchall()
+    }
+
+    pedidos: dict = {}
+    for c in confs:
+        for np, (productos, cliente) in _pedidos_del_cruce(c['cruce_id']).items():
+            if np in pedidos or np in retirados:
+                continue  # ya está de una confirmación más reciente, o ya lo retiraron
+            pedidos[np] = {
+                'nro_pedido':    np,
+                'confirmado':    True,
+                'confirmado_en': c['entregado_at'],
+                'receptor':      c['receptor'],
+                'productos':     productos,
+                'cliente':       cliente,
+            }
+
+    # Pendientes: sólo el cruce más reciente, y sólo si todavía no se confirmó
+    # esa entrega para este punto_retiro (para no arrastrar cruces viejos sin firmar).
+    ultimo_cruce = db.execute('SELECT id FROM cruces ORDER BY id DESC LIMIT 1').fetchone()
+    if ultimo_cruce and not any(c['cruce_id'] == ultimo_cruce['id'] for c in confs):
+        for np, (productos, cliente) in _pedidos_del_cruce(ultimo_cruce['id']).items():
+            if np not in pedidos and np not in retirados:
+                pedidos[np] = {
+                    'nro_pedido':    np,
+                    'confirmado':    False,
+                    'confirmado_en': None,
+                    'receptor':      None,
+                    'productos':     productos,
+                    'cliente':       cliente,
+                }
+
+    resultado = sorted(pedidos.values(), key=lambda p: (not p['confirmado'], p['nro_pedido']))
+
+    return jsonify({'ok': True, 'punto_retiro': punto_retiro, 'pedidos': resultado})
+
+@app.post('/api/retiro/<token>/marcar-retirado')
+def retiro_marcar_retirado(token):
+    """Público (sin auth): la farmacia marca que el cliente ya se llevó el pedido."""
+    punto_retiro = _resolver_token_retiro(token)
+    if not punto_retiro:
+        return jsonify({'ok': False, 'motivo': 'token_invalido'}), 404
+
+    data       = request.get_json(silent=True) or {}
+    nro_pedido = (data.get('nro_pedido') or '').strip()
+    if not nro_pedido:
+        return jsonify({'ok': False, 'motivo': 'nro_pedido_requerido'}), 400
+
+    db = get_db()
+    db.execute(
+        '''INSERT INTO pedidos_retirados (punto_retiro, nro_pedido) VALUES (?, ?)
+           ON CONFLICT(punto_retiro, nro_pedido) DO NOTHING''',
+        (punto_retiro, nro_pedido)
+    )
+    db.commit()
+    return jsonify({'ok': True})
+
 # ── Incidencias (MAL_STOCK / NO_ENCONTRADO / EN_REVISION / REASIGNADO) ──────────
 
 @app.get('/api/cruces/<int:cruce_id>/incidencias')
@@ -1557,6 +1757,9 @@ def _procesar_cruce(path_pedidos, path_stock, out_dir):
                 'stock_disponible': int(row.get('Stock sucursal', 0) or 0),
                 'alternativas':     _get_alternativas(gtin, sku, nodo),
                 'punto_retiro':     str(row.get('Punto de Retiro', '') or ''),
+                'cliente_nombre':   str(row.get('Cliente Nombre', '') or ''),
+                'cliente_dni':      str(row.get('Cliente DNI', '') or ''),
+                'cliente_telefono': str(row.get('Cliente Teléfono', '') or ''),
             })
 
     # Líneas sin cobertura del df_sin_stock
@@ -1577,6 +1780,9 @@ def _procesar_cruce(path_pedidos, path_stock, out_dir):
                 'stock_disponible': 0,
                 'alternativas':     _get_alternativas(gtin, sku, None),
                 'punto_retiro':     str(row.get('Punto de Retiro', '') or ''),
+                'cliente_nombre':   str(row.get('Cliente Nombre', '') or ''),
+                'cliente_dni':      str(row.get('Cliente DNI', '') or ''),
+                'cliente_telefono': str(row.get('Cliente Teléfono', '') or ''),
             })
 
     con_cob = sum(1 for l in lineas if l['nodo_asignado'])

@@ -285,6 +285,9 @@ def construir_planilla(
     col_fecha_ped   = mapa_pedidos.get("fecha")         # puede ser None
     col_hora_ped    = mapa_pedidos.get("hora")          # puede ser None
     col_pto_retiro  = mapa_pedidos.get("punto_retiro")  # puede ser None
+    col_cli_nombre  = mapa_pedidos.get("cliente_nombre")    # puede ser None
+    col_cli_dni     = mapa_pedidos.get("cliente_dni")       # puede ser None
+    col_cli_tel     = mapa_pedidos.get("cliente_telefono")  # puede ser None
 
     col_id_stock    = mapa_stock["id"]
     col_sku_stock   = mapa_stock["sku"]
@@ -331,6 +334,16 @@ def construir_planilla(
             hora_pedido = str(pedido[col_hora_ped]).strip()
         if col_pto_retiro and col_pto_retiro in pedido.index and pd.notna(pedido[col_pto_retiro]):
             punto_retiro = str(pedido[col_pto_retiro]).strip()
+
+        cliente_nombre   = ""
+        cliente_dni      = ""
+        cliente_telefono = ""
+        if col_cli_nombre and col_cli_nombre in pedido.index and pd.notna(pedido[col_cli_nombre]):
+            cliente_nombre = str(pedido[col_cli_nombre]).strip()
+        if col_cli_dni and col_cli_dni in pedido.index and pd.notna(pedido[col_cli_dni]):
+            cliente_dni = str(pedido[col_cli_dni]).strip()
+        if col_cli_tel and col_cli_tel in pedido.index and pd.notna(pedido[col_cli_tel]):
+            cliente_telefono = str(pedido[col_cli_tel]).strip()
 
         # Usar la columna pre-normalizada si existe (normalizar_pedidos la agrega)
         if "_unidades_int" in pedido.index:
@@ -388,6 +401,9 @@ def construir_planilla(
                 "Unidades":        unidades,
                 "Motivo":          "Sin match en archivo de stock",
                 "Punto de Retiro": punto_retiro,
+                "Cliente Nombre":   cliente_nombre,
+                "Cliente DNI":      cliente_dni,
+                "Cliente Teléfono": cliente_telefono,
             })
             continue
 
@@ -424,6 +440,9 @@ def construir_planilla(
                 "Unidades":        unidades,
                 "Motivo":          "Stock 0 en todas las sucursales",
                 "Punto de Retiro": punto_retiro,
+                "Cliente Nombre":   cliente_nombre,
+                "Cliente DNI":      cliente_dni,
+                "Cliente Teléfono": cliente_telefono,
             })
             continue
 
@@ -456,6 +475,9 @@ def construir_planilla(
                 "_tier":              asig.get("tier", 2),
                 "_consolida_pedido":  asig.get("consolida_pedido", False),
                 "Punto de Retiro":    punto_retiro,
+                "Cliente Nombre":     cliente_nombre,
+                "Cliente DNI":        cliente_dni,
+                "Cliente Teléfono":   cliente_telefono,
             })
 
     df_ruta      = pd.DataFrame(filas_ruta)

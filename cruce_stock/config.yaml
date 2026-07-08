@@ -58,6 +58,21 @@ pedidos:
   - hora creacion
   col_punto_retiro:
   - sucursal
+  col_cliente_nombre:
+  - nombre del cliente
+  - nombre cliente
+  - cliente
+  col_cliente_dni:
+  - facturación - cuit-cuil-dni
+  - facturacion - cuit-cuil-dni
+  - dni
+  - cuit
+  - cuil
+  - documento
+  col_cliente_telefono:
+  - teléfono del cliente
+  - telefono del cliente
+  - telefono cliente
   estado_activo: abierta
 stock:
   col_id:
