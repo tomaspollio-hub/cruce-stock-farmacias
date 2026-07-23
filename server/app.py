@@ -867,6 +867,17 @@ def cruces_entregas_list(cruce_id):
         if sf not in grupos:
             grupos[sf] = set()
 
+    # Agregar farmacias activadas o confirmadas manualmente (pedidos ingresados
+    # a mano en el modal "Activar farmacia"): esos números nunca tocan `lineas`,
+    # así que sin esto la entrega desaparece de la lista aunque esté confirmada
+    # y firmada — ver CLAUDE.md, sección "tres conteos de pedidos".
+    for pt in habilitadas:
+        if pt not in grupos:
+            grupos[pt] = set()
+    for pt in conf_map:
+        if pt not in grupos:
+            grupos[pt] = set()
+
     # Mapeo punto_retiro → nodo_asignado más frecuente (para nombre_display)
     # Sólo se usa el nombre del nodo si comparte el número de calle con el
     # punto_retiro: si el pedido se fulfillea con stock de OTRA sucursal
