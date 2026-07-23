@@ -1189,6 +1189,62 @@ def retiro_publico(token):
 
     return jsonify({'ok': True, 'punto_retiro': punto_retiro, 'pedidos': resultado})
 
+@app.post('/api/admin/backfill-cliente/<int:cruce_id>')
+@require_admin
+def _backfill_cliente_TEMPORAL(cruce_id):
+    """Migración puntual: completa cliente_nombre/dni/telefono de un cruce ya
+    existente releyendo su archivo de pedidos original. Se borra después de usarla."""
+    from src.loader  import cargar_archivo
+    from src.matcher import mapear_columnas_pedidos
+
+    db  = get_db()
+    cru = db.execute('SELECT archivo_pedidos, excel_path FROM cruces WHERE id = ?', (cruce_id,)).fetchone()
+    if not cru:
+        return jsonify({'ok': False, 'motivo': 'cruce_no_encontrado'}), 404
+
+    candidatos = []
+    if cru['excel_path']:
+        misma_carpeta = Path(cru['excel_path']).parent / cru['archivo_pedidos']
+        if misma_carpeta.exists():
+            candidatos.append(misma_carpeta)
+    if not candidatos:
+        candidatos = list(UPLOADS_DIR.rglob(cru['archivo_pedidos']))
+    if not candidatos:
+        return jsonify({'ok': False, 'motivo': 'archivo_no_encontrado', 'buscado': cru['archivo_pedidos']}), 404
+
+    with open(str(CONFIG_PATH), 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+
+    df = cargar_archivo(str(candidatos[0]))
+    mapa = mapear_columnas_pedidos(df, config)
+    col_nro = mapa.get('nro_pedido')
+    col_nom = mapa.get('cliente_nombre')
+    col_dni = mapa.get('cliente_dni')
+    col_tel = mapa.get('cliente_telefono')
+    if not col_nro or not (col_nom or col_dni or col_tel):
+        return jsonify({'ok': False, 'motivo': 'sin_columnas_cliente_o_pedido'}), 400
+
+    actualizados = 0
+    vistos = set()
+    for _, fila in df.iterrows():
+        nro = str(fila.get(col_nro, '') or '').strip()
+        if not nro or nro in vistos:
+            continue
+        vistos.add(nro)
+        nombre   = str(fila.get(col_nom, '') or '').strip() if col_nom else ''
+        dni      = str(fila.get(col_dni, '') or '').strip() if col_dni else ''
+        telefono = str(fila.get(col_tel, '') or '').strip() if col_tel else ''
+        if not (nombre or dni or telefono):
+            continue
+        cur = db.execute(
+            '''UPDATE lineas SET cliente_nombre = ?, cliente_dni = ?, cliente_telefono = ?
+               WHERE cruce_id = ? AND nro_pedido = ? AND (cliente_nombre IS NULL OR cliente_nombre = '')''',
+            (nombre, dni, telefono, cruce_id, nro)
+        )
+        actualizados += cur.rowcount
+    db.commit()
+    return jsonify({'ok': True, 'archivo': str(candidatos[0]), 'lineas_actualizadas': actualizados})
+
 @app.post('/api/retiro/<token>/marcar-retirado')
 def retiro_marcar_retirado(token):
     """Público (sin auth): la farmacia marca que el cliente ya se llevó el pedido."""

@@ -355,7 +355,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg>
         Nuevo cruce
       </a>
-      <a id="btn-export" href="#" class="btn btn-ghost btn-sm" style="gap:var(--space-1)">
+      <a id="btn-export" href="#" class="btn btn-ghost btn-sm" style="gap:var(--space-1)" onclick="return downloadAnalyticsExcel(event)">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         Exportar Excel
       </a>
@@ -975,6 +975,28 @@
       a.click();
       URL.revokeObjectURL(url);
     } catch { showToast('Error al descargar Excel', 'danger'); }
+  };
+
+  window.downloadAnalyticsExcel = async function(ev) {
+    ev.preventDefault();
+    const desde = document.getElementById('f-desde').value;
+    const hasta = document.getElementById('f-hasta').value;
+    const p = [];
+    if (desde) p.push(`desde=${desde}`);
+    if (hasta) p.push(`hasta=${hasta}`);
+    const qStr = p.length ? '?' + p.join('&') : '';
+    try {
+      const r = await auth.apiFetch('/api/analytics/export' + qStr);
+      if (!r.ok) { showToast('Error al descargar Excel', 'danger'); return false; }
+      const blob = await r.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `reporte_dashboard${desde || hasta ? `_${desde || 'inicio'}_${hasta || 'hoy'}` : ''}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { showToast('Error al descargar Excel', 'danger'); }
+    return false;
   };
 </script>
 
