@@ -1559,6 +1559,116 @@ def analytics_export():
         [[r['punto_retiro'], r['pedidos']] for r in data['top_puntos_retiro']]
     )
 
+    # ── Filtro de rango reutilizado para Incidencias y Entregas ──
+    where_c, params_c = '', []
+    where_cr, params_cr = '', []  # mismo filtro, alias "cr" (cruces vía join)
+    if desde:
+        where_c   += ' AND c.created_at >= ?'
+        where_cr  += ' AND cr.created_at >= ?'
+        params_c.append(desde)
+        params_cr.append(desde)
+    if hasta:
+        hasta_fin = hasta + 'T23:59:59'
+        where_c   += ' AND c.created_at <= ?'
+        where_cr  += ' AND cr.created_at <= ?'
+        params_c.append(hasta_fin)
+        params_cr.append(hasta_fin)
+
+    ESTADO_LABEL = {
+        'NO_ENCONTRADO': 'No encontrado',
+        'MAL_STOCK':     'Mal stock',
+    }
+
+    # ── Hoja: Incidencias (NO_ENCONTRADO + MAL_STOCK en todo el rango) ──
+    eventos_inc = db.execute(
+        f'''SELECT DATE(cr.created_at) as fecha, cr.id as cruce_id,
+                   e.estado_nuevo, e.nodo_asignado,
+                   l.nro_pedido, l.punto_retiro, l.producto, l.gtin,
+                   l.unidades, l.stock_disponible, l.alternativa_nodo, l.notas
+            FROM eventos_estado e
+            JOIN lineas l ON l.id = e.linea_id
+            JOIN cruces cr ON cr.id = l.cruce_id
+            WHERE e.estado_nuevo IN ('NO_ENCONTRADO', 'MAL_STOCK') {where_cr}
+            ORDER BY cr.created_at DESC, e.created_at''',
+        params_cr
+    ).fetchall()
+
+    make_sheet(
+        'Incidencias',
+        ['Fecha', 'Cruce', 'N° Pedido', 'Punto de Retiro', 'Sucursal donde ocurrió',
+         'Producto', 'GTIN', 'Unidades', 'Stock en sistema', 'Incidencia',
+         'Alternativa Propuesta', 'Notas'],
+        [[ev['fecha'], ev['cruce_id'], ev['nro_pedido'], ev['punto_retiro'],
+          ev['nodo_asignado'], ev['producto'], ev['gtin'], ev['unidades'],
+          ev['stock_disponible'], ESTADO_LABEL.get(ev['estado_nuevo'], ev['estado_nuevo']),
+          ev['alternativa_nodo'] or '', ev['notas'] or '']
+         for ev in eventos_inc]
+    )
+
+    # ── Hoja: Entregas por sucursal (todos los cruces del rango) ──
+    # Misma lógica que /api/cruces/<id>/export: punto_retiro es la identidad de
+    # la entrega; pedidos_activos (entregas_habilitadas) es la fuente de verdad,
+    # con fallback a nodo_asignado en lineas solo si no hubo activación manual.
+    cruces_rango = db.execute(
+        f'SELECT id, created_at FROM cruces c WHERE 1=1 {where_c} ORDER BY c.created_at DESC',
+        params_c
+    ).fetchall()
+
+    entregas_rows = []
+    for cr in cruces_rango:
+        cid      = cr['id']
+        fecha_cr = (cr['created_at'] or '')[:10]
+
+        confirmadas = db.execute(
+            'SELECT punto_retiro, receptor, entregado_at FROM entregas_confirmadas WHERE cruce_id = ?',
+            (cid,)
+        ).fetchall()
+        conf_map = {r['punto_retiro'].strip(): r for r in confirmadas}
+
+        habilitadas = db.execute(
+            'SELECT punto_retiro, nro_pedidos FROM entregas_habilitadas WHERE cruce_id = ?',
+            (cid,)
+        ).fetchall()
+        hab_map = {r['punto_retiro'].strip(): json.loads(r['nro_pedidos'] or '[]') for r in habilitadas}
+
+        if not hab_map and not conf_map:
+            continue
+
+        lineas_cr = db.execute(
+            'SELECT nro_pedido, nodo_asignado FROM lineas WHERE cruce_id = ?', (cid,)
+        ).fetchall()
+
+        for suc in sorted(set(hab_map.keys()) | set(conf_map.keys())):
+            conf    = conf_map.get(suc)
+            pedidos = hab_map.get(suc, [])
+            if not pedidos:
+                pedidos_suc = sorted({l['nro_pedido'] for l in lineas_cr
+                                       if l['nodo_asignado'] and l['nodo_asignado'].strip() == suc and l['nro_pedido']})
+            else:
+                pedidos_suc = pedidos
+
+            if conf:
+                estado_ent = 'Entregado'
+                hora       = (conf['entregado_at'] or '')[:16].replace('T', ' ')
+                receptor   = conf['receptor'] or ''
+            else:
+                estado_ent = 'Pendiente'
+                hora       = ''
+                receptor   = ''
+
+            entregas_rows.append([
+                fecha_cr, cid, suc,
+                ', '.join(str(p) for p in pedidos_suc),
+                len(pedidos_suc), receptor, hora, estado_ent,
+            ])
+
+    make_sheet(
+        'Entregas',
+        ['Fecha', 'Cruce', 'Sucursal', 'N° Pedidos', 'Cant. Pedidos',
+         'Receptor', 'Hora de entrega', 'Estado entrega'],
+        entregas_rows
+    )
+
     buf = io.BytesIO()
     wb.save(buf)
     buf.seek(0)
