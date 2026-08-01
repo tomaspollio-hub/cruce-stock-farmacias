@@ -414,6 +414,7 @@ table.data-table tr:hover td      { background: var(--bg); }
 
 .linea-card-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-5);
@@ -489,9 +490,6 @@ table.data-table tr:hover td      { background: var(--bg); }
   top: 68px;
   z-index: 20;
   box-shadow: 0 2px 8px rgba(16,24,40,.06);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  background: color-mix(in srgb, var(--bg-subtle) 92%, transparent);
 }
 
 .sucursal-zona {
