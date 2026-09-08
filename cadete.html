@@ -56,6 +56,10 @@
       gap: var(--space-3);
       margin-bottom: var(--space-6);
     }
+    .buscador-wrap #input-buscar {
+      width: 100%;
+      font-size: var(--text-base);
+    }
     .filtro-sucursal {
       display: flex;
       align-items: center;
@@ -366,6 +370,11 @@
   <div id="seccion-busqueda">
 
     <div class="filtros-wrap" style="margin-bottom:var(--space-4)">
+      <!-- Buscador por pedido / cliente / producto -->
+      <div class="buscador-wrap">
+        <input class="form-input" id="input-buscar" type="search" inputmode="search"
+               placeholder="Buscar por pedido, cliente, producto o código...">
+      </div>
       <!-- Filtro por sucursal -->
       <div class="filtro-sucursal">
         <label for="select-sucursal">Sucursal</label>
@@ -626,6 +635,7 @@
   let jornada      = null;
   let filtroActual = 'todos';
   let sucursalFiltro = '';
+  let busquedaTexto = '';
   let modalLineaId = null;
   let msLineaId    = null;
   let entPuntoRetiro = null;
@@ -764,6 +774,32 @@
 
   // ── Render búsqueda ──────────────────────────────────────────
 
+  function normalizarTexto(s) {
+    return (s || '').toString()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '') // sin tildes
+      .toLowerCase().trim();
+  }
+
+  function lineaMatcheaBusqueda(l, tokens) {
+    const haystack = normalizarTexto(
+      `${l.nro_pedido || ''} ${l.cliente_nombre || ''} ${l.producto || ''}`
+    );
+    // gtin puede traer varios códigos separados por coma (variantes de envase)
+    const codigos = [
+      ...(l.gtin ? l.gtin.split(',').map(c => c.trim()) : []),
+      ...(l.sku ? [l.sku.trim()] : []),
+    ].filter(Boolean);
+
+    return tokens.every(t => {
+      if (haystack.includes(t)) return true;
+      // código completo o últimos 3+ dígitos (SKU/GTIN vienen con ceros a la izquierda)
+      if (/^\d{3,}$/.test(t)) {
+        return codigos.some(c => c.endsWith(t));
+      }
+      return false;
+    });
+  }
+
   function renderLineas() {
     let filtradas = filtroActual === 'todos'
       ? lineas
@@ -773,10 +809,21 @@
       filtradas = filtradas.filter(l => l.nodo_asignado === sucursalFiltro);
     }
 
+    if (busquedaTexto) {
+      const tokens = normalizarTexto(busquedaTexto).split(/\s+/).filter(Boolean);
+      filtradas = filtradas.filter(l => lineaMatcheaBusqueda(l, tokens));
+    }
+
     if (filtradas.length === 0) {
+      const busquedaEsc = busquedaTexto.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      }[c]));
+      const titulo = busquedaTexto
+        ? `Sin resultados para "${busquedaEsc}"`
+        : 'Sin líneas en este filtro';
       document.getElementById('cadete-content').innerHTML =
         `<div class="empty-state"><div class="empty-state-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
-         <div class="empty-state-title">Sin líneas en este filtro</div></div>`;
+         <div class="empty-state-title">${titulo}</div></div>`;
       return;
     }
 
@@ -1356,6 +1403,11 @@
   }
 
   // ── Filtros búsqueda ─────────────────────────────────────────
+
+  document.getElementById('input-buscar').addEventListener('input', e => {
+    busquedaTexto = e.target.value;
+    renderLineas();
+  });
 
   document.getElementById('filtros-bar').addEventListener('click', e => {
     const btn = e.target.closest('[data-filtro]');

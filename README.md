@@ -135,6 +135,7 @@ railway up --service farmacias-global
 ### cadete
 - Al hacer login es redirigido directamente a su vista de trabajo del último cruce
 - No ve Dashboard, Historial, ni Nuevo cruce
+- En "Ruta del día" (modo Búsqueda) puede filtrar por sucursal/estado y además buscar libremente por N° de pedido, nombre de cliente, producto, SKU o código de barras (alcanza con los últimos 3 dígitos del código)
 - Planifica su jornada: registra qué farmacias va a visitar
 - Marca el estado de cada línea: Encontrado / No encontrado / Mal stock / En revisión
 - Al marcar Mal stock puede anotar una sucursal alternativa donde vio el producto
@@ -370,6 +371,7 @@ Editable desde la UI en `config.html` (solo admin).
 - [x] Exportar Excel del estado actual — no solo el Excel original sino el estado en vivo
 - [x] PWA instalable — manifest + service worker (network-first); funciona en tablet del cadete
 - [x] Roles — admin / operador / cadete con navegación diferenciada
+- [x] Buscador inteligente en Ruta del día — filtra por pedido, cliente, producto, SKU o código de barras (últimos dígitos)
 
 ### Pendiente
 - [ ] Procesamiento asíncroco mejorado — mover `_procesar_cruce()` a Celery/RQ para archivos grandes
