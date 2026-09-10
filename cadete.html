@@ -215,6 +215,7 @@
     .firma-canvas-wrap canvas {
       display: block;
       width: 100%;
+      height: 180px;
       cursor: crosshair;
     }
 
@@ -472,12 +473,16 @@
 
 <!-- Modal: confirmar entrega + firma digital -->
 <div id="modal-entrega" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:center;justify-content:center;padding:var(--space-4)">
-  <div class="card modal-panel" style="width:100%;max-width:520px;max-height:90vh;overflow-y:auto">
-    <div class="card-header">
-      <h2 class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Confirmar entrega</h2>
+  <div class="card modal-panel" style="width:100%;max-width:520px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="card-header" style="flex-shrink:0">
+      <h2 class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> <span id="ent-modal-titulo">Confirmar entrega</span></h2>
       <button id="ent-close" class="btn btn-ghost btn-sm btn-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-5)">
+    <div class="card-body" style="display:flex;flex-direction:column;gap:var(--space-5);overflow-y:auto;min-height:0;flex:1 1 auto">
+
+      <div id="ent-rehacer-aviso" style="display:none;background:var(--warning-light,#fef3c7);border:1px solid var(--warning,#d97706);border-radius:var(--radius-md);padding:var(--space-3);font-size:var(--text-xs);color:var(--warning,#92400e)">
+        Ya estaba confirmada — al guardar se reemplaza el nombre y la firma anteriores.
+      </div>
 
       <div>
         <div style="font-size:var(--text-xs);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:var(--space-2)">
@@ -509,7 +514,7 @@
       </div>
 
     </div>
-    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end">
+    <div class="card-footer" style="display:flex;gap:var(--space-3);justify-content:flex-end;flex-shrink:0">
       <button class="btn btn-ghost" id="ent-cancel">Cancelar</button>
       <button class="btn btn-success btn-lg" id="ent-confirm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Confirmar entrega</button>
     </div>
@@ -1308,6 +1313,9 @@
                 </div>
               </div>
               <span class="badge badge-green">${pedidosMostrar.length} pedido${pedidosMostrar.length !== 1 ? 's' : ''}</span>
+              <button class="btn btn-ghost btn-sm" data-punto="${encodeURIComponent(e.punto_retiro)}" title="Corregir nombre o firma">
+                Rehacer
+              </button>
             </div>
             <div class="entrega-body">
               <div class="pedido-chips">${chips}</div>
@@ -1583,6 +1591,7 @@
   let firmaDrawing   = false;
   let firmaLastX     = 0;
   let firmaLastY     = 0;
+  let firmaDpr       = 1;
 
   function firmaGetPos(e) {
     const rect   = firmaCanvas.getBoundingClientRect();
@@ -1600,7 +1609,7 @@
     firmaCtx.moveTo(firmaLastX, firmaLastY);
     firmaCtx.lineTo(pos.x, pos.y);
     firmaCtx.strokeStyle = '#1e293b';
-    firmaCtx.lineWidth   = 2.5;
+    firmaCtx.lineWidth   = 2.5 * firmaDpr;
     firmaCtx.lineCap     = 'round';
     firmaCtx.lineJoin    = 'round';
     firmaCtx.stroke();
@@ -1622,17 +1631,38 @@
     firmaVacia = true;
   });
 
+  function _sugerirReceptor(entrega) {
+    const pedidosMostrar = (entrega.pedidos_activos && entrega.pedidos_activos.length > 0)
+      ? entrega.pedidos_activos : entrega.nro_pedidos;
+    const nombres = new Set(
+      lineas
+        .filter(l => l.punto_retiro === entrega.punto_retiro
+          && pedidosMostrar.includes(l.nro_pedido)
+          && l.cliente_nombre && l.cliente_nombre.trim())
+        .map(l => l.cliente_nombre.trim())
+    );
+    return nombres.size === 1 ? [...nombres][0] : '';
+  }
+
   function abrirModalEntrega(entrega) {
     entPuntoRetiro = entrega.punto_retiro;
     document.getElementById('ent-farmacia').textContent = entrega.punto_retiro;
     document.getElementById('ent-pedidos').innerHTML =
       entrega.nro_pedidos.map(p => `<span class="pedido-chip">#${p}</span>`).join('');
-    document.getElementById('ent-receptor').value = '';
+    document.getElementById('ent-receptor').value = entrega.confirmada
+      ? (entrega.receptor || '')
+      : _sugerirReceptor(entrega);
+    document.getElementById('ent-modal-titulo').textContent =
+      entrega.confirmada ? 'Rehacer entrega' : 'Confirmar entrega';
+    document.getElementById('ent-rehacer-aviso').style.display =
+      entrega.confirmada ? '' : 'none';
 
-    // Resetear canvas y ajustar tamaño real
-    firmaCtx.clearRect(0, 0, firmaCanvas.width, firmaCanvas.height);
+    // Resetear canvas y ajustar tamaño real (con soporte de alta densidad de píxeles)
+    firmaDpr = window.devicePixelRatio || 1;
+    const cssWidth = firmaCanvas.offsetWidth || 460;
+    firmaCanvas.width  = Math.round(cssWidth * firmaDpr);
+    firmaCanvas.height = Math.round(180 * firmaDpr);
     firmaVacia = true;
-    firmaCanvas.width = firmaCanvas.offsetWidth || 460;
 
     document.getElementById('modal-entrega').style.display = 'flex';
     setTimeout(() => document.getElementById('ent-receptor').focus(), 80);
