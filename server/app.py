@@ -1923,7 +1923,7 @@ def _procesar_cruce(path_pedidos, path_stock, out_dir):
             {'nodo': n, 'stock': int(s)}
             for n, s in stock_por_nodo.items()
             if int(s) > 0 and n != nodo_asignado
-        ][:3]
+        ][:10]
 
     # Convertir df_ruta al formato de líneas que espera la API
     lineas = []
