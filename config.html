@@ -876,7 +876,7 @@
 
     accSug.style.display = '';
     badge.textContent = `· ${visibles.length} sugerencia${visibles.length !== 1 ? 's' : ''}`;
-    if (!accSug.classList.contains('open')) { accSug.classList.add('open'); saveOpenSections(); }
+    if (!accSug.classList.contains('open')) { accSug.classList.add('open'); }
 
     const TIPO_META = {
       promover_tier0: { cls: 'sug-up',   icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>', titulo: 'Promover a Tier 0' },
